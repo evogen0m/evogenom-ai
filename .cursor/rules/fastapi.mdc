@@ -23,6 +23,7 @@ globs: **/*.py, app/**/*.py, api/**/*.py
 
 ## Models
 - Use Pydantic models
+- Use pydantic v2
 - Implement proper validation
 - Use proper type hints
 - Keep models organized
@@ -36,6 +37,7 @@ globs: **/*.py, app/**/*.py, api/**/*.py
 - Implement proper transactions
 - Use proper query optimization
 - Handle database errors properly
+- Use UUID as primary key type
 
 ## Authentication
 - Implement proper JWT authentication
@@ -63,11 +65,14 @@ globs: **/*.py, app/**/*.py, api/**/*.py
 
 ## Testing
 - Write proper unit tests
+- Use pytest
 - Implement proper integration tests
 - Use proper test fixtures
 - Implement proper mocking
 - Test error scenarios
 - Use proper test coverage
+- Unit tests are placed next to the unit under test, ie <filename>_test.py
+- use pytest-mock for mocking
 
 ## Deployment
 - Use proper Docker configuration

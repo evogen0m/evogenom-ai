@@ -1,0 +1,9 @@
+---
+description: Test specific rules
+globs: *test*.py
+alwaysApply: false
+---
+# When writing test
+
+- see [conftest.py](mdc:app/tests/conftest.py) for test setup
+- do not mock database interactions, we want to test them

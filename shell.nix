@@ -8,7 +8,5 @@ mkShell {
 
   shellHook = ''
     echo "Python $(python --version) environment with uv $(uv --version) activated!"
-    export PYTHONPATH="$PWD/src:$PYTHONPATH"
-    echo "Added ./src to PYTHONPATH"
   '';
 }

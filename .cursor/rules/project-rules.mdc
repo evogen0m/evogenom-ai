@@ -4,12 +4,23 @@ globs:
 alwaysApply: true
 ---
 
+# Overview
+
+This backend application serves a chat endpoint for an AI assistant.
+
+
 # Project tools
 
 - code formatting: ruff
 - dependency management: uv
 - python version: 3.13
+- database migrations: alembic
+- Database orm: SQLAlchemy 2
 
+# Architecture
 
+Client -> Backend -> Postgres db
 
-ALWAYS INSTALL DEPENDENCIES USING UV, NEVER ADD THEM MANUALLY
+ALWAYS use "uv add" command to add dependencies to ensure we get the latest version
+
+ALWAYS do ONLY what the user asked, after you have completed the task give a brief summary of what you did and suggest briefly what to do next.
