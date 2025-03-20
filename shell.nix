@@ -1,0 +1,14 @@
+with import <nixpkgs> { };
+
+mkShell {
+  buildInputs = [
+    python313
+    (python313.pkgs.uv)
+  ];
+
+  shellHook = ''
+    echo "Python $(python --version) environment with uv $(uv --version) activated!"
+    export PYTHONPATH="$PWD/src:$PYTHONPATH"
+    echo "Added ./src to PYTHONPATH"
+  '';
+}

@@ -1,0 +1,15 @@
+---
+description: Tools we will be using in this project
+globs: 
+alwaysApply: true
+---
+
+# Project tools
+
+- code formatting: ruff
+- dependency management: uv
+- python version: 3.13
+
+
+
+ALWAYS INSTALL DEPENDENCIES USING UV, NEVER ADD THEM MANUALLY
