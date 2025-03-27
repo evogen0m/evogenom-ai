@@ -99,4 +99,126 @@ module "ecs" {
   use_fargate_spot = true
   
   tags = var.tags
+}
+
+# GitHub OIDC Provider for CI
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+}
+
+# CI Role for GitHub Actions
+resource "aws_iam_role" "ci_role" {
+  name = "${local.prefix}-ci-role"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          },
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:evogen0m/evogenom-ai:*"
+          }
+        }
+      }
+    ]
+  })
+  
+  tags = merge(
+    var.tags,
+    {
+      Name = "${local.prefix}-ci-role"
+    }
+  )
+}
+
+# Policy for ECR push access
+resource "aws_iam_policy" "ci_ecr_policy" {
+  name        = "${local.prefix}-ci-ecr-policy"
+  description = "Policy to allow pushing images to ECR for CI"
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:GetAuthorizationToken",
+          "ecr:CreateRepository",
+          "ecr:DescribeRepositories",
+          "ecr:DescribeImages",
+          "ecr:ListImages"
+        ]
+        Resource = [
+          "arn:aws:ecr:${var.region}:*:repository/${local.prefix}-app"
+        ]
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ],
+        Resource = "*" # Required for GetAuthorizationToken which doesn't support resource-level permissions
+      }
+    ]
+  })
+}
+
+# Policy for ECS task definition updates
+resource "aws_iam_policy" "ci_ecs_policy" {
+  name        = "${local.prefix}-ci-ecs-policy"
+  description = "Policy to allow updating ECS task definitions for CI"
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecs:DescribeTaskDefinition",
+          "ecs:RegisterTaskDefinition",
+          "ecs:UpdateService",
+          "ecs:DescribeServices"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole"
+        ]
+        Resource = [
+          module.ecs.execution_role_arn,
+          module.ecs.task_role_arn
+        ]
+      }
+    ]
+  })
+}
+
+# Attach policies to the CI role
+resource "aws_iam_role_policy_attachment" "ci_ecr_policy_attachment" {
+  role       = aws_iam_role.ci_role.name
+  policy_arn = aws_iam_policy.ci_ecr_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ci_ecs_policy_attachment" {
+  role       = aws_iam_role.ci_role.name
+  policy_arn = aws_iam_policy.ci_ecs_policy.arn
 } 

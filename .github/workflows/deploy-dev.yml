@@ -1,0 +1,93 @@
+name: Deploy to Dev
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      commit_hash:
+        description: "Commit hash to deploy"
+        required: false
+        default: ""
+
+# Add permissions for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY: evogenom-dev-app # This should match the <prefix>-app from the ECR module
+  ECS_CLUSTER: evogenom-dev-cluster # This should match the <prefix>-cluster from the ECS module
+  ECS_SERVICE: evogenom-dev-service # This should match the <prefix>-service from the ECS module
+  TASK_DEFINITION: evogenom-dev-service # This should match the family from the task definition
+  CI_ROLE_ARN: arn:aws:iam::787152464465:role/evogenom-dev-ci-role
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.commit_hash || github.sha }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Debug ECR information
+        run: |
+          echo "Registry URL: ${{ steps.login-ecr.outputs.registry }}"
+          echo "Full image name: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} || echo "Repository not found!"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition --task-definition ${{ env.TASK_DEFINITION }} \
+          --query taskDefinition > task-definition.json
+
+      - name: Update task definition with new image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: backend # This should match the container name in your task definition
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Deployment Status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Deployment to dev environment successful!"
+          else
+            echo "❌ Deployment to dev environment failed!"
+          fi

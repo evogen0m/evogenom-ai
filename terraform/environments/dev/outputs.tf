@@ -26,4 +26,9 @@ output "ecs_cluster_name" {
 output "ecs_service_name" {
   description = "The name of the ECS service"
   value       = module.ecs.service_name
+}
+
+output "ci_role_arn" {
+  description = "The ARN of the CI role for GitHub Actions"
+  value       = aws_iam_role.ci_role.arn
 } 
