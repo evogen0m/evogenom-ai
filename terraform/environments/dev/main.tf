@@ -192,11 +192,17 @@ resource "aws_iam_policy" "ci_ecs_policy" {
         Effect = "Allow"
         Action = [
           "ecs:DescribeTaskDefinition",
-          "ecs:RegisterTaskDefinition",
+          "ecs:RegisterTaskDefinition"
+        ]
+        Resource = "*"  # Task definitions don't support resource-level permissions
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "ecs:UpdateService",
           "ecs:DescribeServices"
         ]
-        Resource = "*"
+        Resource = "arn:aws:ecs:${var.region}:*:service/${module.ecs.cluster_name}/${module.ecs.service_name}"
       },
       {
         Effect = "Allow"
