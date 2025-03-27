@@ -1,9 +1,7 @@
 import datetime
 import uuid
-from typing import AsyncGenerator
 from unittest.mock import AsyncMock
 
-import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 from pytest_mock import MockerFixture
