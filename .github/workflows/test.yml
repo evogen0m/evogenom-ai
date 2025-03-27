@@ -33,6 +33,12 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Cache virtual environment
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-python-3.13-${{ hashFiles('uv.lock') }}
+
       - name: Install uv
         run: |
           pip install uv
@@ -40,10 +46,12 @@ jobs:
       - name: Install dependencies and activate venv
         run: |
           uv sync --locked
+
       - name: Run ruff check
         run: |
           source .venv/bin/activate
           ruff check .
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
