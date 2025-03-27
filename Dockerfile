@@ -9,13 +9,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements
 COPY pyproject.toml /app/
+COPY uv.lock /app/
 
 # Install Python dependencies
 RUN pip install --no-cache-dir uv && \
-    uv pip install --system -e .
+    uv sync --locked --no-dev
 
 # Copy application code
-COPY . /app/
+COPY app /app/
+COPY alembic /app/alembic
+COPY alembic.ini /app/
 
 # Run migrations by default when the container starts
 CMD ["/bin/sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"] 
