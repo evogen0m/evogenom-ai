@@ -111,7 +111,7 @@ case $ACTION in
     ;;
   apply)
     echo "Applying Terraform changes for $ENVIRONMENT environment..."
-    terraform apply -auto-approve -var="commit_hash=$DOCKER_TAG"
+    terraform apply -var="commit_hash=$DOCKER_TAG"
     ;;
 esac
 
