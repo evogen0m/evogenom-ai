@@ -50,3 +50,18 @@ htmlcov/
 .mypy_cache/
 .python-version
 *.log
+
+# Nix
+result
+.direnv
+.pre-commit-config.yaml
+.envrc
+# Flake outputs
+.flake-inputs/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json

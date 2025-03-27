@@ -1,9 +1,16 @@
 import os
+import re
 
 import cachetools
 import httpx
 from pydantic import PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Add asyncpg to DATABASE_URL connection string
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL:
+    DATABASE_URL = re.sub(r"^postgresql", "postgresql+asyncpg", DATABASE_URL)
+    os.environ["DATABASE_URL"] = DATABASE_URL
 
 
 class Settings(BaseSettings):

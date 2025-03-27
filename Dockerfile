@@ -1,0 +1,21 @@
+FROM  python:3.13-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY pyproject.toml /app/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir uv && \
+    uv pip install --system -e .
+
+# Copy application code
+COPY . /app/
+
+# Run migrations by default when the container starts
+CMD ["/bin/sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"] 
