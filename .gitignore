@@ -65,3 +65,6 @@ result
 *.tfstate.backup
 *.tfvars
 *.tfvars.json
+
+#
+coverage.xml
