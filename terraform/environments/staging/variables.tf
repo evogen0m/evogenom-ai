@@ -82,4 +82,9 @@ variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default     = {}
+}
+
+variable "commit_hash" {
+  description = "Git commit hash to use for container image tag"
+  type        = string
 } 

@@ -12,15 +12,18 @@ show_help() {
   echo "  -b, --build                Build and push Docker image"
   echo "  -p, --plan                 Run Terraform plan only (don't apply)"
   echo "  -a, --apply                Apply Terraform plan (default)"
-  echo "  -t, --tag <tag>            Docker image tag to use (default: latest)"
+  echo "  -t, --tag <tag>            Docker image tag to use (default: git commit hash)"
   echo ""
   exit 1
 }
 
+# Get the current git commit hash
+GIT_COMMIT_HASH=$(git rev-parse HEAD)
+
 # Default values
 ACTION="apply"
 ENVIRONMENT=""
-DOCKER_TAG="latest"
+DOCKER_TAG="$GIT_COMMIT_HASH"
 BUILD_DOCKER=false
 
 # Parse arguments
@@ -78,7 +81,7 @@ get_ecr_repo_url() {
 
 # Build and push Docker image
 if [ "$BUILD_DOCKER" = true ]; then
-  echo "Building and pushing Docker image for $ENVIRONMENT environment..."
+  echo "Building and pushing Docker image for $ENVIRONMENT environment with tag: $DOCKER_TAG..."
   
   # Get ECR login
   aws ecr get-login-password | docker login --username AWS --password-stdin "$(aws sts get-caller-identity --query 'Account' --output text).dkr.ecr.$(aws configure get region).amazonaws.com"
@@ -104,11 +107,11 @@ case $ACTION in
     ;;
   plan)
     echo "Planning Terraform changes for $ENVIRONMENT environment..."
-    terraform plan
+    terraform plan -var="commit_hash=$DOCKER_TAG"
     ;;
   apply)
     echo "Applying Terraform changes for $ENVIRONMENT environment..."
-    terraform apply -auto-approve
+    terraform apply -auto-approve -var="commit_hash=$DOCKER_TAG"
     ;;
 esac
 

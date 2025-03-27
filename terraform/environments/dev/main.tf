@@ -68,7 +68,7 @@ module "ecs" {
   
   prefix           = local.prefix
   region           = var.region
-  container_image  = "${module.ecr.repository_url}:latest"
+  container_image  = "${module.ecr.repository_url}:${var.commit_hash}"
   container_port   = var.container_port
   cpu              = var.cpu
   memory           = var.memory
