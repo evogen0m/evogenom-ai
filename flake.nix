@@ -30,6 +30,10 @@
             (python313.pkgs.uv)
             terraform
             awscli2
+            deno
+            bun
+            nodejs_23
+            pnpm_9
           ];
 
           shellHook = ''

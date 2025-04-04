@@ -1,70 +1,79 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# compiled output
+/dist
+/node_modules
+/build
 
-# Virtual Environment
-/.direnv/
-.env
-.venv
-env/
-venv/
-ENV/
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+# OS
 .DS_Store
 
-# Testing
-.coverage
-.pytest_cache/
-htmlcov/
-.tox/
+# Tests
+/coverage
+/.nyc_output
 
-# Distribution
-*.tar.gz
-*.whl
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
 
-# Misc
-.ruff_cache/
-.mypy_cache/
-.python-version
-*.log
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 
-# Nix
-result
-.direnv
-.pre-commit-config.yaml
-.envrc
-# Flake outputs
-.flake-inputs/
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# temp directory
+.temp
+.tmp
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Terraform
 .terraform/
 *.tfstate
-*.tfstate.backup
+*.tfstate.*
 *.tfvars
-*.tfvars.json
+.terragrunt-cache/
+terraform.tfvars
+terraform.tfvars.json
+.terraform.lock.hcl
 
-#
-coverage.xml
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+#Env 
+.env
+
+# Direnv
+.envrc
