@@ -1,4 +1,4 @@
-FROM node:23
+FROM node:23 as builder
 
 WORKDIR /app
 
@@ -19,8 +19,20 @@ COPY  tsconfig.json drizzle.config.ts nest-cli.json ./
 # Build application
 RUN pnpm build
 
-# Expose the port the app runs on
-EXPOSE 8000
+FROM node:23 as runner
+RUN npm install -g pnpm
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+
+RUN pnpm install --frozen-lockfile --prod
+
+EXPOSE 3000
 
 # Start the application
 CMD ["pnpm", "start:prod"] 
