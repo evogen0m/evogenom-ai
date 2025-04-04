@@ -1,9 +1,12 @@
 ---
-description: Test specific rules
-globs: *test*.py
-alwaysApply: false
+description: Guidelines for writing tests
+globs: **/*.ts
 ---
-# When writing test
+Tools: 
+- jest
+- nock
+- jest-mock-extended
 
-- see [conftest.py](mdc:app/tests/conftest.py) for test setup
-- do not mock database interactions, we want to test them
+* Write behaviour driven tests ie. describe('when ...'), beforeEach( initialize test setting), it('should do xyz')
+* always use a real database for testing
+* See @test/utils.ts for testing utils
