@@ -1,7 +1,7 @@
 import {
   index,
-  integer,
   pgTable,
+  serial,
   text,
   timestamp,
   uuid,
@@ -42,7 +42,7 @@ export const chatMessages = pgTable(
     content: text('content').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-    rank: integer('rank').default(0).notNull(),
+    rank: serial('rank').notNull(),
   },
   (t) => [
     index('chat_message_chat_id_index').on(t.chatId),
