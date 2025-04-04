@@ -1,7 +1,19 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import * as path from 'path';
 import { AppModule } from './app.module';
+import { DRIZZLE_INSTANCE } from './db/drizzle.provider';
+/**
+ * Checks if the --migrate flag is present in command line arguments
+ * @returns boolean indicating if migration should be run
+ */
+function shouldMigrate(): boolean {
+  return process.argv.includes('--migrate');
+}
+
+const bootStrapLogger = new Logger('bootstrap');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,9 +29,24 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe());
 
-  console.log(`Starting server on port ${process.env.PORT}`);
   app.enableShutdownHooks();
 
+  if (shouldMigrate()) {
+    const instance = app.get(DRIZZLE_INSTANCE);
+    const migrationsFolder = path.join(__dirname, '../drizzle');
+    bootStrapLogger.log(`Applying migrations from ${migrationsFolder}`);
+    await migrate(instance, {
+      migrationsFolder,
+    });
+    bootStrapLogger.log('Migrations applied');
+  } else {
+    bootStrapLogger.log('Migrations are not enabled');
+  }
+
+  bootStrapLogger.log(`Starting server on port ${process.env.PORT}`);
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap().catch(console.error);
+bootstrap().catch((error) => {
+  bootStrapLogger.error(error);
+  process.exit(1);
+});
