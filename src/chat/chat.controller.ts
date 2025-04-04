@@ -75,7 +75,7 @@ export class ChatController {
       },
     },
   })
-  postChat(
+  streamChat(
     @Query() query: ChatRequest,
     @User() user: UserPrincipal,
   ): Observable<MessageEvent> {

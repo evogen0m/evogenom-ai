@@ -19,6 +19,7 @@ import { OpenAIModule } from './openai/openai.module';
     ConfigModule.forRoot({
       validate,
       isGlobal: true,
+      envFilePath: [process.env.NODE_ENV === 'test' ? '.env.test' : '.env'],
     }),
     ClsModule.forRoot({
       global: true,

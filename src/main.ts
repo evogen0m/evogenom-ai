@@ -15,8 +15,11 @@ function shouldMigrate(): boolean {
 
 const bootStrapLogger = new Logger('bootstrap');
 
-async function bootstrap() {
+export async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable CORS for frontend requests
+  app.enableCors();
 
   const openapiConfig = new DocumentBuilder()
     .setTitle('Evogenomai API')
@@ -45,6 +48,7 @@ async function bootstrap() {
 
   bootStrapLogger.log(`Starting server on port ${process.env.PORT}`);
   await app.listen(process.env.PORT ?? 3000);
+  return app;
 }
 bootstrap().catch((error) => {
   bootStrapLogger.error(error);
