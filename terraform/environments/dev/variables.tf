@@ -55,13 +55,13 @@ variable "db_instance_class" {
 variable "cpu" {
   description = "CPU units for the task (1 vCPU = 1024 CPU units)"
   type        = number
-  default     = 256
+  default     = 512
 }
 
 variable "memory" {
   description = "Memory for the task in MiB"
   type        = number
-  default     = 512
+  default     = 1024
 }
 
 variable "desired_count" {
@@ -70,12 +70,19 @@ variable "desired_count" {
   default     = 1
 }
 
-variable "openid_config_url" {
-  description = "OpenID configuration URL"
-  type        = string
-  # Pool deployed via aws amplify 
-  # https://eu-west-1.console.aws.amazon.com/cognito/v2/idp/user-pools/eu-west-1_UDFBUcuNF/overview?region=eu-west-1
-  default     = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_UDFBUcuNF/.well-known/openid-configuration"
+variable "env_variables" {
+  description = "Environment variables for the task"
+  type        = map(string)
+  default     = {
+    APP_NAME                      = "EvogenomAI (dev)"
+    DEBUG                         = "true"
+    OPENID_CONFIG_URL             = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_UDFBUcuNF/.well-known/openid-configuration"
+    AZURE_OPENAI_ENDPOINT         = "https://evogenom-dev.openai.azure.com/"
+    AZURE_OPENAI_API_VERSION      = "2025-01-01-preview"
+    AZURE_OPENAI_DEPLOYMENT       = "o1"
+    AZURE_OPENAI_DEPLOYMENT_MINI  = "o1"
+    AZURE_OPENAI_MODEL            = "o1"
+  }
 }
 
 variable "tags" {

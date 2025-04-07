@@ -94,16 +94,54 @@ resource "aws_iam_policy" "secrets_access" {
         ]
         Effect   = "Allow"
         Resource = var.db_credentials_secret_arn
-      }
+      },
+      {
+        Action = [
+          "secretsmanager:GetSecretValue",
+        ]
+        Effect   = "Allow"
+        Resource = aws_secretsmanager_secret.app_env_variables.arn
+      } 
     ]
   })
 }
+
+# Secrets added manually to the ECS task definition
+resource "aws_secretsmanager_secret" "app_env_variables" {
+  name = "${var.prefix}-app-env-variables"
+  description = "Application environment variables"
+  tags = var.tags
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Get the current version of the app environment variables secret
+data "aws_secretsmanager_secret_version" "app_env_variables" {
+  secret_id = aws_secretsmanager_secret.app_env_variables.id
+}
+
+locals {
+  
+  # Parse the JSON string from the secret version
+  app_env_variables = jsondecode(
+    data.aws_secretsmanager_secret_version.app_env_variables.secret_string != "" ? 
+    data.aws_secretsmanager_secret_version.app_env_variables.secret_string : 
+    "{}"
+  )
+  
+  # Extract keys from the app environment variables
+  app_env_keys = keys(local.app_env_variables)
+}
+
+
 
 resource "aws_iam_role_policy_attachment" "secrets_access" {
   count      = 1
   role       = aws_iam_role.execution_role.name
   policy_arn = aws_iam_policy.secrets_access[0].arn
 }
+
 
 locals {
   container_definition = {
@@ -126,12 +164,20 @@ locals {
       }
     ]
     
-    secrets = var.db_credentials_secret_arn != "" ? [
-      {
-        name      = "DATABASE_URL"
-        valueFrom = "${var.db_credentials_secret_arn}:connection_string::"
-      }
-    ] : []
+    secrets = concat(
+      var.db_credentials_secret_arn != "" ? [
+        {
+          name      = "DATABASE_URL"
+          valueFrom = "${var.db_credentials_secret_arn}:connection_string::"
+        }
+      ] : [],
+      [
+        for key in local.app_env_keys : {
+          name      = key
+          valueFrom = "${aws_secretsmanager_secret.app_env_variables.arn}:${key}::"
+        }
+      ]
+    )
     
     logConfiguration = {
       logDriver = "awslogs"
