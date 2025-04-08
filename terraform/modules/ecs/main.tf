@@ -2,12 +2,12 @@ data "aws_caller_identity" "current" {}
 
 resource "aws_ecs_cluster" "main" {
   name = "${var.prefix}-cluster"
-  
+
   setting {
     name  = "containerInsights"
     value = "enabled"
   }
-  
+
   tags = merge(
     var.tags,
     {
@@ -18,9 +18,9 @@ resource "aws_ecs_cluster" "main" {
 
 resource "aws_ecs_cluster_capacity_providers" "main" {
   cluster_name = aws_ecs_cluster.main.name
-  
+
   capacity_providers = ["FARGATE", "FARGATE_SPOT"]
-  
+
   default_capacity_provider_strategy {
     capacity_provider = var.use_fargate_spot ? "FARGATE_SPOT" : "FARGATE"
     weight            = 1
@@ -30,14 +30,14 @@ resource "aws_ecs_cluster_capacity_providers" "main" {
 resource "aws_cloudwatch_log_group" "main" {
   name              = "/ecs/${var.prefix}-task"
   retention_in_days = var.log_retention_days
-  
+
   tags = var.tags
 }
 
 # IAM roles
 resource "aws_iam_role" "execution_role" {
   name = "${var.prefix}-ecs-execution-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -50,7 +50,7 @@ resource "aws_iam_role" "execution_role" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 
@@ -61,7 +61,7 @@ resource "aws_iam_role_policy_attachment" "execution_role_policy" {
 
 resource "aws_iam_role" "task_role" {
   name = "${var.prefix}-ecs-task-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -74,17 +74,17 @@ resource "aws_iam_role" "task_role" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 
 # Policy to allow access to RDS credentials in Secrets Manager
 resource "aws_iam_policy" "secrets_access" {
   count = 1
-  
+
   name        = "${var.prefix}-secrets-access"
   description = "Allow access to RDS credentials in Secrets Manager"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -101,16 +101,16 @@ resource "aws_iam_policy" "secrets_access" {
         ]
         Effect   = "Allow"
         Resource = aws_secretsmanager_secret.app_env_variables.arn
-      } 
+      }
     ]
   })
 }
 
 # Secrets added manually to the ECS task definition
 resource "aws_secretsmanager_secret" "app_env_variables" {
-  name = "${var.prefix}-app-env-variables"
+  name        = "${var.prefix}-app-env-variables"
   description = "Application environment variables"
-  tags = var.tags
+  tags        = var.tags
   lifecycle {
     prevent_destroy = true
   }
@@ -122,14 +122,14 @@ data "aws_secretsmanager_secret_version" "app_env_variables" {
 }
 
 locals {
-  
+
   # Parse the JSON string from the secret version
   app_env_variables = jsondecode(
-    data.aws_secretsmanager_secret_version.app_env_variables.secret_string != "" ? 
-    data.aws_secretsmanager_secret_version.app_env_variables.secret_string : 
+    data.aws_secretsmanager_secret_version.app_env_variables.secret_string != "" ?
+    data.aws_secretsmanager_secret_version.app_env_variables.secret_string :
     "{}"
   )
-  
+
   # Extract keys from the app environment variables
   app_env_keys = keys(local.app_env_variables)
 }
@@ -148,7 +148,7 @@ locals {
     name      = "backend"
     image     = var.container_image
     essential = true
-    
+
     portMappings = [
       {
         containerPort = var.container_port
@@ -156,16 +156,28 @@ locals {
         protocol      = "tcp"
       }
     ]
-    
-    environment = [
-      for k, v in var.environment_variables : {
-        name  = k
-        value = v
-      }
-    ]
-    
+
+    environment = concat(
+      [
+        {
+          name  = "PORT"
+          value = tostring(var.container_port)
+        },
+        { name = "HOST", value = "0.0.0.0" },
+        { name = "NODE_ENV", value = "production" },
+        { name = "DATABASE_USE_SSL", value = "true" },
+      ],
+      [
+        for k, v in var.environment_variables : {
+          name  = k
+          value = v
+        }
+      ]
+    )
+
     secrets = concat(
       var.db_credentials_secret_arn != "" ? [
+
         {
           name      = "DATABASE_URL"
           valueFrom = "${var.db_credentials_secret_arn}:connection_string::"
@@ -178,7 +190,7 @@ locals {
         }
       ]
     )
-    
+
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -198,11 +210,11 @@ resource "aws_ecs_task_definition" "main" {
   memory                   = var.memory
   execution_role_arn       = aws_iam_role.execution_role.arn
   task_role_arn            = aws_iam_role.task_role.arn
-  
+
   container_definitions = jsonencode([local.container_definition])
-  
+
   tags = var.tags
-  
+
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = "X86_64"
@@ -215,26 +227,26 @@ resource "aws_ecs_service" "main" {
   task_definition = aws_ecs_task_definition.main.arn
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
-  
+
   network_configuration {
     subnets          = var.subnet_ids
     security_groups  = [var.security_group_id]
     assign_public_ip = var.assign_public_ip
   }
-  
+
   load_balancer {
     target_group_arn = var.target_group_arn
     container_name   = "backend"
     container_port   = var.container_port
   }
-  
+
   deployment_circuit_breaker {
     enable   = true
     rollback = true
   }
-  
+
   tags = var.tags
-  
+
   lifecycle {
     ignore_changes = [desired_count]
   }
@@ -259,9 +271,9 @@ resource "aws_appautoscaling_policy" "cpu_tracking" {
   resource_id        = aws_appautoscaling_target.main[0].resource_id
   scalable_dimension = aws_appautoscaling_target.main[0].scalable_dimension
   service_namespace  = aws_appautoscaling_target.main[0].service_namespace
-  
+
   target_tracking_scaling_policy_configuration {
-    target_value       = var.cpu_target_tracking_value
+    target_value = var.cpu_target_tracking_value
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
@@ -277,13 +289,13 @@ resource "aws_appautoscaling_policy" "memory_tracking" {
   resource_id        = aws_appautoscaling_target.main[0].resource_id
   scalable_dimension = aws_appautoscaling_target.main[0].scalable_dimension
   service_namespace  = aws_appautoscaling_target.main[0].service_namespace
-  
+
   target_tracking_scaling_policy_configuration {
-    target_value       = var.memory_target_tracking_value
+    target_value = var.memory_target_tracking_value
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageMemoryUtilization"
     }
     scale_in_cooldown  = 300
     scale_out_cooldown = 60
   }
-} 
+}

@@ -34,6 +34,7 @@
             bun
             nodejs_23
             pnpm_9
+            postgresql
           ];
 
           shellHook = ''

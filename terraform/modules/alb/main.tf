@@ -4,9 +4,9 @@ resource "aws_lb" "main" {
   load_balancer_type = "application"
   security_groups    = [var.security_group_id]
   subnets            = var.subnet_ids
-  
+
   enable_deletion_protection = var.enable_deletion_protection
-  
+
   tags = merge(
     var.tags,
     {
@@ -21,11 +21,11 @@ resource "aws_lb_target_group" "main" {
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
-  
+
   health_check {
     enabled             = true
     interval            = 30
-    path                = var.health_check_path
+    path                = "/api"
     port                = "traffic-port"
     healthy_threshold   = 3
     unhealthy_threshold = 3
@@ -33,7 +33,7 @@ resource "aws_lb_target_group" "main" {
     protocol            = "HTTP"
     matcher             = "200"
   }
-  
+
   tags = merge(
     var.tags,
     {
@@ -45,15 +45,15 @@ resource "aws_lb_target_group" "main" {
 resource "aws_acm_certificate" "main" {
   domain_name       = var.domain_name
   validation_method = "DNS"
-  
+
   tags = var.tags
-  
+
   options {
     certificate_transparency_logging_preference = "ENABLED"
   }
 
   key_algorithm = "EC_prime256v1"
-  
+
   lifecycle {
     create_before_destroy = true
   }
@@ -70,7 +70,7 @@ locals {
   domain_parts = split(".", var.domain_name)
 }
 data "aws_route53_zone" "main" {
-  name = join(".", slice(local.domain_parts, length(local.domain_parts) - 2, length(local.domain_parts) ))
+  name = join(".", slice(local.domain_parts, length(local.domain_parts) - 2, length(local.domain_parts)))
 }
 
 resource "aws_route53_record" "cert_validation" {
@@ -96,7 +96,7 @@ resource "aws_lb_listener" "https" {
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   certificate_arn   = aws_acm_certificate.main.arn
-  
+
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.main.arn
@@ -111,7 +111,7 @@ resource "aws_route53_record" "main" {
   type    = "A"
   alias {
     name                   = aws_lb.main.dns_name
-    zone_id               = aws_lb.main.zone_id
+    zone_id                = aws_lb.main.zone_id
     evaluate_target_health = true
   }
 }

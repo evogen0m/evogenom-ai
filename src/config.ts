@@ -55,6 +55,10 @@ export class EnvConfig {
   @IsString()
   @IsNotEmpty()
   AZURE_OPENAI_MODEL: string;
+
+  @IsString()
+  @IsNotEmpty()
+  DATABASE_USE_SSL: string = 'false';
 }
 
 export type AppConfigType = InstanceType<typeof EnvConfig>;

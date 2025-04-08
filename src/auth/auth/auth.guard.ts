@@ -20,6 +20,8 @@ const openIdConfigSchema = z.object({
 export class AuthGuard implements CanActivate, OnApplicationBootstrap {
   private readonly logger = new Logger(AuthGuard.name);
 
+  constructor(private readonly configService: ConfigService<AppConfigType>) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
@@ -47,8 +49,6 @@ export class AuthGuard implements CanActivate, OnApplicationBootstrap {
   }
 
   jwks: ReturnType<typeof jose.createRemoteJWKSet>;
-
-  constructor(private readonly configService: ConfigService<AppConfigType>) {}
 
   async onApplicationBootstrap() {
     const openIdConfig = await fetch(

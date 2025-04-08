@@ -30,12 +30,6 @@ variable "target_port" {
   default     = 8000
 }
 
-variable "health_check_path" {
-  description = "Path for health checks"
-  type        = string
-  default     = "/docs"
-}
-
 variable "enable_deletion_protection" {
   description = "Whether to enable deletion protection for the ALB"
   type        = bool
@@ -46,4 +40,4 @@ variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default     = {}
-} 
+}

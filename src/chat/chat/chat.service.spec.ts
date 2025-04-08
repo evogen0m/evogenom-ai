@@ -1,6 +1,5 @@
 import { TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
-import { config } from 'dotenv';
 import { eq, sql } from 'drizzle-orm';
 import { chatMessages, chats, users } from 'src/db';
 import { DRIZZLE_INSTANCE, DrizzleInstanceType } from 'src/db/drizzle.provider';
@@ -8,9 +7,6 @@ import { createTestingModuleWithDb } from 'test/utils';
 import { OpenAiProvider } from '../../openai/openai';
 import { ChatEventResponse, ChatRequest } from '../dto/chat';
 import { ChatService } from './chat.service';
-
-// Load test environment variables
-config({ path: '.env.test' });
 
 describe('ChatService', () => {
   let service: ChatService;
