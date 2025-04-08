@@ -2,5 +2,8 @@
   "deno.enablePaths": ["./"],
   "editor.inlayHints.enabled": "off",
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[terraform]": {
+    "editor.defaultFormatter": "hashicorp.terraform"
+  }
 }

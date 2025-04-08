@@ -2,13 +2,20 @@ import { TransactionalAdapterDrizzleOrm } from '@nestjs-cls/transactional-adapte
 import { Provider, Scope } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import * as path from 'path';
 import { AppConfigType } from '../config';
 import * as schema from './schema';
 export const DRIZZLE_INSTANCE = Symbol('DRIZZLE_INSTANCE');
 
 const createDrizzle = (config: ConfigService<AppConfigType>) => {
   return drizzle({
-    connection: config.getOrThrow('DATABASE_URL'),
+    connection: {
+      connectionString: config.getOrThrow('DATABASE_URL'),
+      ssl: config.getOrThrow('DATABASE_USE_SSL') === 'true' && {
+        rejectUnauthorized: false,
+        ca: path.join(__dirname, '../../pem/rds/global-bundle.pem'),
+      },
+    },
     schema,
   });
 };

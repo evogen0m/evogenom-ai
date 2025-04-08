@@ -80,3 +80,7 @@ resource "aws_db_instance" "main" {
     }
   )
 } 
+
+output "rds_pem_file" {
+  value = aws_db_instance.main.ca_cert_identifier
+}

@@ -1,4 +1,4 @@
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { ConsoleLogger, Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
@@ -16,7 +16,11 @@ function shouldMigrate(): boolean {
 const bootStrapLogger = new Logger('bootstrap');
 
 export async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: new ConsoleLogger({
+      json: process.env.NODE_ENV === 'production',
+    }),
+  });
 
   // Enable CORS for frontend requests
   app.enableCors();

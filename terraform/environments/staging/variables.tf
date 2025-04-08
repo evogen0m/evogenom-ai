@@ -22,12 +22,6 @@ variable "container_port" {
   default     = 8000
 }
 
-variable "health_check_path" {
-  description = "Path for health checks"
-  type        = string
-  default     = "/docs"
-}
-
 variable "domain_name" {
   description = "Domain name for the ALB (leave empty for no HTTPS)"
   type        = string
@@ -75,7 +69,7 @@ variable "openid_config_url" {
   type        = string
   # Pool deployed via aws amplify 
   # https://eu-west-1.console.aws.amazon.com/cognito/v2/idp/user-pools/eu-west-1_UDFBUcuNF/overview?region=eu-west-1
-  default     = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_UDFBUcuNF/.well-known/openid-configuration"
+  default = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_UDFBUcuNF/.well-known/openid-configuration"
 }
 
 variable "tags" {
@@ -87,4 +81,4 @@ variable "tags" {
 variable "commit_hash" {
   description = "Git commit hash to use for container image tag"
   type        = string
-} 
+}

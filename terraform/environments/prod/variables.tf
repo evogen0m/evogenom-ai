@@ -22,11 +22,7 @@ variable "container_port" {
   default     = 8000
 }
 
-variable "health_check_path" {
-  description = "Path for health checks"
-  type        = string
-  default     = "/docs"
-}
+
 
 variable "domain_name" {
   description = "Domain name for the ALB"

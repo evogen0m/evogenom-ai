@@ -1,9 +1,7 @@
-FROM node:23 as builder
-
-WORKDIR /app
-
+FROM node:23 AS builder
 # Install pnpm
 RUN npm install -g pnpm
+WORKDIR /app
 
 # Copy package files
 COPY package.json pnpm-lock.yaml* ./
@@ -14,12 +12,13 @@ RUN pnpm install --frozen-lockfile
 # Copy application code
 COPY src ./src
 COPY drizzle ./drizzle
-COPY  tsconfig.json drizzle.config.ts nest-cli.json ./
+COPY pem ./pem
+COPY drizzle.config.ts tsconfig*.json nest-cli.json ./
 
 # Build application
 RUN pnpm build
 
-FROM node:23 as runner
+FROM node:23 AS runner
 RUN npm install -g pnpm
 
 WORKDIR /app
