@@ -1,0 +1,2324 @@
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+scalar AWSDate
+scalar AWSTime
+scalar AWSDateTime
+scalar AWSTimestamp
+scalar AWSEmail
+scalar AWSJSON
+scalar AWSURL
+scalar AWSPhone
+scalar AWSIPAddress
+
+directive @aws_api_key on FIELD_DEFINITION | OBJECT
+directive @aws_cognito_user_pools on FIELD_DEFINITION | OBJECT
+directive @aws_iam on FIELD_DEFINITION | OBJECT
+directive @aws_subscribe(mutations: [String!]!) on FIELD_DEFINITION
+directive @aws_auth(cognito_groups: [String!]) on FIELD_DEFINITION
+directive @aws_lambda on FIELD_DEFINITION | OBJECT
+
+type Address @aws_cognito_user_pools @aws_iam {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  notes: String
+  postalCode: String
+  state: String
+}
+
+type Config @aws_api_key @aws_cognito_user_pools @aws_iam {
+  createdAt: AWSDateTime!
+  data: AWSJSON
+  id: String!
+  updatedAt: AWSDateTime!
+}
+
+type Customer @aws_cognito_user_pools @aws_iam {
+  address: Address
+  compound_dateFirstMainPackageBought_id: String
+  createdAt: AWSDateTime!
+  customerSampleId: ID
+  customerWebadminSampleId: ID
+  description: String
+  email: String
+  firstName: String
+  hasBoughtMainPackage: Int
+  id: ID!
+  isSampleReady: Boolean
+  languageCode: String
+  lastName: String
+  orders(
+    filter: ModelOrderFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelOrderConnection
+  owner: ID!
+  phoneNumber: String!
+  sample: Sample
+  scanSortPrimaryKey: Int
+  stripeDevId: String
+  stripeId: String
+  updatedAt: AWSDateTime!
+  webadminSample: WebadminSample
+}
+
+type EPassiPaymentMetadata @aws_cognito_user_pools @aws_iam {
+  paid: Int
+}
+
+type GiftBuyer @aws_cognito_user_pools @aws_iam {
+  address: Address!
+  email: String!
+  firstName: String!
+  lastName: String!
+  phoneNumber: String!
+}
+
+type GiftOrder @aws_cognito_user_pools @aws_iam {
+  createdAt: AWSDateTime!
+  giftBuyer: GiftBuyer!
+  id: ID!
+  orderedPackages: [Int!]!
+  owner: String
+  sampleCode: String
+  status: String
+  updatedAt: AWSDateTime!
+}
+
+type MobilePayPaymentMetadata @aws_cognito_user_pools @aws_iam {
+  reference: String
+}
+
+type ModelConfigConnection @aws_api_key @aws_cognito_user_pools @aws_iam {
+  items: [Config]!
+  nextToken: String
+}
+
+type ModelCustomerConnection @aws_cognito_user_pools @aws_iam {
+  items: [Customer]!
+  nextToken: String
+}
+
+type ModelGiftOrderConnection @aws_cognito_user_pools @aws_iam {
+  items: [GiftOrder]!
+  nextToken: String
+}
+
+type ModelOrderConnection @aws_cognito_user_pools @aws_iam {
+  items: [Order]!
+  nextToken: String
+}
+
+type ModelOrderPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam {
+  items: [OrderPackage]!
+  nextToken: String
+}
+
+type ModelPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam {
+  items: [Package]!
+  nextToken: String
+}
+
+type ModelPackageProductConnection
+  @aws_api_key
+  @aws_cognito_user_pools
+  @aws_iam {
+  items: [PackageProduct]!
+  nextToken: String
+}
+
+type ModelPaymentConnection @aws_cognito_user_pools @aws_iam {
+  items: [Payment]!
+  nextToken: String
+}
+
+type ModelProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam {
+  items: [Product]!
+  nextToken: String
+}
+
+type ModelReportDataCustomerConnection @aws_cognito_user_pools @aws_iam {
+  items: [ReportDataCustomer]!
+  nextToken: String
+}
+
+type ModelReportDataOrderConnection @aws_cognito_user_pools @aws_iam {
+  items: [ReportDataOrder]!
+  nextToken: String
+}
+
+type ModelResultConnection @aws_api_key @aws_cognito_user_pools @aws_iam {
+  items: [Result]!
+  nextToken: String
+}
+
+type ModelSampleConnection @aws_cognito_user_pools @aws_iam {
+  items: [Sample]!
+  nextToken: String
+}
+
+type ModelWebadminSampleConnection @aws_cognito_user_pools @aws_iam {
+  items: [WebadminSample]!
+  nextToken: String
+}
+
+type Mutation {
+  createConfig(
+    condition: ModelConfigConditionInput
+    input: CreateConfigInput!
+  ): Config @aws_cognito_user_pools @aws_iam
+  createCustomer(
+    condition: ModelCustomerConditionInput
+    input: CreateCustomerInput!
+  ): Customer @aws_cognito_user_pools @aws_iam
+  createGiftOrder(
+    condition: ModelGiftOrderConditionInput
+    input: CreateGiftOrderInput!
+  ): GiftOrder @aws_cognito_user_pools @aws_iam
+  createOrder(
+    condition: ModelOrderConditionInput
+    input: CreateOrderInput!
+  ): Order @aws_cognito_user_pools @aws_iam
+  createOrderPackage(
+    condition: ModelOrderPackageConditionInput
+    input: CreateOrderPackageInput!
+  ): OrderPackage @aws_cognito_user_pools @aws_iam
+  createPackage(
+    condition: ModelPackageConditionInput
+    input: CreatePackageInput!
+  ): Package @aws_cognito_user_pools @aws_iam
+  createPackageProduct(
+    condition: ModelPackageProductConditionInput
+    input: CreatePackageProductInput!
+  ): PackageProduct @aws_cognito_user_pools @aws_iam
+  createPayment(
+    condition: ModelPaymentConditionInput
+    input: CreatePaymentInput!
+  ): Payment @aws_cognito_user_pools @aws_iam
+  createProduct(
+    condition: ModelProductConditionInput
+    input: CreateProductInput!
+  ): Product @aws_cognito_user_pools @aws_iam
+  createReportDataCustomer(
+    condition: ModelReportDataCustomerConditionInput
+    input: CreateReportDataCustomerInput!
+  ): ReportDataCustomer @aws_cognito_user_pools @aws_iam
+  createReportDataOrder(
+    condition: ModelReportDataOrderConditionInput
+    input: CreateReportDataOrderInput!
+  ): ReportDataOrder @aws_cognito_user_pools @aws_iam
+  createResult(
+    condition: ModelResultConditionInput
+    input: CreateResultInput!
+  ): Result @aws_cognito_user_pools @aws_iam
+  createSample(
+    condition: ModelSampleConditionInput
+    input: CreateSampleInput!
+  ): Sample @aws_cognito_user_pools @aws_iam
+  createWebadminSample(
+    condition: ModelWebadminSampleConditionInput
+    input: CreateWebadminSampleInput!
+  ): WebadminSample @aws_cognito_user_pools @aws_iam
+  deleteConfig(
+    condition: ModelConfigConditionInput
+    input: DeleteConfigInput!
+  ): Config @aws_cognito_user_pools @aws_iam
+  deleteCustomer(
+    condition: ModelCustomerConditionInput
+    input: DeleteCustomerInput!
+  ): Customer @aws_cognito_user_pools @aws_iam
+  deleteGiftOrder(
+    condition: ModelGiftOrderConditionInput
+    input: DeleteGiftOrderInput!
+  ): GiftOrder @aws_cognito_user_pools @aws_iam
+  deleteOrder(
+    condition: ModelOrderConditionInput
+    input: DeleteOrderInput!
+  ): Order @aws_cognito_user_pools @aws_iam
+  deleteOrderPackage(
+    condition: ModelOrderPackageConditionInput
+    input: DeleteOrderPackageInput!
+  ): OrderPackage @aws_cognito_user_pools @aws_iam
+  deletePackage(
+    condition: ModelPackageConditionInput
+    input: DeletePackageInput!
+  ): Package @aws_cognito_user_pools @aws_iam
+  deletePackageProduct(
+    condition: ModelPackageProductConditionInput
+    input: DeletePackageProductInput!
+  ): PackageProduct @aws_cognito_user_pools @aws_iam
+  deletePayment(
+    condition: ModelPaymentConditionInput
+    input: DeletePaymentInput!
+  ): Payment @aws_cognito_user_pools @aws_iam
+  deleteProduct(
+    condition: ModelProductConditionInput
+    input: DeleteProductInput!
+  ): Product @aws_cognito_user_pools @aws_iam
+  deleteReportDataCustomer(
+    condition: ModelReportDataCustomerConditionInput
+    input: DeleteReportDataCustomerInput!
+  ): ReportDataCustomer @aws_cognito_user_pools @aws_iam
+  deleteReportDataOrder(
+    condition: ModelReportDataOrderConditionInput
+    input: DeleteReportDataOrderInput!
+  ): ReportDataOrder @aws_cognito_user_pools @aws_iam
+  deleteResult(
+    condition: ModelResultConditionInput
+    input: DeleteResultInput!
+  ): Result @aws_cognito_user_pools @aws_iam
+  deleteSample(
+    condition: ModelSampleConditionInput
+    input: DeleteSampleInput!
+  ): Sample @aws_cognito_user_pools @aws_iam
+  deleteWebadminSample(
+    condition: ModelWebadminSampleConditionInput
+    input: DeleteWebadminSampleInput!
+  ): WebadminSample @aws_cognito_user_pools @aws_iam
+  updateConfig(
+    condition: ModelConfigConditionInput
+    input: UpdateConfigInput!
+  ): Config @aws_cognito_user_pools @aws_iam
+  updateCustomer(
+    condition: ModelCustomerConditionInput
+    input: UpdateCustomerInput!
+  ): Customer @aws_cognito_user_pools @aws_iam
+  updateGiftOrder(
+    condition: ModelGiftOrderConditionInput
+    input: UpdateGiftOrderInput!
+  ): GiftOrder @aws_cognito_user_pools @aws_iam
+  updateOrder(
+    condition: ModelOrderConditionInput
+    input: UpdateOrderInput!
+  ): Order @aws_cognito_user_pools @aws_iam
+  updateOrderPackage(
+    condition: ModelOrderPackageConditionInput
+    input: UpdateOrderPackageInput!
+  ): OrderPackage @aws_cognito_user_pools @aws_iam
+  updatePackage(
+    condition: ModelPackageConditionInput
+    input: UpdatePackageInput!
+  ): Package @aws_cognito_user_pools @aws_iam
+  updatePackageProduct(
+    condition: ModelPackageProductConditionInput
+    input: UpdatePackageProductInput!
+  ): PackageProduct @aws_cognito_user_pools @aws_iam
+  updatePayment(
+    condition: ModelPaymentConditionInput
+    input: UpdatePaymentInput!
+  ): Payment @aws_cognito_user_pools @aws_iam
+  updateProduct(
+    condition: ModelProductConditionInput
+    input: UpdateProductInput!
+  ): Product @aws_cognito_user_pools @aws_iam
+  updateReportDataCustomer(
+    condition: ModelReportDataCustomerConditionInput
+    input: UpdateReportDataCustomerInput!
+  ): ReportDataCustomer @aws_cognito_user_pools @aws_iam
+  updateReportDataOrder(
+    condition: ModelReportDataOrderConditionInput
+    input: UpdateReportDataOrderInput!
+  ): ReportDataOrder @aws_cognito_user_pools @aws_iam
+  updateResult(
+    condition: ModelResultConditionInput
+    input: UpdateResultInput!
+  ): Result @aws_cognito_user_pools @aws_iam
+  updateSample(
+    condition: ModelSampleConditionInput
+    input: UpdateSampleInput!
+  ): Sample @aws_cognito_user_pools @aws_iam
+  updateWebadminSample(
+    condition: ModelWebadminSampleConditionInput
+    input: UpdateWebadminSampleInput!
+  ): WebadminSample @aws_cognito_user_pools @aws_iam
+}
+
+type Order @aws_cognito_user_pools @aws_iam {
+  country: String!
+  createdAt: AWSDateTime!
+  customer: Customer
+  customerOrdersId: ID
+  description: String
+  details: String
+  epassi_payment_id: ID
+  gfx_code: String
+  id: ID!
+  mobile_pay_payment_id: ID
+  owner: ID
+  packages(
+    filter: ModelOrderPackageFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelOrderPackageConnection
+  postal_code: String
+  stripe_payment_intent_id: String
+  updatedAt: AWSDateTime!
+  user_stripe_id: String!
+  wc_order_id: Int
+}
+
+type OrderPackage @aws_api_key @aws_cognito_user_pools @aws_iam {
+  createdAt: AWSDateTime!
+  id: ID!
+  order: Order!
+  orderID: ID!
+  owner: String
+  package: Package!
+  packageID: ID!
+  updatedAt: AWSDateTime!
+}
+
+type Package @aws_api_key @aws_cognito_user_pools @aws_iam {
+  createdAt: AWSDateTime!
+  description: String
+  id: ID!
+  images: [AWSURL]
+  meta_data: String
+  name: String
+  orders(
+    filter: ModelOrderPackageFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelOrderPackageConnection
+  price: String
+  productCode: Int
+  productType: ProductType
+  products(
+    filter: ModelPackageProductFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelPackageProductConnection
+  short_description: String
+  sku: String
+  subText: String
+  tax_class: String
+  updatedAt: AWSDateTime!
+}
+
+type PackageProduct @aws_api_key @aws_cognito_user_pools @aws_iam {
+  createdAt: AWSDateTime!
+  id: ID!
+  package: Package!
+  packageID: ID!
+  product: Product!
+  productID: ID!
+  updatedAt: AWSDateTime!
+}
+
+type Payment @aws_cognito_user_pools @aws_iam {
+  amount: Int
+  createdAt: AWSDateTime!
+  ePassiMetadata: EPassiPaymentMetadata
+  id: ID!
+  mobilePayMetadata: MobilePayPaymentMetadata
+  orderId: ID
+  packageCodes: [Int]
+  provider: PaymentProvider
+  status: PaymentStatus
+  stripeMetadata: StripePaymentMetadata
+  updatedAt: AWSDateTime!
+  userId: ID
+}
+
+type Product @aws_api_key @aws_cognito_user_pools @aws_iam {
+  createdAt: AWSDateTime!
+  description: String
+  id: ID!
+  images: [AWSURL]
+  meta_data: String
+  name: String!
+  packages(
+    filter: ModelPackageProductFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelPackageProductConnection
+  price: String
+  productCode: String!
+  productType: ProductType
+  results(
+    filter: ModelResultFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelResultConnection
+  short_description: String
+  sku: String
+  tax_class: String
+  updatedAt: AWSDateTime!
+}
+
+type Query {
+  RDCustomerByMobAppCustomerId(
+    filter: ModelReportDataCustomerFilterInput
+    limit: Int
+    mobileAppCustomerId: ID!
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelReportDataCustomerConnection @aws_cognito_user_pools @aws_iam
+  customerByHasBoughtMainPackage(
+    compound_dateFirstMainPackageBought_id: ModelStringKeyConditionInput
+    filter: ModelCustomerFilterInput
+    hasBoughtMainPackage: Int!
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  customerByPhoneNumber(
+    filter: ModelCustomerFilterInput
+    limit: Int
+    nextToken: String
+    phoneNumber: String!
+    sortDirection: ModelSortDirection
+  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  customerScanByUpdatedAt(
+    filter: ModelCustomerFilterInput
+    limit: Int
+    nextToken: String
+    scanSortPrimaryKey: Int!
+    sortDirection: ModelSortDirection
+    updatedAt: ModelStringKeyConditionInput
+  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  getConfig(id: ID!): Config @aws_api_key @aws_cognito_user_pools @aws_iam
+  getCustomer(id: ID!): Customer @aws_cognito_user_pools @aws_iam
+  getCustomerByCognitoSub(
+    filter: ModelCustomerFilterInput
+    limit: Int
+    nextToken: String
+    owner: ID!
+    sortDirection: ModelSortDirection
+  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  getCustomerByStripeId(
+    filter: ModelCustomerFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+    stripeId: String!
+  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  getGiftOrder(id: ID!): GiftOrder @aws_cognito_user_pools @aws_iam
+  getOrder(id: ID!): Order @aws_cognito_user_pools @aws_iam
+  getOrderPackage(id: ID!): OrderPackage
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+  getPackage(id: ID!): Package @aws_api_key @aws_cognito_user_pools @aws_iam
+  getPackageProduct(id: ID!): PackageProduct
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+  getPayment(id: ID!): Payment @aws_cognito_user_pools @aws_iam
+  getProduct(id: ID!): Product @aws_api_key @aws_cognito_user_pools @aws_iam
+  getProductByCode(
+    filter: ModelProductFilterInput
+    limit: Int
+    nextToken: String
+    productCode: String!
+    sortDirection: ModelSortDirection
+  ): ModelProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  getReportDataCustomer(id: ID!): ReportDataCustomer
+    @aws_cognito_user_pools
+    @aws_iam
+  getReportDataOrder(id: ID!): ReportDataOrder @aws_cognito_user_pools @aws_iam
+  getResult(id: ID!): Result @aws_cognito_user_pools @aws_iam
+  getSample(id: ID!): Sample @aws_cognito_user_pools @aws_iam
+  getSampleByName(
+    filter: ModelSampleFilterInput
+    limit: Int
+    name: String!
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelSampleConnection @aws_cognito_user_pools @aws_iam
+  getWebadminSample(id: ID!): WebadminSample @aws_cognito_user_pools @aws_iam
+  listConfigs(
+    filter: ModelConfigFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelConfigConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  listCustomers(
+    filter: ModelCustomerFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  listGiftOrders(
+    filter: ModelGiftOrderFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelGiftOrderConnection @aws_cognito_user_pools @aws_iam
+  listOrderPackages(
+    filter: ModelOrderPackageFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelOrderPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  listOrders(
+    filter: ModelOrderFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelOrderConnection @aws_cognito_user_pools @aws_iam
+  listPackageProducts(
+    filter: ModelPackageProductFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelPackageProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  listPackages(
+    filter: ModelPackageFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  listPayments(
+    filter: ModelPaymentFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelPaymentConnection @aws_cognito_user_pools @aws_iam
+  listProducts(
+    filter: ModelProductFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  listReportDataCustomers(
+    filter: ModelReportDataCustomerFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelReportDataCustomerConnection @aws_cognito_user_pools @aws_iam
+  listReportDataOrders(
+    filter: ModelReportDataOrderFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelReportDataOrderConnection @aws_cognito_user_pools @aws_iam
+  listResults(
+    filter: ModelResultFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelResultConnection @aws_cognito_user_pools @aws_iam
+  listSamples(
+    filter: ModelSampleFilterInput
+    limit: Int
+    nextToken: String
+  ): ModelSampleConnection @aws_cognito_user_pools @aws_iam
+  listWebadminSamples(
+    filter: ModelWebadminSampleFilterInput
+    id: ID
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelWebadminSampleConnection @aws_cognito_user_pools @aws_iam
+  orderByEPassiPayPaymentId(
+    epassi_payment_id: ID!
+    filter: ModelOrderFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelOrderConnection @aws_cognito_user_pools @aws_iam
+  orderByMobilePayPaymentId(
+    filter: ModelOrderFilterInput
+    limit: Int
+    mobile_pay_payment_id: ID!
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelOrderConnection @aws_cognito_user_pools @aws_iam
+  orderByOwner(
+    filter: ModelOrderFilterInput
+    id: ModelIDKeyConditionInput
+    limit: Int
+    nextToken: String
+    owner: ID!
+    sortDirection: ModelSortDirection
+  ): ModelOrderConnection @aws_cognito_user_pools @aws_iam
+  orderByStripePaymentIntentId(
+    filter: ModelOrderFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+    stripe_payment_intent_id: String!
+  ): ModelOrderConnection @aws_cognito_user_pools @aws_iam
+  packageByCode(
+    filter: ModelPackageFilterInput
+    limit: Int
+    nextToken: String
+    productCode: Int!
+    sortDirection: ModelSortDirection
+  ): ModelPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  resultByOwner(
+    filter: ModelResultFilterInput
+    id: ModelIDKeyConditionInput
+    limit: Int
+    nextToken: String
+    owner: ID!
+    sortDirection: ModelSortDirection
+  ): ModelResultConnection @aws_cognito_user_pools @aws_iam
+  sampleByCustomer(
+    filter: ModelSampleFilterInput
+    id: ModelIDKeyConditionInput
+    limit: Int
+    nextToken: String
+    sampleCustomerId: ID!
+    sortDirection: ModelSortDirection
+  ): ModelSampleConnection @aws_cognito_user_pools @aws_iam
+  webadminSampleByCustomer(
+    filter: ModelWebadminSampleFilterInput
+    id: ModelIDKeyConditionInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+    webadminSampleCustomerId: ID!
+  ): ModelWebadminSampleConnection @aws_cognito_user_pools @aws_iam
+}
+
+type ReportDataCustomer @aws_cognito_user_pools @aws_iam {
+  address: Address
+  createdAt: AWSDateTime!
+  customer: Customer
+  email: String
+  firstName: String
+  id: ID!
+  language: String
+  lastName: String
+  mobileAppCustomerId: ID
+  orders(
+    filter: ModelReportDataOrderFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelReportDataOrderConnection
+  phoneNumber: String
+  resultsReadyDate: String
+  updatedAt: AWSDateTime!
+}
+
+type ReportDataOrder @aws_cognito_user_pools @aws_iam {
+  campaign: String
+  coupon: String
+  createdAt: AWSDateTime!
+  customer: ReportDataCustomer
+  details: String
+  discount: Float
+  id: ID!
+  mobileAppOrderId: Order
+  orderDate: String
+  orderSource: String
+  paymentMethod: String
+  price: Float
+  products: [ReportDataProduct]
+  reportDataCustomerOrdersId: ID
+  reportDataOrderMobileAppOrderIdId: ID
+  updatedAt: AWSDateTime!
+  vatRate: Float
+}
+
+type ReportDataProduct @aws_cognito_user_pools @aws_iam {
+  name: String
+  price: Float
+}
+
+type Result @aws_cognito_user_pools @aws_iam {
+  createdAt: AWSDateTime!
+  description: String
+  id: ID!
+  name: String!
+  owner: ID
+  productResultsId: ID
+  sampleResultsId: ID
+  updatedAt: AWSDateTime!
+  value: Int!
+}
+
+type Sample @aws_cognito_user_pools @aws_iam {
+  createdAt: AWSDateTime!
+  customer: Customer
+  description: String
+  id: ID!
+  name: String!
+  owner: ID
+  phoneNumber: AWSPhone!
+  results(
+    filter: ModelResultFilterInput
+    limit: Int
+    nextToken: String
+    sortDirection: ModelSortDirection
+  ): ModelResultConnection
+  sampleCustomerId: ID
+  status: SampleStatus
+  updatedAt: AWSDateTime!
+}
+
+type StripePaymentMetadata @aws_cognito_user_pools @aws_iam {
+  paymentIntentId: String
+}
+
+type Subscription {
+  onCreateConfig(filter: ModelSubscriptionConfigFilterInput): Config
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createConfig"])
+  onCreateCustomer(
+    filter: ModelSubscriptionCustomerFilterInput
+    owner: String
+  ): Customer
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createCustomer"])
+  onCreateGiftOrder(
+    filter: ModelSubscriptionGiftOrderFilterInput
+    owner: String
+  ): GiftOrder
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createGiftOrder"])
+  onCreateOrder(
+    filter: ModelSubscriptionOrderFilterInput
+    owner: String
+  ): Order
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createOrder"])
+  onCreateOrderPackage(
+    filter: ModelSubscriptionOrderPackageFilterInput
+    owner: String
+  ): OrderPackage
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createOrderPackage"])
+  onCreatePackage(filter: ModelSubscriptionPackageFilterInput): Package
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createPackage"])
+  onCreatePackageProduct(
+    filter: ModelSubscriptionPackageProductFilterInput
+  ): PackageProduct
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createPackageProduct"])
+  onCreatePayment(
+    filter: ModelSubscriptionPaymentFilterInput
+    userId: String
+  ): Payment
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createPayment"])
+  onCreateProduct(filter: ModelSubscriptionProductFilterInput): Product
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createProduct"])
+  onCreateReportDataCustomer(
+    filter: ModelSubscriptionReportDataCustomerFilterInput
+  ): ReportDataCustomer
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createReportDataCustomer"])
+  onCreateReportDataOrder(
+    filter: ModelSubscriptionReportDataOrderFilterInput
+  ): ReportDataOrder
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createReportDataOrder"])
+  onCreateResult(
+    filter: ModelSubscriptionResultFilterInput
+    owner: String
+  ): Result
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createResult"])
+  onCreateSample(
+    filter: ModelSubscriptionSampleFilterInput
+    owner: String
+  ): Sample
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createSample"])
+  onCreateWebadminSample(
+    filter: ModelSubscriptionWebadminSampleFilterInput
+    webadminSampleCustomerId: String
+  ): WebadminSample
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["createWebadminSample"])
+  onDeleteConfig(filter: ModelSubscriptionConfigFilterInput): Config
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteConfig"])
+  onDeleteCustomer(
+    filter: ModelSubscriptionCustomerFilterInput
+    owner: String
+  ): Customer
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteCustomer"])
+  onDeleteGiftOrder(
+    filter: ModelSubscriptionGiftOrderFilterInput
+    owner: String
+  ): GiftOrder
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteGiftOrder"])
+  onDeleteOrder(
+    filter: ModelSubscriptionOrderFilterInput
+    owner: String
+  ): Order
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteOrder"])
+  onDeleteOrderPackage(
+    filter: ModelSubscriptionOrderPackageFilterInput
+    owner: String
+  ): OrderPackage
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteOrderPackage"])
+  onDeletePackage(filter: ModelSubscriptionPackageFilterInput): Package
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deletePackage"])
+  onDeletePackageProduct(
+    filter: ModelSubscriptionPackageProductFilterInput
+  ): PackageProduct
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deletePackageProduct"])
+  onDeletePayment(
+    filter: ModelSubscriptionPaymentFilterInput
+    userId: String
+  ): Payment
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deletePayment"])
+  onDeleteProduct(filter: ModelSubscriptionProductFilterInput): Product
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteProduct"])
+  onDeleteReportDataCustomer(
+    filter: ModelSubscriptionReportDataCustomerFilterInput
+  ): ReportDataCustomer
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteReportDataCustomer"])
+  onDeleteReportDataOrder(
+    filter: ModelSubscriptionReportDataOrderFilterInput
+  ): ReportDataOrder
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteReportDataOrder"])
+  onDeleteResult(
+    filter: ModelSubscriptionResultFilterInput
+    owner: String
+  ): Result
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteResult"])
+  onDeleteSample(
+    filter: ModelSubscriptionSampleFilterInput
+    owner: String
+  ): Sample
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteSample"])
+  onDeleteWebadminSample(
+    filter: ModelSubscriptionWebadminSampleFilterInput
+    webadminSampleCustomerId: String
+  ): WebadminSample
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["deleteWebadminSample"])
+  onUpdateConfig(filter: ModelSubscriptionConfigFilterInput): Config
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateConfig"])
+  onUpdateCustomer(
+    filter: ModelSubscriptionCustomerFilterInput
+    owner: String
+  ): Customer
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateCustomer"])
+  onUpdateGiftOrder(
+    filter: ModelSubscriptionGiftOrderFilterInput
+    owner: String
+  ): GiftOrder
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateGiftOrder"])
+  onUpdateOrder(
+    filter: ModelSubscriptionOrderFilterInput
+    owner: String
+  ): Order
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateOrder"])
+  onUpdateOrderPackage(
+    filter: ModelSubscriptionOrderPackageFilterInput
+    owner: String
+  ): OrderPackage
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateOrderPackage"])
+  onUpdatePackage(filter: ModelSubscriptionPackageFilterInput): Package
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updatePackage"])
+  onUpdatePackageProduct(
+    filter: ModelSubscriptionPackageProductFilterInput
+  ): PackageProduct
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updatePackageProduct"])
+  onUpdatePayment(
+    filter: ModelSubscriptionPaymentFilterInput
+    userId: String
+  ): Payment
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updatePayment"])
+  onUpdateProduct(filter: ModelSubscriptionProductFilterInput): Product
+    @aws_api_key
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateProduct"])
+  onUpdateReportDataCustomer(
+    filter: ModelSubscriptionReportDataCustomerFilterInput
+  ): ReportDataCustomer
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateReportDataCustomer"])
+  onUpdateReportDataOrder(
+    filter: ModelSubscriptionReportDataOrderFilterInput
+  ): ReportDataOrder
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateReportDataOrder"])
+  onUpdateResult(
+    filter: ModelSubscriptionResultFilterInput
+    owner: String
+  ): Result
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateResult"])
+  onUpdateSample(
+    filter: ModelSubscriptionSampleFilterInput
+    owner: String
+  ): Sample
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateSample"])
+  onUpdateWebadminSample(
+    filter: ModelSubscriptionWebadminSampleFilterInput
+    webadminSampleCustomerId: String
+  ): WebadminSample
+    @aws_cognito_user_pools
+    @aws_iam
+    @aws_subscribe(mutations: ["updateWebadminSample"])
+}
+
+type WebadminSample @aws_cognito_user_pools @aws_iam {
+  batchNumber: Int
+  createdAt: AWSDateTime!
+  customer: Customer
+  id: ID!
+  name: String!
+  status: WebadminSampleStatus!
+  updatedAt: AWSDateTime!
+  webadminSampleCustomerId: ID!
+}
+
+enum ModelAttributeTypes {
+  _null
+  binary
+  binarySet
+  bool
+  list
+  map
+  number
+  numberSet
+  string
+  stringSet
+}
+
+enum ModelSortDirection {
+  ASC
+  DESC
+}
+
+enum PaymentProvider {
+  EPASSI
+  MOBILE_PAY
+}
+
+enum PaymentStatus {
+  COMPLETED
+  CREATED
+}
+
+enum ProductType {
+  BUNDLE
+  EXTRA
+  MAIN
+  PLUS
+}
+
+enum SampleStatus {
+  IN_GENOTYPING
+  READY
+  RECEIVED
+  SENT
+}
+
+enum WebadminSampleStatus {
+  IN_GENOTYPING
+  READY
+  RECEIVED
+  SENT_TO_CUSTOMER
+  SENT_TO_LAB
+}
+
+input AddressInput {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  notes: String
+  postalCode: String
+  state: String
+}
+
+input CreateConfigInput {
+  data: AWSJSON
+  id: String
+}
+
+input CreateCustomerInput {
+  address: AddressInput
+  compound_dateFirstMainPackageBought_id: String
+  customerSampleId: ID
+  customerWebadminSampleId: ID
+  description: String
+  email: String
+  firstName: String
+  hasBoughtMainPackage: Int
+  id: ID
+  isSampleReady: Boolean
+  languageCode: String
+  lastName: String
+  owner: ID!
+  phoneNumber: String!
+  scanSortPrimaryKey: Int
+  stripeDevId: String
+  stripeId: String
+  updatedAt: AWSDateTime
+}
+
+input CreateGiftOrderInput {
+  giftBuyer: GiftBuyerInput!
+  id: ID
+  orderedPackages: [Int!]!
+  sampleCode: String
+  status: String
+}
+
+input CreateOrderInput {
+  country: String!
+  customerOrdersId: ID
+  description: String
+  details: String
+  epassi_payment_id: ID
+  gfx_code: String
+  id: ID
+  mobile_pay_payment_id: ID
+  owner: ID
+  postal_code: String
+  stripe_payment_intent_id: String
+  user_stripe_id: String!
+  wc_order_id: Int
+}
+
+input CreateOrderPackageInput {
+  id: ID
+  orderID: ID!
+  packageID: ID!
+}
+
+input CreatePackageInput {
+  description: String
+  id: ID
+  images: [AWSURL]
+  meta_data: String
+  name: String
+  price: String
+  productCode: Int
+  productType: ProductType
+  short_description: String
+  sku: String
+  subText: String
+  tax_class: String
+}
+
+input CreatePackageProductInput {
+  id: ID
+  packageID: ID!
+  productID: ID!
+}
+
+input CreatePaymentInput {
+  amount: Int
+  ePassiMetadata: EPassiPaymentMetadataInput
+  id: ID
+  mobilePayMetadata: MobilePayPaymentMetadataInput
+  orderId: ID
+  packageCodes: [Int]
+  provider: PaymentProvider
+  status: PaymentStatus
+  stripeMetadata: StripePaymentMetadataInput
+  userId: ID
+}
+
+input CreateProductInput {
+  description: String
+  id: ID
+  images: [AWSURL]
+  meta_data: String
+  name: String!
+  price: String
+  productCode: String!
+  productType: ProductType
+  short_description: String
+  sku: String
+  tax_class: String
+}
+
+input CreateReportDataCustomerInput {
+  address: AddressInput
+  email: String
+  firstName: String
+  id: ID
+  language: String
+  lastName: String
+  mobileAppCustomerId: ID
+  phoneNumber: String
+  resultsReadyDate: String
+}
+
+input CreateReportDataOrderInput {
+  campaign: String
+  coupon: String
+  details: String
+  discount: Float
+  id: ID
+  orderDate: String
+  orderSource: String
+  paymentMethod: String
+  price: Float
+  products: [ReportDataProductInput]
+  reportDataCustomerOrdersId: ID
+  reportDataOrderMobileAppOrderIdId: ID
+  vatRate: Float
+}
+
+input CreateResultInput {
+  description: String
+  id: ID
+  name: String!
+  owner: ID
+  productResultsId: ID
+  sampleResultsId: ID
+  value: Int!
+}
+
+input CreateSampleInput {
+  description: String
+  id: ID
+  name: String!
+  owner: ID
+  phoneNumber: AWSPhone!
+  sampleCustomerId: ID
+  status: SampleStatus
+}
+
+input CreateWebadminSampleInput {
+  batchNumber: Int
+  id: ID
+  name: String!
+  status: WebadminSampleStatus!
+  webadminSampleCustomerId: ID!
+}
+
+input DeleteConfigInput {
+  id: ID!
+}
+
+input DeleteCustomerInput {
+  id: ID!
+}
+
+input DeleteGiftOrderInput {
+  id: ID!
+}
+
+input DeleteOrderInput {
+  id: ID!
+}
+
+input DeleteOrderPackageInput {
+  id: ID!
+}
+
+input DeletePackageInput {
+  id: ID!
+}
+
+input DeletePackageProductInput {
+  id: ID!
+}
+
+input DeletePaymentInput {
+  id: ID!
+}
+
+input DeleteProductInput {
+  id: ID!
+}
+
+input DeleteReportDataCustomerInput {
+  id: ID!
+}
+
+input DeleteReportDataOrderInput {
+  id: ID!
+}
+
+input DeleteResultInput {
+  id: ID!
+}
+
+input DeleteSampleInput {
+  id: ID!
+}
+
+input DeleteWebadminSampleInput {
+  id: ID!
+}
+
+input EPassiPaymentMetadataInput {
+  paid: Int
+}
+
+input GiftBuyerInput {
+  address: AddressInput!
+  email: String!
+  firstName: String!
+  lastName: String!
+  phoneNumber: String!
+}
+
+input MobilePayPaymentMetadataInput {
+  reference: String
+}
+
+input ModelBooleanInput {
+  attributeExists: Boolean
+  attributeType: ModelAttributeTypes
+  eq: Boolean
+  ne: Boolean
+}
+
+input ModelConfigConditionInput {
+  and: [ModelConfigConditionInput]
+  createdAt: ModelStringInput
+  data: ModelStringInput
+  id: ModelStringInput
+  not: ModelConfigConditionInput
+  or: [ModelConfigConditionInput]
+  updatedAt: ModelStringInput
+}
+
+input ModelConfigFilterInput {
+  and: [ModelConfigFilterInput]
+  createdAt: ModelStringInput
+  data: ModelStringInput
+  id: ModelStringInput
+  not: ModelConfigFilterInput
+  or: [ModelConfigFilterInput]
+  updatedAt: ModelStringInput
+}
+
+input ModelCustomerConditionInput {
+  and: [ModelCustomerConditionInput]
+  compound_dateFirstMainPackageBought_id: ModelStringInput
+  createdAt: ModelStringInput
+  customerSampleId: ModelIDInput
+  customerWebadminSampleId: ModelIDInput
+  description: ModelStringInput
+  email: ModelStringInput
+  firstName: ModelStringInput
+  hasBoughtMainPackage: ModelIntInput
+  isSampleReady: ModelBooleanInput
+  languageCode: ModelStringInput
+  lastName: ModelStringInput
+  not: ModelCustomerConditionInput
+  or: [ModelCustomerConditionInput]
+  owner: ModelIDInput
+  phoneNumber: ModelStringInput
+  scanSortPrimaryKey: ModelIntInput
+  stripeDevId: ModelStringInput
+  stripeId: ModelStringInput
+  updatedAt: ModelStringInput
+}
+
+input ModelCustomerFilterInput {
+  and: [ModelCustomerFilterInput]
+  compound_dateFirstMainPackageBought_id: ModelStringInput
+  createdAt: ModelStringInput
+  customerSampleId: ModelIDInput
+  customerWebadminSampleId: ModelIDInput
+  description: ModelStringInput
+  email: ModelStringInput
+  firstName: ModelStringInput
+  hasBoughtMainPackage: ModelIntInput
+  id: ModelIDInput
+  isSampleReady: ModelBooleanInput
+  languageCode: ModelStringInput
+  lastName: ModelStringInput
+  not: ModelCustomerFilterInput
+  or: [ModelCustomerFilterInput]
+  owner: ModelIDInput
+  phoneNumber: ModelStringInput
+  scanSortPrimaryKey: ModelIntInput
+  stripeDevId: ModelStringInput
+  stripeId: ModelStringInput
+  updatedAt: ModelStringInput
+}
+
+input ModelFloatInput {
+  attributeExists: Boolean
+  attributeType: ModelAttributeTypes
+  between: [Float]
+  eq: Float
+  ge: Float
+  gt: Float
+  le: Float
+  lt: Float
+  ne: Float
+}
+
+input ModelGiftOrderConditionInput {
+  and: [ModelGiftOrderConditionInput]
+  createdAt: ModelStringInput
+  not: ModelGiftOrderConditionInput
+  or: [ModelGiftOrderConditionInput]
+  orderedPackages: ModelIntInput
+  owner: ModelStringInput
+  sampleCode: ModelStringInput
+  status: ModelStringInput
+  updatedAt: ModelStringInput
+}
+
+input ModelGiftOrderFilterInput {
+  and: [ModelGiftOrderFilterInput]
+  createdAt: ModelStringInput
+  id: ModelIDInput
+  not: ModelGiftOrderFilterInput
+  or: [ModelGiftOrderFilterInput]
+  orderedPackages: ModelIntInput
+  owner: ModelStringInput
+  sampleCode: ModelStringInput
+  status: ModelStringInput
+  updatedAt: ModelStringInput
+}
+
+input ModelIDInput {
+  attributeExists: Boolean
+  attributeType: ModelAttributeTypes
+  beginsWith: ID
+  between: [ID]
+  contains: ID
+  eq: ID
+  ge: ID
+  gt: ID
+  le: ID
+  lt: ID
+  ne: ID
+  notContains: ID
+  size: ModelSizeInput
+}
+
+input ModelIDKeyConditionInput {
+  beginsWith: ID
+  between: [ID]
+  eq: ID
+  ge: ID
+  gt: ID
+  le: ID
+  lt: ID
+}
+
+input ModelIntInput {
+  attributeExists: Boolean
+  attributeType: ModelAttributeTypes
+  between: [Int]
+  eq: Int
+  ge: Int
+  gt: Int
+  le: Int
+  lt: Int
+  ne: Int
+}
+
+input ModelOrderConditionInput {
+  and: [ModelOrderConditionInput]
+  country: ModelStringInput
+  createdAt: ModelStringInput
+  customerOrdersId: ModelIDInput
+  description: ModelStringInput
+  details: ModelStringInput
+  epassi_payment_id: ModelIDInput
+  gfx_code: ModelStringInput
+  mobile_pay_payment_id: ModelIDInput
+  not: ModelOrderConditionInput
+  or: [ModelOrderConditionInput]
+  owner: ModelIDInput
+  postal_code: ModelStringInput
+  stripe_payment_intent_id: ModelStringInput
+  updatedAt: ModelStringInput
+  user_stripe_id: ModelStringInput
+  wc_order_id: ModelIntInput
+}
+
+input ModelOrderFilterInput {
+  and: [ModelOrderFilterInput]
+  country: ModelStringInput
+  createdAt: ModelStringInput
+  customerOrdersId: ModelIDInput
+  description: ModelStringInput
+  details: ModelStringInput
+  epassi_payment_id: ModelIDInput
+  gfx_code: ModelStringInput
+  id: ModelIDInput
+  mobile_pay_payment_id: ModelIDInput
+  not: ModelOrderFilterInput
+  or: [ModelOrderFilterInput]
+  owner: ModelIDInput
+  postal_code: ModelStringInput
+  stripe_payment_intent_id: ModelStringInput
+  updatedAt: ModelStringInput
+  user_stripe_id: ModelStringInput
+  wc_order_id: ModelIntInput
+}
+
+input ModelOrderPackageConditionInput {
+  and: [ModelOrderPackageConditionInput]
+  createdAt: ModelStringInput
+  not: ModelOrderPackageConditionInput
+  or: [ModelOrderPackageConditionInput]
+  orderID: ModelIDInput
+  owner: ModelStringInput
+  packageID: ModelIDInput
+  updatedAt: ModelStringInput
+}
+
+input ModelOrderPackageFilterInput {
+  and: [ModelOrderPackageFilterInput]
+  createdAt: ModelStringInput
+  id: ModelIDInput
+  not: ModelOrderPackageFilterInput
+  or: [ModelOrderPackageFilterInput]
+  orderID: ModelIDInput
+  owner: ModelStringInput
+  packageID: ModelIDInput
+  updatedAt: ModelStringInput
+}
+
+input ModelPackageConditionInput {
+  and: [ModelPackageConditionInput]
+  createdAt: ModelStringInput
+  description: ModelStringInput
+  images: ModelStringInput
+  meta_data: ModelStringInput
+  name: ModelStringInput
+  not: ModelPackageConditionInput
+  or: [ModelPackageConditionInput]
+  price: ModelStringInput
+  productCode: ModelIntInput
+  productType: ModelProductTypeInput
+  short_description: ModelStringInput
+  sku: ModelStringInput
+  subText: ModelStringInput
+  tax_class: ModelStringInput
+  updatedAt: ModelStringInput
+}
+
+input ModelPackageFilterInput {
+  and: [ModelPackageFilterInput]
+  createdAt: ModelStringInput
+  description: ModelStringInput
+  id: ModelIDInput
+  images: ModelStringInput
+  meta_data: ModelStringInput
+  name: ModelStringInput
+  not: ModelPackageFilterInput
+  or: [ModelPackageFilterInput]
+  price: ModelStringInput
+  productCode: ModelIntInput
+  productType: ModelProductTypeInput
+  short_description: ModelStringInput
+  sku: ModelStringInput
+  subText: ModelStringInput
+  tax_class: ModelStringInput
+  updatedAt: ModelStringInput
+}
+
+input ModelPackageProductConditionInput {
+  and: [ModelPackageProductConditionInput]
+  createdAt: ModelStringInput
+  not: ModelPackageProductConditionInput
+  or: [ModelPackageProductConditionInput]
+  packageID: ModelIDInput
+  productID: ModelIDInput
+  updatedAt: ModelStringInput
+}
+
+input ModelPackageProductFilterInput {
+  and: [ModelPackageProductFilterInput]
+  createdAt: ModelStringInput
+  id: ModelIDInput
+  not: ModelPackageProductFilterInput
+  or: [ModelPackageProductFilterInput]
+  packageID: ModelIDInput
+  productID: ModelIDInput
+  updatedAt: ModelStringInput
+}
+
+input ModelPaymentConditionInput {
+  amount: ModelIntInput
+  and: [ModelPaymentConditionInput]
+  createdAt: ModelStringInput
+  not: ModelPaymentConditionInput
+  or: [ModelPaymentConditionInput]
+  orderId: ModelIDInput
+  packageCodes: ModelIntInput
+  provider: ModelPaymentProviderInput
+  status: ModelPaymentStatusInput
+  updatedAt: ModelStringInput
+  userId: ModelIDInput
+}
+
+input ModelPaymentFilterInput {
+  amount: ModelIntInput
+  and: [ModelPaymentFilterInput]
+  createdAt: ModelStringInput
+  id: ModelIDInput
+  not: ModelPaymentFilterInput
+  or: [ModelPaymentFilterInput]
+  orderId: ModelIDInput
+  packageCodes: ModelIntInput
+  provider: ModelPaymentProviderInput
+  status: ModelPaymentStatusInput
+  updatedAt: ModelStringInput
+  userId: ModelIDInput
+}
+
+input ModelPaymentProviderInput {
+  eq: PaymentProvider
+  ne: PaymentProvider
+}
+
+input ModelPaymentStatusInput {
+  eq: PaymentStatus
+  ne: PaymentStatus
+}
+
+input ModelProductConditionInput {
+  and: [ModelProductConditionInput]
+  createdAt: ModelStringInput
+  description: ModelStringInput
+  images: ModelStringInput
+  meta_data: ModelStringInput
+  name: ModelStringInput
+  not: ModelProductConditionInput
+  or: [ModelProductConditionInput]
+  price: ModelStringInput
+  productCode: ModelStringInput
+  productType: ModelProductTypeInput
+  short_description: ModelStringInput
+  sku: ModelStringInput
+  tax_class: ModelStringInput
+  updatedAt: ModelStringInput
+}
+
+input ModelProductFilterInput {
+  and: [ModelProductFilterInput]
+  createdAt: ModelStringInput
+  description: ModelStringInput
+  id: ModelIDInput
+  images: ModelStringInput
+  meta_data: ModelStringInput
+  name: ModelStringInput
+  not: ModelProductFilterInput
+  or: [ModelProductFilterInput]
+  price: ModelStringInput
+  productCode: ModelStringInput
+  productType: ModelProductTypeInput
+  short_description: ModelStringInput
+  sku: ModelStringInput
+  tax_class: ModelStringInput
+  updatedAt: ModelStringInput
+}
+
+input ModelProductTypeInput {
+  eq: ProductType
+  ne: ProductType
+}
+
+input ModelReportDataCustomerConditionInput {
+  and: [ModelReportDataCustomerConditionInput]
+  createdAt: ModelStringInput
+  email: ModelStringInput
+  firstName: ModelStringInput
+  language: ModelStringInput
+  lastName: ModelStringInput
+  mobileAppCustomerId: ModelIDInput
+  not: ModelReportDataCustomerConditionInput
+  or: [ModelReportDataCustomerConditionInput]
+  phoneNumber: ModelStringInput
+  resultsReadyDate: ModelStringInput
+  updatedAt: ModelStringInput
+}
+
+input ModelReportDataCustomerFilterInput {
+  and: [ModelReportDataCustomerFilterInput]
+  createdAt: ModelStringInput
+  email: ModelStringInput
+  firstName: ModelStringInput
+  id: ModelIDInput
+  language: ModelStringInput
+  lastName: ModelStringInput
+  mobileAppCustomerId: ModelIDInput
+  not: ModelReportDataCustomerFilterInput
+  or: [ModelReportDataCustomerFilterInput]
+  phoneNumber: ModelStringInput
+  resultsReadyDate: ModelStringInput
+  updatedAt: ModelStringInput
+}
+
+input ModelReportDataOrderConditionInput {
+  and: [ModelReportDataOrderConditionInput]
+  campaign: ModelStringInput
+  coupon: ModelStringInput
+  createdAt: ModelStringInput
+  details: ModelStringInput
+  discount: ModelFloatInput
+  not: ModelReportDataOrderConditionInput
+  or: [ModelReportDataOrderConditionInput]
+  orderDate: ModelStringInput
+  orderSource: ModelStringInput
+  paymentMethod: ModelStringInput
+  price: ModelFloatInput
+  reportDataCustomerOrdersId: ModelIDInput
+  reportDataOrderMobileAppOrderIdId: ModelIDInput
+  updatedAt: ModelStringInput
+  vatRate: ModelFloatInput
+}
+
+input ModelReportDataOrderFilterInput {
+  and: [ModelReportDataOrderFilterInput]
+  campaign: ModelStringInput
+  coupon: ModelStringInput
+  createdAt: ModelStringInput
+  details: ModelStringInput
+  discount: ModelFloatInput
+  id: ModelIDInput
+  not: ModelReportDataOrderFilterInput
+  or: [ModelReportDataOrderFilterInput]
+  orderDate: ModelStringInput
+  orderSource: ModelStringInput
+  paymentMethod: ModelStringInput
+  price: ModelFloatInput
+  reportDataCustomerOrdersId: ModelIDInput
+  reportDataOrderMobileAppOrderIdId: ModelIDInput
+  updatedAt: ModelStringInput
+  vatRate: ModelFloatInput
+}
+
+input ModelResultConditionInput {
+  and: [ModelResultConditionInput]
+  createdAt: ModelStringInput
+  description: ModelStringInput
+  name: ModelStringInput
+  not: ModelResultConditionInput
+  or: [ModelResultConditionInput]
+  owner: ModelIDInput
+  productResultsId: ModelIDInput
+  sampleResultsId: ModelIDInput
+  updatedAt: ModelStringInput
+  value: ModelIntInput
+}
+
+input ModelResultFilterInput {
+  and: [ModelResultFilterInput]
+  createdAt: ModelStringInput
+  description: ModelStringInput
+  id: ModelIDInput
+  name: ModelStringInput
+  not: ModelResultFilterInput
+  or: [ModelResultFilterInput]
+  owner: ModelIDInput
+  productResultsId: ModelIDInput
+  sampleResultsId: ModelIDInput
+  updatedAt: ModelStringInput
+  value: ModelIntInput
+}
+
+input ModelSampleConditionInput {
+  and: [ModelSampleConditionInput]
+  createdAt: ModelStringInput
+  description: ModelStringInput
+  name: ModelStringInput
+  not: ModelSampleConditionInput
+  or: [ModelSampleConditionInput]
+  owner: ModelIDInput
+  phoneNumber: ModelStringInput
+  sampleCustomerId: ModelIDInput
+  status: ModelSampleStatusInput
+  updatedAt: ModelStringInput
+}
+
+input ModelSampleFilterInput {
+  and: [ModelSampleFilterInput]
+  createdAt: ModelStringInput
+  description: ModelStringInput
+  id: ModelIDInput
+  name: ModelStringInput
+  not: ModelSampleFilterInput
+  or: [ModelSampleFilterInput]
+  owner: ModelIDInput
+  phoneNumber: ModelStringInput
+  sampleCustomerId: ModelIDInput
+  status: ModelSampleStatusInput
+  updatedAt: ModelStringInput
+}
+
+input ModelSampleStatusInput {
+  eq: SampleStatus
+  ne: SampleStatus
+}
+
+input ModelSizeInput {
+  between: [Int]
+  eq: Int
+  ge: Int
+  gt: Int
+  le: Int
+  lt: Int
+  ne: Int
+}
+
+input ModelStringInput {
+  attributeExists: Boolean
+  attributeType: ModelAttributeTypes
+  beginsWith: String
+  between: [String]
+  contains: String
+  eq: String
+  ge: String
+  gt: String
+  le: String
+  lt: String
+  ne: String
+  notContains: String
+  size: ModelSizeInput
+}
+
+input ModelStringKeyConditionInput {
+  beginsWith: String
+  between: [String]
+  eq: String
+  ge: String
+  gt: String
+  le: String
+  lt: String
+}
+
+input ModelSubscriptionBooleanInput {
+  eq: Boolean
+  ne: Boolean
+}
+
+input ModelSubscriptionConfigFilterInput {
+  and: [ModelSubscriptionConfigFilterInput]
+  createdAt: ModelSubscriptionStringInput
+  data: ModelSubscriptionStringInput
+  id: ModelSubscriptionStringInput
+  or: [ModelSubscriptionConfigFilterInput]
+  updatedAt: ModelSubscriptionStringInput
+}
+
+input ModelSubscriptionCustomerFilterInput {
+  and: [ModelSubscriptionCustomerFilterInput]
+  compound_dateFirstMainPackageBought_id: ModelSubscriptionStringInput
+  createdAt: ModelSubscriptionStringInput
+  customerOrdersId: ModelSubscriptionIDInput
+  customerSampleId: ModelSubscriptionIDInput
+  customerWebadminSampleId: ModelSubscriptionIDInput
+  description: ModelSubscriptionStringInput
+  email: ModelSubscriptionStringInput
+  firstName: ModelSubscriptionStringInput
+  hasBoughtMainPackage: ModelSubscriptionIntInput
+  id: ModelSubscriptionIDInput
+  isSampleReady: ModelSubscriptionBooleanInput
+  languageCode: ModelSubscriptionStringInput
+  lastName: ModelSubscriptionStringInput
+  or: [ModelSubscriptionCustomerFilterInput]
+  owner: ModelStringInput
+  phoneNumber: ModelSubscriptionStringInput
+  scanSortPrimaryKey: ModelSubscriptionIntInput
+  stripeDevId: ModelSubscriptionStringInput
+  stripeId: ModelSubscriptionStringInput
+  updatedAt: ModelSubscriptionStringInput
+}
+
+input ModelSubscriptionFloatInput {
+  between: [Float]
+  eq: Float
+  ge: Float
+  gt: Float
+  in: [Float]
+  le: Float
+  lt: Float
+  ne: Float
+  notIn: [Float]
+}
+
+input ModelSubscriptionGiftOrderFilterInput {
+  and: [ModelSubscriptionGiftOrderFilterInput]
+  createdAt: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  or: [ModelSubscriptionGiftOrderFilterInput]
+  orderedPackages: ModelSubscriptionIntInput
+  owner: ModelStringInput
+  sampleCode: ModelSubscriptionStringInput
+  status: ModelSubscriptionStringInput
+  updatedAt: ModelSubscriptionStringInput
+}
+
+input ModelSubscriptionIDInput {
+  beginsWith: ID
+  between: [ID]
+  contains: ID
+  eq: ID
+  ge: ID
+  gt: ID
+  in: [ID]
+  le: ID
+  lt: ID
+  ne: ID
+  notContains: ID
+  notIn: [ID]
+}
+
+input ModelSubscriptionIntInput {
+  between: [Int]
+  eq: Int
+  ge: Int
+  gt: Int
+  in: [Int]
+  le: Int
+  lt: Int
+  ne: Int
+  notIn: [Int]
+}
+
+input ModelSubscriptionOrderFilterInput {
+  and: [ModelSubscriptionOrderFilterInput]
+  country: ModelSubscriptionStringInput
+  createdAt: ModelSubscriptionStringInput
+  description: ModelSubscriptionStringInput
+  details: ModelSubscriptionStringInput
+  epassi_payment_id: ModelSubscriptionIDInput
+  gfx_code: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  mobile_pay_payment_id: ModelSubscriptionIDInput
+  or: [ModelSubscriptionOrderFilterInput]
+  owner: ModelStringInput
+  postal_code: ModelSubscriptionStringInput
+  stripe_payment_intent_id: ModelSubscriptionStringInput
+  updatedAt: ModelSubscriptionStringInput
+  user_stripe_id: ModelSubscriptionStringInput
+  wc_order_id: ModelSubscriptionIntInput
+}
+
+input ModelSubscriptionOrderPackageFilterInput {
+  and: [ModelSubscriptionOrderPackageFilterInput]
+  createdAt: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  or: [ModelSubscriptionOrderPackageFilterInput]
+  orderID: ModelSubscriptionIDInput
+  owner: ModelStringInput
+  packageID: ModelSubscriptionIDInput
+  updatedAt: ModelSubscriptionStringInput
+}
+
+input ModelSubscriptionPackageFilterInput {
+  and: [ModelSubscriptionPackageFilterInput]
+  createdAt: ModelSubscriptionStringInput
+  description: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  images: ModelSubscriptionStringInput
+  meta_data: ModelSubscriptionStringInput
+  name: ModelSubscriptionStringInput
+  or: [ModelSubscriptionPackageFilterInput]
+  price: ModelSubscriptionStringInput
+  productCode: ModelSubscriptionIntInput
+  productType: ModelSubscriptionStringInput
+  short_description: ModelSubscriptionStringInput
+  sku: ModelSubscriptionStringInput
+  subText: ModelSubscriptionStringInput
+  tax_class: ModelSubscriptionStringInput
+  updatedAt: ModelSubscriptionStringInput
+}
+
+input ModelSubscriptionPackageProductFilterInput {
+  and: [ModelSubscriptionPackageProductFilterInput]
+  createdAt: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  or: [ModelSubscriptionPackageProductFilterInput]
+  packageID: ModelSubscriptionIDInput
+  productID: ModelSubscriptionIDInput
+  updatedAt: ModelSubscriptionStringInput
+}
+
+input ModelSubscriptionPaymentFilterInput {
+  amount: ModelSubscriptionIntInput
+  and: [ModelSubscriptionPaymentFilterInput]
+  createdAt: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  or: [ModelSubscriptionPaymentFilterInput]
+  orderId: ModelSubscriptionIDInput
+  packageCodes: ModelSubscriptionIntInput
+  provider: ModelSubscriptionStringInput
+  status: ModelSubscriptionStringInput
+  updatedAt: ModelSubscriptionStringInput
+  userId: ModelStringInput
+}
+
+input ModelSubscriptionProductFilterInput {
+  and: [ModelSubscriptionProductFilterInput]
+  createdAt: ModelSubscriptionStringInput
+  description: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  images: ModelSubscriptionStringInput
+  meta_data: ModelSubscriptionStringInput
+  name: ModelSubscriptionStringInput
+  or: [ModelSubscriptionProductFilterInput]
+  price: ModelSubscriptionStringInput
+  productCode: ModelSubscriptionStringInput
+  productResultsId: ModelSubscriptionIDInput
+  productType: ModelSubscriptionStringInput
+  short_description: ModelSubscriptionStringInput
+  sku: ModelSubscriptionStringInput
+  tax_class: ModelSubscriptionStringInput
+  updatedAt: ModelSubscriptionStringInput
+}
+
+input ModelSubscriptionReportDataCustomerFilterInput {
+  and: [ModelSubscriptionReportDataCustomerFilterInput]
+  createdAt: ModelSubscriptionStringInput
+  email: ModelSubscriptionStringInput
+  firstName: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  language: ModelSubscriptionStringInput
+  lastName: ModelSubscriptionStringInput
+  mobileAppCustomerId: ModelSubscriptionIDInput
+  or: [ModelSubscriptionReportDataCustomerFilterInput]
+  phoneNumber: ModelSubscriptionStringInput
+  reportDataCustomerOrdersId: ModelSubscriptionIDInput
+  resultsReadyDate: ModelSubscriptionStringInput
+  updatedAt: ModelSubscriptionStringInput
+}
+
+input ModelSubscriptionReportDataOrderFilterInput {
+  and: [ModelSubscriptionReportDataOrderFilterInput]
+  campaign: ModelSubscriptionStringInput
+  coupon: ModelSubscriptionStringInput
+  createdAt: ModelSubscriptionStringInput
+  details: ModelSubscriptionStringInput
+  discount: ModelSubscriptionFloatInput
+  id: ModelSubscriptionIDInput
+  or: [ModelSubscriptionReportDataOrderFilterInput]
+  orderDate: ModelSubscriptionStringInput
+  orderSource: ModelSubscriptionStringInput
+  paymentMethod: ModelSubscriptionStringInput
+  price: ModelSubscriptionFloatInput
+  reportDataOrderMobileAppOrderIdId: ModelSubscriptionIDInput
+  updatedAt: ModelSubscriptionStringInput
+  vatRate: ModelSubscriptionFloatInput
+}
+
+input ModelSubscriptionResultFilterInput {
+  and: [ModelSubscriptionResultFilterInput]
+  createdAt: ModelSubscriptionStringInput
+  description: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  name: ModelSubscriptionStringInput
+  or: [ModelSubscriptionResultFilterInput]
+  owner: ModelStringInput
+  updatedAt: ModelSubscriptionStringInput
+  value: ModelSubscriptionIntInput
+}
+
+input ModelSubscriptionSampleFilterInput {
+  and: [ModelSubscriptionSampleFilterInput]
+  createdAt: ModelSubscriptionStringInput
+  description: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  name: ModelSubscriptionStringInput
+  or: [ModelSubscriptionSampleFilterInput]
+  owner: ModelStringInput
+  phoneNumber: ModelSubscriptionStringInput
+  sampleCustomerId: ModelSubscriptionIDInput
+  sampleResultsId: ModelSubscriptionIDInput
+  status: ModelSubscriptionStringInput
+  updatedAt: ModelSubscriptionStringInput
+}
+
+input ModelSubscriptionStringInput {
+  beginsWith: String
+  between: [String]
+  contains: String
+  eq: String
+  ge: String
+  gt: String
+  in: [String]
+  le: String
+  lt: String
+  ne: String
+  notContains: String
+  notIn: [String]
+}
+
+input ModelSubscriptionWebadminSampleFilterInput {
+  and: [ModelSubscriptionWebadminSampleFilterInput]
+  batchNumber: ModelSubscriptionIntInput
+  createdAt: ModelSubscriptionStringInput
+  id: ModelSubscriptionIDInput
+  name: ModelSubscriptionStringInput
+  or: [ModelSubscriptionWebadminSampleFilterInput]
+  status: ModelSubscriptionStringInput
+  updatedAt: ModelSubscriptionStringInput
+  webadminSampleCustomerId: ModelStringInput
+}
+
+input ModelWebadminSampleConditionInput {
+  and: [ModelWebadminSampleConditionInput]
+  batchNumber: ModelIntInput
+  createdAt: ModelStringInput
+  name: ModelStringInput
+  not: ModelWebadminSampleConditionInput
+  or: [ModelWebadminSampleConditionInput]
+  status: ModelWebadminSampleStatusInput
+  updatedAt: ModelStringInput
+  webadminSampleCustomerId: ModelIDInput
+}
+
+input ModelWebadminSampleFilterInput {
+  and: [ModelWebadminSampleFilterInput]
+  batchNumber: ModelIntInput
+  createdAt: ModelStringInput
+  id: ModelIDInput
+  name: ModelStringInput
+  not: ModelWebadminSampleFilterInput
+  or: [ModelWebadminSampleFilterInput]
+  status: ModelWebadminSampleStatusInput
+  updatedAt: ModelStringInput
+  webadminSampleCustomerId: ModelIDInput
+}
+
+input ModelWebadminSampleStatusInput {
+  eq: WebadminSampleStatus
+  ne: WebadminSampleStatus
+}
+
+input ReportDataProductInput {
+  name: String
+  price: Float
+}
+
+input StripePaymentMetadataInput {
+  paymentIntentId: String
+}
+
+input UpdateConfigInput {
+  data: AWSJSON
+  id: String!
+}
+
+input UpdateCustomerInput {
+  address: AddressInput
+  compound_dateFirstMainPackageBought_id: String
+  customerSampleId: ID
+  customerWebadminSampleId: ID
+  description: String
+  email: String
+  firstName: String
+  hasBoughtMainPackage: Int
+  id: ID!
+  isSampleReady: Boolean
+  languageCode: String
+  lastName: String
+  owner: ID
+  phoneNumber: String
+  scanSortPrimaryKey: Int
+  stripeDevId: String
+  stripeId: String
+  updatedAt: AWSDateTime
+}
+
+input UpdateGiftOrderInput {
+  giftBuyer: GiftBuyerInput
+  id: ID!
+  orderedPackages: [Int!]
+  sampleCode: String
+  status: String
+}
+
+input UpdateOrderInput {
+  country: String
+  customerOrdersId: ID
+  description: String
+  details: String
+  epassi_payment_id: ID
+  gfx_code: String
+  id: ID!
+  mobile_pay_payment_id: ID
+  owner: ID
+  postal_code: String
+  stripe_payment_intent_id: String
+  user_stripe_id: String
+  wc_order_id: Int
+}
+
+input UpdateOrderPackageInput {
+  id: ID!
+  orderID: ID
+  packageID: ID
+}
+
+input UpdatePackageInput {
+  description: String
+  id: ID!
+  images: [AWSURL]
+  meta_data: String
+  name: String
+  price: String
+  productCode: Int
+  productType: ProductType
+  short_description: String
+  sku: String
+  subText: String
+  tax_class: String
+}
+
+input UpdatePackageProductInput {
+  id: ID!
+  packageID: ID
+  productID: ID
+}
+
+input UpdatePaymentInput {
+  amount: Int
+  ePassiMetadata: EPassiPaymentMetadataInput
+  id: ID!
+  mobilePayMetadata: MobilePayPaymentMetadataInput
+  orderId: ID
+  packageCodes: [Int]
+  provider: PaymentProvider
+  status: PaymentStatus
+  stripeMetadata: StripePaymentMetadataInput
+  userId: ID
+}
+
+input UpdateProductInput {
+  description: String
+  id: ID!
+  images: [AWSURL]
+  meta_data: String
+  name: String
+  price: String
+  productCode: String
+  productType: ProductType
+  short_description: String
+  sku: String
+  tax_class: String
+}
+
+input UpdateReportDataCustomerInput {
+  address: AddressInput
+  email: String
+  firstName: String
+  id: ID!
+  language: String
+  lastName: String
+  mobileAppCustomerId: ID
+  phoneNumber: String
+  resultsReadyDate: String
+}
+
+input UpdateReportDataOrderInput {
+  campaign: String
+  coupon: String
+  details: String
+  discount: Float
+  id: ID!
+  orderDate: String
+  orderSource: String
+  paymentMethod: String
+  price: Float
+  products: [ReportDataProductInput]
+  reportDataCustomerOrdersId: ID
+  reportDataOrderMobileAppOrderIdId: ID
+  vatRate: Float
+}
+
+input UpdateResultInput {
+  description: String
+  id: ID!
+  name: String
+  owner: ID
+  productResultsId: ID
+  sampleResultsId: ID
+  value: Int
+}
+
+input UpdateSampleInput {
+  description: String
+  id: ID!
+  name: String
+  owner: ID
+  phoneNumber: AWSPhone
+  sampleCustomerId: ID
+  status: SampleStatus
+}
+
+input UpdateWebadminSampleInput {
+  batchNumber: Int
+  id: ID!
+  name: String
+  status: WebadminSampleStatus
+  webadminSampleCustomerId: ID
+}

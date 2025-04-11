@@ -17,12 +17,14 @@ import {
   ChatMessageResponse,
   ChatRequest,
 } from '../dto/chat';
+import { PromptService } from './prompt.service';
 @Injectable()
 export class ChatService {
   constructor(
     private readonly openai: OpenAiProvider,
     private readonly txHost: TransactionHost<DbTransactionAdapter>,
     private readonly configService: ConfigService<AppConfigType>,
+    private readonly promptService: PromptService,
   ) {}
 
   logger = new Logger(ChatService.name);
@@ -30,12 +32,18 @@ export class ChatService {
   async *createChatStream(
     request: ChatRequest,
     userId: string,
+    evogenomApiToken: string,
   ): AsyncGenerator<ChatEventResponse> {
     const client = this.openai.getOpenAiClient();
 
     this.logger.log(`Streaming chat for user ${userId}`);
     await this.ensureUserExists(userId);
     const chat = await this.getOrCreateChat(userId);
+
+    const systemPrompt = await this.promptService.getSystemPrompt(
+      userId,
+      evogenomApiToken,
+    );
 
     // Save the user's message to the database
     const userMessageId = randomUUID();
@@ -51,9 +59,12 @@ export class ChatService {
       `Saved user message ${userMessageId} for chat ${chat.id}`,
     );
 
+    this.logger.debug(systemPrompt);
+
     const chatCompletion = await client.chat.completions.create({
       model: this.configService.getOrThrow('AZURE_OPENAI_MODEL'),
       messages: [
+        { role: 'system', content: systemPrompt },
         ...(await this.getChatHistory(userId, chat.id)),
         { role: 'user', content: request.content },
       ],

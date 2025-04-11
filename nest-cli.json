@@ -4,6 +4,7 @@
   "sourceRoot": "src",
   "outDir": "dist",
   "compilerOptions": {
+    "compiler": "swc",
     "deleteOutDir": true,
     "assets": [
       {

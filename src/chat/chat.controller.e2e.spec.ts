@@ -1,11 +1,13 @@
 import { INestApplication } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventSource } from 'eventsource';
-import { mockDeep } from 'jest-mock-extended';
 import { AuthGuard } from 'src/auth/auth/auth.guard';
 import { UserPrincipal } from 'src/auth/UserPrincipal';
-import * as request from 'supertest';
-import { ChatController } from './chat.controller';
+import request from 'supertest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DeepMockProxy, mockDeep } from 'vitest-mock-extended';
+import { ChatModule } from './chat.module';
 import { ChatService } from './chat/chat.service';
 import {
   ChatChunkEventResponse,
@@ -15,14 +17,15 @@ import {
 
 describe('ChatController (e2e)', () => {
   let app: INestApplication;
-  let chatService: ChatService;
+  let chatService: DeepMockProxy<ChatService>;
 
   const mockUser: UserPrincipal = {
     id: 'test-user-id',
+    evogenomApiToken: 'test-token',
   };
 
   const mockAuthGuard = {
-    canActivate: jest.fn().mockImplementation((context) => {
+    canActivate: vi.fn().mockImplementation((context) => {
       const req = context.switchToHttp().getRequest();
       req.user = mockUser;
       return true;
@@ -32,15 +35,54 @@ describe('ChatController (e2e)', () => {
   beforeEach(async () => {
     chatService = mockDeep<ChatService>();
 
+    // Configure mocks BEFORE app init
+    // Setup the mock for createChatStream
+    const mockChunkEvent: ChatChunkEventResponse = {
+      id: 'chunk-1',
+      chunk: 'Hello',
+      event: 'chunk',
+    };
+    const mockMessageEvent: ChatMessageEventResponse = {
+      id: 'message-1',
+      content: 'Hello world',
+      role: 'assistant',
+      createdAt: new Date(),
+      event: 'message',
+    };
+    const mockAsyncGenerator = async function* () {
+      yield mockChunkEvent;
+      yield mockMessageEvent;
+    };
+    chatService.createChatStream.mockImplementation(() => mockAsyncGenerator());
+
+    // Setup the mock for getMessages
+    const mockMessages: ChatMessageResponse[] = [
+      {
+        id: 'message-1',
+        content: 'Hello world',
+        role: 'assistant',
+        createdAt: new Date(),
+      },
+      {
+        id: 'message-2',
+        content: 'How can I help?',
+        role: 'assistant',
+        createdAt: new Date(),
+      },
+    ];
+    chatService.getMessages.mockResolvedValue(mockMessages);
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      controllers: [ChatController],
-      providers: [
-        {
-          provide: ChatService,
-          useValue: chatService,
-        },
+      imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          envFilePath: '.env.test',
+        }),
+        ChatModule,
       ],
     })
+      .overrideProvider(ChatService)
+      .useValue(chatService)
       .overrideGuard(AuthGuard)
       .useValue(mockAuthGuard)
       .compile();
@@ -65,31 +107,6 @@ describe('ChatController (e2e)', () => {
     });
 
     it('should stream chat events back', async () => {
-      // Mock chat service to return stream of events
-      const mockChunkEvent: ChatChunkEventResponse = {
-        id: 'chunk-1',
-        chunk: 'Hello',
-        event: 'chunk',
-      };
-
-      const mockMessageEvent: ChatMessageEventResponse = {
-        id: 'message-1',
-        content: 'Hello world',
-        role: 'assistant',
-        createdAt: new Date(),
-        event: 'message',
-      };
-
-      // Setup the mock to return an async generator
-      const mockAsyncGenerator = async function* () {
-        yield mockChunkEvent;
-        yield mockMessageEvent;
-      };
-
-      (chatService.createChatStream as jest.Mock).mockImplementation(() =>
-        mockAsyncGenerator(),
-      );
-
       const baseUrl = `http://127.0.0.1:${server.address().port}`;
 
       const receivedEvents: any[] = [];
@@ -164,25 +181,6 @@ describe('ChatController (e2e)', () => {
 
   describe('when getting chat messages', () => {
     it('should return all messages for the user', async () => {
-      // Mock data
-      const mockMessages: ChatMessageResponse[] = [
-        {
-          id: 'message-1',
-          content: 'Hello world',
-          role: 'assistant',
-          createdAt: new Date(),
-        },
-        {
-          id: 'message-2',
-          content: 'How can I help?',
-          role: 'assistant',
-          createdAt: new Date(),
-        },
-      ];
-
-      // Setup the mock
-      (chatService.getMessages as jest.Mock).mockResolvedValue(mockMessages);
-
       // Make the request
       const response = await request(app.getHttpServer())
         .get('/api/chat/messages')

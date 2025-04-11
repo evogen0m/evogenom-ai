@@ -1,78 +1,47 @@
-import { plainToInstance } from 'class-transformer';
-import {
-  IsBoolean,
-  IsNotEmpty,
-  IsNumber,
-  IsString,
-  IsUrl,
-  validateSync,
-} from 'class-validator';
+import { z } from 'zod';
 
-export class EnvConfig {
+export const EnvConfigSchema = z.object({
   // Application Settings
-  @IsBoolean()
-  DEBUG: boolean;
+  DEBUG: z.preprocess((val) => val === 'true' || val === true, z.boolean()),
 
   // Server Settings
-  @IsString()
-  @IsNotEmpty()
-  HOST: string;
-
-  @IsNumber()
-  PORT: number;
+  HOST: z.string().min(1),
+  PORT: z.preprocess(
+    (val) => parseInt(val as string, 10),
+    z.number().positive(),
+  ),
 
   // Database Settings
-  @IsString()
-  @IsNotEmpty()
-  DATABASE_URL: string;
+  DATABASE_URL: z.string().min(1),
 
   // OpenID Configuration
-  @IsUrl()
-  @IsNotEmpty()
-  OPENID_CONFIG_URL: string;
+  OPENID_CONFIG_URL: z.string().url(),
 
   // Azure OpenAI Settings
-  @IsString()
-  @IsNotEmpty()
-  AZURE_OPENAI_API_KEY: string;
+  AZURE_OPENAI_API_KEY: z.string().min(1),
+  AZURE_OPENAI_ENDPOINT: z.string().url(),
+  AZURE_OPENAI_API_VERSION: z.string().min(1),
+  AZURE_OPENAI_DEPLOYMENT: z.string().min(1),
+  AZURE_OPENAI_DEPLOYMENT_MINI: z.string().min(1),
+  AZURE_OPENAI_MODEL: z.string().min(1),
 
-  @IsUrl()
-  @IsNotEmpty()
-  AZURE_OPENAI_ENDPOINT: string;
+  DATABASE_USE_SSL: z
+    .preprocess((val) => val === 'true' || val === true, z.boolean())
+    .default('false'),
 
-  @IsString()
-  @IsNotEmpty()
-  AZURE_OPENAI_API_VERSION: string;
+  EVOGENOM_API_URL: z.string().url(),
+  CONTENTFUL_ACCESS_TOKEN: z.string().min(1),
+  CONTENTFUL_SPACE_ID: z.string().min(1),
+});
 
-  @IsString()
-  @IsNotEmpty()
-  AZURE_OPENAI_DEPLOYMENT: string;
-
-  @IsString()
-  @IsNotEmpty()
-  AZURE_OPENAI_DEPLOYMENT_MINI: string;
-
-  @IsString()
-  @IsNotEmpty()
-  AZURE_OPENAI_MODEL: string;
-
-  @IsString()
-  @IsNotEmpty()
-  DATABASE_USE_SSL: string = 'false';
-}
-
-export type AppConfigType = InstanceType<typeof EnvConfig>;
+export type AppConfigType = z.infer<typeof EnvConfigSchema>;
 
 export const validate = (config: Record<string, unknown>) => {
-  const validatedConfig = plainToInstance(EnvConfig, config, {
-    enableImplicitConversion: true,
-  });
-  const errors = validateSync(validatedConfig, {
-    skipMissingProperties: false,
-  });
+  const result = EnvConfigSchema.safeParse(config);
 
-  if (errors.length > 0) {
-    throw new Error(errors.toString());
+  if (!result.success) {
+    throw new Error(result.error.toString());
   }
-  return validatedConfig;
+
+  return result.data;
 };

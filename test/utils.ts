@@ -2,13 +2,13 @@ import { ClsPluginTransactional } from '@nestjs-cls/transactional';
 import { TransactionalAdapterDrizzleOrm } from '@nestjs-cls/transactional-adapter-drizzle-orm';
 import { ModuleMetadata } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { Test, TestingModule, TestingModuleOptions } from '@nestjs/testing';
+import { Test, TestingModuleOptions } from '@nestjs/testing';
 import { ClsModule } from 'nestjs-cls';
 import { DbModule } from 'src/db/db.module';
 import { DRIZZLE_INSTANCE } from 'src/db/drizzle.provider';
 import { validate } from '../src/config';
 
-export const createTestingModuleWithDb = async (
+export const createTestingModuleWithDb = (
   metadata: ModuleMetadata,
   options?: TestingModuleOptions,
 ) => {
@@ -32,10 +32,5 @@ export const createTestingModuleWithDb = async (
 
     ...(metadata.imports || []),
   ];
-  const module: TestingModule = await Test.createTestingModule(
-    metadata,
-    options,
-  ).compile();
-
-  return module;
+  return Test.createTestingModule(metadata, options);
 };
