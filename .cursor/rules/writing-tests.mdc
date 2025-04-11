@@ -1,11 +1,11 @@
 ---
 description: Guidelines for writing tests
 globs: **/*.ts
+alwaysApply: false
 ---
 Tools: 
-- jest
+- vitest
 - nock
-- jest-mock-extended
 
 * Write behaviour driven tests ie. describe('when ...'), beforeEach( initialize test setting), it('should do xyz')
 * always use a real database for testing

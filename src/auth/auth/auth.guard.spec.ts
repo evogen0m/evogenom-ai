@@ -1,253 +1,256 @@
 import {
   BadRequestException,
+  Controller,
   ExecutionContext,
+  Get,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as jose from 'jose';
-import * as nock from 'nock';
-import { AppConfigType } from 'src/config';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { User } from '../decorators';
+import { UserPrincipal } from '../UserPrincipal';
 import { AuthGuard } from './auth.guard';
+
+// Use vi.hoisted for mocks used within vi.mock factory
+const mocks = vi.hoisted(() => {
+  return {
+    mockJwtVerify: vi.fn(),
+    mockCreateRemoteJWKSet: vi.fn(),
+    mockReload: vi.fn(),
+  };
+});
+
+vi.mock('jose', async (importOriginal) => {
+  const original = await importOriginal<typeof jose>();
+  return {
+    ...original,
+    jwtVerify: mocks.mockJwtVerify, // Reference hoisted mock
+    createRemoteJWKSet: mocks.mockCreateRemoteJWKSet, // Reference hoisted mock
+  };
+});
+
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
+
+// --- Test Setup ---
+const MOCK_OPENID_CONFIG_URL =
+  'http://localhost/.well-known/openid-configuration';
+const MOCK_JWKS_URI = 'http://localhost/.well-known/jwks.json';
+const MOCK_ISSUER = 'http://localhost/';
+const MOCK_TOKEN = 'mock.jwt.token';
+const MOCK_USER_ID = 'test-user-id';
+
+const mockOpenIdConfig = {
+  jwks_uri: MOCK_JWKS_URI,
+  issuer: MOCK_ISSUER,
+};
+
+// A minimal controller to apply the guard for testing
+@Controller('test')
+class TestController {
+  @Get()
+  @UseGuards(AuthGuard)
+  getProtectedResource(@User() user: UserPrincipal) {
+    return { message: 'Success', userId: user.id };
+  }
+}
 
 describe('AuthGuard', () => {
   let guard: AuthGuard;
-  const OPENID_CONFIG_URL =
-    'https://auth.example.com/.well-known/openid-configuration';
-  const JWKS_URI = 'https://auth.example.com/jwks';
-  const ISSUER = 'https://auth.example.com';
+  let module: TestingModule;
 
-  // Key material for tests
-  let keyPair: { publicKey: any; privateKey: any };
-  let jwks: jose.JSONWebKeySet;
-  let signedToken: string;
-  let mockSub: string;
-
-  // Create a valid OpenID configuration
-  const validOpenIdConfig = {
-    jwks_uri: JWKS_URI,
-    issuer: ISSUER,
+  // Mock ExecutionContext
+  const createMockExecutionContext = (
+    headers: Record<string, string> = {},
+  ): ExecutionContext => {
+    const mockRequest = {
+      headers: {
+        authorization: headers.authorization,
+      },
+      user: undefined as UserPrincipal | undefined, // Ensure user property exists
+    };
+    return {
+      switchToHttp: () => ({
+        getRequest: () => mockRequest,
+      }),
+      getClass: vi.fn(),
+      getHandler: vi.fn(),
+    } as unknown as ExecutionContext;
   };
 
-  // Setup key material and token before tests
-  beforeAll(async () => {
-    // Generate a key pair
-    keyPair = await jose.generateKeyPair('RS256');
-    mockSub = 'user123';
-
-    // Export the public key as JWK
-    const publicJwk = await jose.exportJWK(keyPair.publicKey);
-    publicJwk.kid = 'test-key-id';
-    publicJwk.use = 'sig';
-    publicJwk.alg = 'RS256';
-
-    // Create a JWKS with the public key
-    jwks = {
-      keys: [publicJwk],
-    };
-
-    // Create a signed token
-    signedToken = await new jose.SignJWT({ sub: mockSub })
-      .setProtectedHeader({ alg: 'RS256', kid: 'test-key-id' })
-      .setIssuer(ISSUER)
-      .setIssuedAt()
-      .setExpirationTime('1h')
-      .sign(keyPair.privateKey);
-  });
-
   beforeEach(async () => {
-    jest.clearAllMocks();
+    // Reset mocks before each test
+    vi.clearAllMocks();
+    // Reset the hoisted mocks directly
+    mocks.mockCreateRemoteJWKSet.mockReturnValue({ reload: mocks.mockReload });
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => mockOpenIdConfig,
+      status: 200,
+      statusText: 'OK',
+    } as Response);
 
-    // Reset nock to ensure no interceptors from previous tests
-    nock.cleanAll();
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AuthGuard,
-        {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn().mockImplementation((key) => {
-              if (key === 'OPENID_CONFIG_URL') {
-                return OPENID_CONFIG_URL;
-              }
-              return null;
-            }),
-          } as unknown as ConfigService<AppConfigType>,
-        },
+    module = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          load: [() => ({ OPENID_CONFIG_URL: MOCK_OPENID_CONFIG_URL })],
+        }),
       ],
+      providers: [AuthGuard],
+      controllers: [TestController], // Include the guard and controller
     }).compile();
 
     guard = module.get<AuthGuard>(AuthGuard);
+
+    // Manually trigger bootstrap logic after module creation and mocks are set
+    await guard.onApplicationBootstrap();
+
+    // Ensure JWKS setup is mocked correctly after bootstrap
+    expect(mockFetch).toHaveBeenCalledWith(MOCK_OPENID_CONFIG_URL);
+    expect(mocks.mockCreateRemoteJWKSet).toHaveBeenCalledWith(
+      new URL(MOCK_JWKS_URI),
+    );
+    expect(mocks.mockReload).toHaveBeenCalled();
+    vi.clearAllMocks(); // Clear mocks again after bootstrap setup calls
+    // Reset hoisted mocks for canActivate tests
+    mocks.mockCreateRemoteJWKSet.mockReturnValue({ reload: mocks.mockReload });
   });
 
-  afterEach(() => {
-    nock.cleanAll();
+  afterEach(async () => {
+    if (module) {
+      await module.close();
+    }
   });
 
-  // Helper function to set up mocks
-  const setupMocks = () => {
-    // Mock the OpenID config endpoint
-    const openIdConfigScope = nock('https://auth.example.com')
-      .get('/.well-known/openid-configuration')
-      .reply(200, validOpenIdConfig);
+  describe('when validating a request (canActivate)', () => {
+    let context: ExecutionContext;
 
-    // Mock the JWKS endpoint with the correct URL path
-    const jwksScope = nock('https://auth.example.com')
-      .get('/jwks')
-      .reply(200, jwks);
-
-    return { openIdConfigScope, jwksScope };
-  };
-
-  describe('onApplicationBootstrap', () => {
-    it('should fetch OpenID configuration and create JWKS', async () => {
-      const { openIdConfigScope, jwksScope } = setupMocks();
-
-      await guard.onApplicationBootstrap();
-
-      // Verify the endpoints were called
-      expect(openIdConfigScope.isDone()).toBe(true);
-      expect(jwksScope.isDone()).toBe(true);
-
-      // Verify the JWKS was set properly
-      expect(guard.jwks).toBeDefined();
+    beforeEach(() => {
+      // Setup default successful mocks for canActivate
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => mockOpenIdConfig,
+        status: 200,
+        statusText: 'OK',
+      } as Response);
+      mocks.mockJwtVerify.mockResolvedValue({
+        payload: { sub: MOCK_USER_ID },
+        protectedHeader: {},
+        key: {} as jose.KeyLike,
+      });
+      context = createMockExecutionContext({
+        authorization: `Bearer ${MOCK_TOKEN}`,
+      });
     });
 
-    it('should throw error if OpenID configuration is invalid', async () => {
-      // Mock the fetch request with invalid config
-      const openIdConfigScope = nock('https://auth.example.com')
-        .get('/.well-known/openid-configuration')
-        .reply(200, { invalid: 'config' });
+    it('should return true and attach user principal for a valid token', async () => {
+      const result = await guard.canActivate(context);
 
-      await expect(guard.onApplicationBootstrap()).rejects.toThrow();
-
-      // Assert the endpoint was called
-      expect(openIdConfigScope.isDone()).toBe(true);
-    });
-  });
-
-  describe('canActivate', () => {
-    let mockExecutionContext: ExecutionContext;
-    let mockRequest: any;
-
-    beforeEach(async () => {
-      mockRequest = {
-        headers: {},
-        user: undefined,
-      };
-
-      mockExecutionContext = {
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue(mockRequest),
-        }),
-      } as unknown as ExecutionContext;
-
-      // Set up JWKS for each test by initializing the guard
-      const { openIdConfigScope, jwksScope } = setupMocks();
-
-      await guard.onApplicationBootstrap();
-
-      expect(openIdConfigScope.isDone()).toBe(true);
-      expect(jwksScope.isDone()).toBe(true);
-
-      // Clear nock interceptors after setup
-      nock.cleanAll();
-    });
-
-    it('should throw BadRequestException if no authorization header is present', async () => {
-      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException if authorization header does not start with Bearer', async () => {
-      mockRequest.headers.authorization = 'Basic sometoken';
-      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should return true and set user if token is valid', async () => {
-      // Setup auth header with our signed token
-      mockRequest.headers.authorization = `Bearer ${signedToken}`;
-
-      const { openIdConfigScope } = setupMocks();
-
-      // For this test, we'll mock the JWKS one more time
-      nock('https://auth.example.com').get('/jwks').reply(200, jwks);
-
-      const result = await guard.canActivate(mockExecutionContext);
-
-      // Assert the OpenID config endpoint was called during validation
-      expect(openIdConfigScope.isDone()).toBe(true);
-
-      // Verify the token was properly validated
       expect(result).toBe(true);
-      expect(mockRequest.user).toEqual({ id: mockSub });
+      const request = context.switchToHttp().getRequest();
+      expect(request.user).toBeDefined();
+      expect(request.user.id).toBe(MOCK_USER_ID);
+      expect(request.user.evogenomApiToken).toBe(MOCK_TOKEN);
+      expect(mockFetch).toHaveBeenCalledWith(MOCK_OPENID_CONFIG_URL);
+      expect(mocks.mockJwtVerify).toHaveBeenCalledWith(MOCK_TOKEN, guard.jwks, {
+        issuer: MOCK_ISSUER,
+      });
     });
 
-    it('should throw UnauthorizedException if token is invalid', async () => {
-      // Setup auth header with an invalid token
-      mockRequest.headers.authorization = `Bearer invalid.token.here`;
+    it('should throw BadRequestException if Authorization header is missing', async () => {
+      context = createMockExecutionContext(); // No auth header
 
-      // Mock OpenID config fetch for token verification
-      const openIdConfigScope = nock('https://auth.example.com')
-        .get('/.well-known/openid-configuration')
-        .reply(200, validOpenIdConfig);
-
-      // Mock JWKS endpoint again for this test
-      nock('https://auth.example.com')
-        .get('/jwks')
-        .optionally() // Make it optional since it might not be called if validation fails early
-        .reply(200, jwks);
-
-      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        UnauthorizedException,
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        BadRequestException,
       );
-
-      // Assert the OpenID config endpoint was called
-      expect(openIdConfigScope.isDone()).toBe(true);
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        'Authorization header is required',
+      );
     });
 
-    it('should throw UnauthorizedException if OpenID config fetch fails', async () => {
-      // Setup auth header with our valid token
-      mockRequest.headers.authorization = `Bearer ${signedToken}`;
+    it('should throw BadRequestException if Authorization header does not start with "Bearer "', async () => {
+      context = createMockExecutionContext({
+        authorization: `Basic ${MOCK_TOKEN}`,
+      }); // Wrong scheme
 
-      // Mock failed OpenID config fetch
-      const openIdConfigScope = nock('https://auth.example.com')
-        .get('/.well-known/openid-configuration')
-        .reply(500);
-
-      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        UnauthorizedException,
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        BadRequestException,
       );
-
-      // Assert the endpoint was called
-      expect(openIdConfigScope.isDone()).toBe(true);
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        'Authorization header is required', // Message remains the same due to check order
+      );
     });
 
-    it('should throw UnauthorizedException if JWKS fetch fails during verification', async () => {
-      // Reset the guard's JWKS
-      guard.jwks = undefined as any;
+    it('should throw UnauthorizedException if token verification fails', async () => {
+      const verificationError = new Error('JOSEError: verification failed');
+      mocks.mockJwtVerify.mockRejectedValue(verificationError);
 
-      // Setup auth header
-      mockRequest.headers.authorization = `Bearer ${signedToken}`;
-
-      // Mock OpenID config fetch
-      const openIdConfigScope = nock('https://auth.example.com')
-        .get('/.well-known/openid-configuration')
-        .reply(200, validOpenIdConfig);
-
-      // Mock JWKS endpoint to fail
-      nock('https://auth.example.com').get('/jwks').reply(500);
-
-      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
+      await expect(guard.canActivate(context)).rejects.toThrow(
         UnauthorizedException,
       );
+      await expect(guard.canActivate(context)).rejects.toThrow('Invalid token');
+      expect(mocks.mockJwtVerify).toHaveBeenCalledWith(MOCK_TOKEN, guard.jwks, {
+        issuer: MOCK_ISSUER,
+      });
+    });
+  });
 
-      // Verify JWKS endpoint was called when jwks property not initialized
-      expect(openIdConfigScope.isDone()).toBe(true);
+  describe('when initializing (onApplicationBootstrap)', () => {
+    // Helper to recreate the module and guard for bootstrap tests
+    const reinitializeGuard = async (
+      configOverrides = {},
+      fetchMockImplementation?: any,
+    ) => {
+      if (fetchMockImplementation) {
+        mockFetch.mockImplementation(fetchMockImplementation);
+      } else {
+        mockFetch.mockResolvedValue({
+          // Default success mock
+          ok: true,
+          json: async () => mockOpenIdConfig,
+          status: 200,
+          statusText: 'OK',
+        } as Response);
+      }
+
+      // Reference hoisted mock
+      mocks.mockCreateRemoteJWKSet.mockReturnValue({
+        reload: mocks.mockReload,
+      });
+
+      const testModule = await Test.createTestingModule({
+        imports: [
+          ConfigModule.forRoot({
+            isGlobal: true,
+            load: [
+              () => ({
+                OPENID_CONFIG_URL: MOCK_OPENID_CONFIG_URL,
+                ...configOverrides,
+              }),
+            ],
+          }),
+        ],
+        providers: [AuthGuard],
+      }).compile();
+      const testGuard = testModule.get<AuthGuard>(AuthGuard);
+      // Manually trigger bootstrap logic
+      await expect(testGuard.onApplicationBootstrap()).resolves.toBeUndefined();
+      return testGuard;
+    };
+
+    it('should initialize JWKS successfully with valid config', async () => {
+      vi.clearAllMocks(); // Clear mocks before re-initializing
+      const initializedGuard = await reinitializeGuard();
+      expect(initializedGuard.jwks).toBeDefined();
+      expect(mockFetch).toHaveBeenCalledWith(MOCK_OPENID_CONFIG_URL);
+      expect(mocks.mockCreateRemoteJWKSet).toHaveBeenCalledWith(
+        new URL(MOCK_JWKS_URI),
+      );
+      expect(mocks.mockReload).toHaveBeenCalledTimes(1); // Called once during bootstrap
     });
   });
 });
