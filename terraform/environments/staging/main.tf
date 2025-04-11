@@ -80,11 +80,13 @@ module "ecs" {
   # Service discovery and environment variables
   db_credentials_secret_arn = module.rds.db_credentials_secret_arn
   environment_variables = {
-    APP_NAME          = "EvogenomAI"
-    DEBUG             = "false"
-    HOST              = "0.0.0.0"
-    PORT              = tostring(var.container_port)
-    OPENID_CONFIG_URL = var.openid_config_url
+    APP_NAME            = "EvogenomAI"
+    DEBUG               = "false"
+    HOST                = "0.0.0.0"
+    PORT                = tostring(var.container_port)
+    OPENID_CONFIG_URL   = var.openid_config_url
+    CONTENTFUL_SPACE_ID = "nslj8lsfnbof"
+    EVOGENOM_API_URL    = "https://vv2rx5jsf5girm2argm3qz2ts4.appsync-api.eu-west-1.amazonaws.com/graphql"
   }
 
   # Autoscaling configuration

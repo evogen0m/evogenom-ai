@@ -1,7 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import * as net from 'net';
 import { AddressInfo } from 'net';
-import * as request from 'supertest';
+import request from 'supertest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { bootstrap } from './main';
 
 const checkAvailablePort = (options) =>

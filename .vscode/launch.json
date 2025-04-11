@@ -6,9 +6,9 @@
   "configurations": [
     {
       "type": "node-terminal",
-      "name": "Run Script: start:debug",
+      "name": "Run Script: debug",
       "request": "launch",
-      "command": "pnpm run start:debug",
+      "command": "pnpm run debug",
       "cwd": "${workspaceFolder}"
     }
   ]

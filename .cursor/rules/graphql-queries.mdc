@@ -1,0 +1,7 @@
+---
+description: GraphQL rules and helpful tips when writing graphql queries
+globs: 
+alwaysApply: false
+---
+
+* Use generated sdk defined [request.ts](mdc:src/evogenom-api-client/generated/request.ts)

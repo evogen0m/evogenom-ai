@@ -3,11 +3,11 @@ import { TransactionalAdapterDrizzleOrm } from '@nestjs-cls/transactional-adapte
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ClsModule } from 'nestjs-cls';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { validate } from './config';
+import { ContentfulApiClient } from './contentful/contentful-api-client';
+import { ContentfulModule } from './contentful/contentful.module';
 import { DbModule } from './db/db.module';
 import { DRIZZLE_INSTANCE } from './db/drizzle.provider';
 import { OpenAIModule } from './openai/openai.module';
@@ -34,8 +34,9 @@ import { OpenAIModule } from './openai/openai.module';
     }),
     AuthModule,
     OpenAIModule,
+    ContentfulModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [],
+  providers: [ContentfulApiClient],
 })
 export class AppModule {}

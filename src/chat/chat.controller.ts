@@ -81,27 +81,35 @@ export class ChatController {
   ): Observable<MessageEvent> {
     let eventId = 0;
     this.logger.debug(`Creating chat stream for user ${user.id}`);
-    return rxjs.from(this.chatService.createChatStream(query, user.id)).pipe(
-      rxjs.map((event) => {
-        eventId++;
-        return {
-          event: 'message',
-          data: event,
-          id: eventId.toString(),
-        };
-      }),
-      rxjs.catchError((error) => {
-        this.logger.error('Error in chat stream', error);
-        return rxjs.of({
-          event: 'error',
-          data: {
-            message:
-              error.message || 'An error occurred during chat processing',
-          },
-          id: (++eventId).toString(),
-        });
-      }),
-    );
+    return rxjs
+      .from(
+        this.chatService.createChatStream(
+          query,
+          user.id,
+          user.evogenomApiToken,
+        ),
+      )
+      .pipe(
+        rxjs.map((event) => {
+          eventId++;
+          return {
+            event: 'message',
+            data: event,
+            id: eventId.toString(),
+          };
+        }),
+        rxjs.catchError((error) => {
+          this.logger.error('Error in chat stream', error);
+          return rxjs.of({
+            event: 'error',
+            data: {
+              message:
+                error.message || 'An error occurred during chat processing',
+            },
+            id: (++eventId).toString(),
+          });
+        }),
+      );
   }
 
   @Get('/messages')

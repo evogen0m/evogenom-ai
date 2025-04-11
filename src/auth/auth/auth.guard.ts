@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import * as jose from 'jose';
 import { AppConfigType } from 'src/config';
 import { z } from 'zod';
+import { UserPrincipal } from '../UserPrincipal';
 const openIdConfigSchema = z.object({
   jwks_uri: z.string().url(),
   issuer: z.string().url(),
@@ -40,7 +41,10 @@ export class AuthGuard implements CanActivate, OnApplicationBootstrap {
       const { payload } = await jose.jwtVerify(token, this.jwks, {
         issuer: openIdConfig.issuer,
       });
-      request.user = { id: payload.sub };
+      request.user = {
+        id: payload.sub,
+        evogenomApiToken: token,
+      } as UserPrincipal;
       return true;
     } catch (error) {
       this.logger.warn('Error verifying token', error);
