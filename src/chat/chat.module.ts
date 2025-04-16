@@ -5,9 +5,10 @@ import { OpenAIModule } from 'src/openai/openai.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat/chat.service';
 import { PromptService } from './chat/prompt.service';
+import { MemoryTool } from './tool/memory-tool';
 @Module({
   controllers: [ChatController],
-  providers: [ChatService, PromptService],
+  providers: [ChatService, PromptService, MemoryTool],
   imports: [OpenAIModule, EvogenomApiClientModule, ContentfulModule],
 })
 export class ChatModule {}

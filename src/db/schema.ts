@@ -1,10 +1,11 @@
 import {
   index,
+  jsonb,
   pgTable,
-  serial,
   text,
   timestamp,
   uuid,
+  vector,
 } from 'drizzle-orm/pg-core';
 
 // Base tables with common fields
@@ -42,10 +43,18 @@ export const chatMessages = pgTable(
     content: text('content').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-    rank: serial('rank').notNull(),
+    // Stores tool call requests (as array) for assistant messages
+    // or the tool call ID for tool result messages.
+    toolData: jsonb('tool_data'), // Nullable jsonb column
+    // Embeddings are not indexed since pgvector does not support multiple columns in the same index
+    // It's better to use userId index for filtering
+    embedding: vector('embedding', {
+      dimensions: 1536,
+    }),
   },
   (t) => [
     index('chat_message_chat_id_index').on(t.chatId),
     index('chat_message_user_id_index').on(t.userId),
+    index('chat_message_user_id_created_at_index').on(t.userId, t.createdAt),
   ],
 );

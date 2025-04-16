@@ -29,6 +29,7 @@ import { OpenAIModule } from './openai/openai.module';
           adapter: new TransactionalAdapterDrizzleOrm({
             drizzleInstanceToken: DRIZZLE_INSTANCE,
           }),
+          enableTransactionProxy: true,
         }),
       ],
     }),

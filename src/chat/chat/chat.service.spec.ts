@@ -1,81 +1,21 @@
-import { TransactionHost } from '@nestjs-cls/transactional';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { sql } from 'drizzle-orm';
-import { chats, users } from 'src/db';
+import { chatMessages, chats, users } from 'src/db';
 import { DRIZZLE_INSTANCE, DrizzleInstanceType } from 'src/db/drizzle.provider';
 import { createTestingModuleWithDb } from 'test/utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpenAiProvider } from '../../openai/openai';
-import {
-  ChatEventResponse,
-  ChatMessageResponse,
-  ChatRequest,
-} from '../dto/chat';
+import { ChatEventResponse, ChatRequest } from '../dto/chat';
+import { MemoryTool } from '../tool/memory-tool';
+import { Tool } from '../tool/tool';
 import { ChatService } from './chat.service';
 import { PromptService } from './prompt.service';
 
-// Create a testable version of ChatService without relying on @Transactional
-class TestableService extends ChatService {
-  constructor(
-    private openAiProviderMock: OpenAiProvider,
-    private txHostMock: any,
-    private configServiceMock: ConfigService<any>,
-    private promptServiceMock: PromptService,
-  ) {
-    super(openAiProviderMock, txHostMock, configServiceMock, promptServiceMock);
-  }
-
-  // Override methods that use @Transactional to use our mocks directly
-  async ensureUserExists(userId: string) {
-    const mockTx = this.txHostMock.tx;
-    const user = await mockTx.query.users.findFirst({
-      where: expect.anything(),
-    });
-
-    if (!user) {
-      await mockTx.insert(users).values({ id: userId }).returning();
-    }
-  }
-
-  async getOrCreateChat(userId: string) {
-    const mockTx = this.txHostMock.tx;
-    const chat = await mockTx.query.chats.findFirst({
-      where: expect.anything(),
-    });
-
-    if (!chat) {
-      const id = randomUUID();
-      return await mockTx
-        .insert(chats)
-        .values({
-          id,
-          userId,
-        })
-        .returning()
-        .then(([chat]) => chat);
-    }
-
-    return chat;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async getMessages(_userId: string): Promise<ChatMessageResponse[]> {
-    const mockTx = this.txHostMock.tx;
-    const messages = await mockTx.query.chatMessages.findMany({
-      where: expect.anything(),
-      orderBy: expect.anything(),
-    });
-
-    return messages.map((message) => ({ ...message }));
-  }
-}
-
 describe('ChatService', () => {
-  let service: TestableService;
+  let service: ChatService;
   let openAiProvider: OpenAiProvider;
   let dbClient: DrizzleInstanceType;
-  let mockTx: any;
 
   const mockOpenAiClient = {
     chat: {
@@ -83,43 +23,25 @@ describe('ChatService', () => {
         create: vi.fn(),
       },
     },
+    embeddings: {
+      create: vi.fn().mockResolvedValue({
+        data: [{ embedding: [0.1, 0.2, 0.3] }],
+      }),
+    },
   };
 
   beforeEach(async () => {
     // Reset mocks
     vi.clearAllMocks();
 
-    // Set up all mocks
-    mockTx = {
-      query: {
-        users: {
-          findFirst: vi.fn(),
-          findMany: vi.fn(),
-        },
-        chats: {
-          findFirst: vi.fn(),
-          findMany: vi.fn(),
-        },
-        chatMessages: {
-          findFirst: vi.fn(),
-          findMany: vi.fn(),
-        },
-      },
-      insert: vi.fn().mockReturnThis(),
-      values: vi.fn().mockReturnThis(),
-      returning: vi.fn().mockImplementation(function () {
-        return Promise.resolve([{ id: 'mock-id', userId: 'mock-user-id' }]);
-      }),
-    };
-
-    // Create transaction host mock
-    const mockTxHost = {
-      tx: mockTx,
-    } as any;
-
-    // Mock OpenAI provider
+    // Create a 1536-dimensional embedding array for testing
+    const mockEmbedding = Array(1536)
+      .fill(0)
+      .map((_, i) => (i % 10) * 0.1);
+    // Set up OpenAI mock
     openAiProvider = {
       getOpenAiClient: vi.fn().mockReturnValue(mockOpenAiClient),
+      generateEmbedding: vi.fn().mockResolvedValue(mockEmbedding),
     } as unknown as OpenAiProvider;
 
     const mockPromptService = {
@@ -129,29 +51,35 @@ describe('ChatService', () => {
     const mockConfigService = {
       getOrThrow: vi.fn().mockImplementation((key) => {
         if (key === 'AZURE_OPENAI_MODEL') return 'mock-model';
+        if (key === 'AZURE_OPENAI_EMBEDDING_MODEL')
+          return 'text-embedding-3-small';
         return 'mock-value';
       }),
     };
 
+    const mockToolDefinition = {
+      type: 'function',
+      function: {
+        name: 'memory',
+        description: 'A tool for memory',
+        parameters: {
+          type: 'object',
+        },
+      },
+    };
+
+    const mockMemoryTool: Tool = vi.mocked({
+      execute: vi.fn(),
+      canExecute: vi.fn(),
+      toolDefinition: mockToolDefinition as any,
+    });
+
     const moduleBuilder = createTestingModuleWithDb({
       providers: [
-        {
-          provide: ChatService,
-          useFactory: () =>
-            new TestableService(
-              openAiProvider,
-              mockTxHost,
-              mockConfigService as any,
-              mockPromptService as any,
-            ),
-        },
+        ChatService,
         {
           provide: OpenAiProvider,
           useValue: openAiProvider,
-        },
-        {
-          provide: TransactionHost,
-          useValue: mockTxHost,
         },
         {
           provide: ConfigService,
@@ -161,15 +89,18 @@ describe('ChatService', () => {
           provide: PromptService,
           useValue: mockPromptService,
         },
+        { provide: MemoryTool, useValue: mockMemoryTool },
       ],
     });
 
     const module = await moduleBuilder.compile(); // Compile the module
 
-    service = module.get<TestableService>(ChatService as any);
+    service = module.get<ChatService>(ChatService);
     dbClient = module.get<DrizzleInstanceType>(DRIZZLE_INSTANCE);
 
     // Clear test database tables before each test
+    await dbClient.execute(sql`TRUNCATE TABLE chat_message CASCADE`);
+    await dbClient.execute(sql`TRUNCATE TABLE chat CASCADE`);
     await dbClient.execute(sql`TRUNCATE TABLE users CASCADE`);
   });
 
@@ -179,110 +110,109 @@ describe('ChatService', () => {
 
   describe('ensureUserExists', () => {
     it('should create a user if it does not exist', async () => {
-      // Setup
-      mockTx.query.users.findFirst.mockResolvedValueOnce(null);
-      mockTx.insert.mockReturnThis();
-      mockTx.values.mockReturnThis();
-      mockTx.returning.mockResolvedValueOnce([{ id: 'test-user-id' }]);
-
       // Execute
-      const userId = 'test-user-id';
+      const userId = randomUUID();
       await service.ensureUserExists(userId);
 
       // Verify
-      expect(mockTx.query.users.findFirst).toHaveBeenCalledWith({
-        where: expect.anything(),
+      const createdUser = await dbClient.query.users.findFirst({
+        where: (users, { eq }) => eq(users.id, userId),
       });
-      expect(mockTx.insert).toHaveBeenCalledWith(users);
-      expect(mockTx.values).toHaveBeenCalledWith({ id: userId });
+      expect(createdUser).toBeDefined();
+      expect(createdUser?.id).toEqual(userId);
     });
 
     it('should not create a duplicate user if it already exists', async () => {
       // Setup
-      const userId = 'existing-user-id';
-      mockTx.query.users.findFirst.mockResolvedValueOnce({ id: userId });
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
 
       // Execute
       await service.ensureUserExists(userId);
 
-      // Verify
-      expect(mockTx.query.users.findFirst).toHaveBeenCalledWith({
-        where: expect.anything(),
-      });
-      expect(mockTx.insert).not.toHaveBeenCalled();
+      // Verify - should still have only one user
+      const userCount = await dbClient
+        .select({ count: sql`count(*)` })
+        .from(users)
+        .where(sql`id = ${userId}`);
+      expect(Number(userCount[0].count)).toEqual(1);
     });
   });
 
   describe('getOrCreateChat', () => {
     it('should create a new chat for a user', async () => {
-      // Setup
-      mockTx.query.chats.findFirst.mockResolvedValueOnce(null);
-      const chatId = randomUUID();
-      mockTx.insert.mockReturnThis();
-      mockTx.values.mockReturnThis();
-      mockTx.returning.mockResolvedValueOnce([
-        { id: chatId, userId: 'test-user-id' },
-      ]);
+      // Setup - insert user first
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
 
       // Execute
-      const userId = 'test-user-id';
       const chat = await service.getOrCreateChat(userId);
 
       // Verify
-      expect(chat.userId).toEqual('test-user-id');
-      expect(mockTx.query.chats.findFirst).toHaveBeenCalledWith({
-        where: expect.anything(),
+      expect(chat.userId).toEqual(userId);
+      const createdChat = await dbClient.query.chats.findFirst({
+        where: (chats, { eq }) => eq(chats.userId, userId),
       });
-      expect(mockTx.insert).toHaveBeenCalledWith(chats);
+      expect(createdChat).toBeDefined();
+      expect(createdChat?.id).toEqual(chat.id);
     });
 
     it('should return existing chat if one exists', async () => {
       // Setup
-      const existingChat = { id: 'existing-chat-id', userId: 'test-user-id' };
-      mockTx.query.chats.findFirst.mockResolvedValueOnce(existingChat);
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+      const chatId = randomUUID();
+      const existingChat = await dbClient
+        .insert(chats)
+        .values({ id: chatId, userId })
+        .returning()
+        .then((rows) => rows[0]);
 
       // Execute
-      const userId = 'test-user-id';
       const chat = await service.getOrCreateChat(userId);
 
       // Verify
-      expect(chat).toEqual(existingChat);
-      expect(mockTx.query.chats.findFirst).toHaveBeenCalledWith({
-        where: expect.anything(),
-      });
-      expect(mockTx.insert).not.toHaveBeenCalled();
+      expect(chat.id).toEqual(existingChat.id);
+      expect(chat.userId).toEqual(userId);
     });
   });
 
   describe('getMessages', () => {
     it('should return messages for a user', async () => {
       // Setup
-      const messages = [
+      const userId = randomUUID();
+      const chatId = randomUUID();
+
+      // Insert user and chat
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      // Insert messages
+      await dbClient.insert(chatMessages).values([
         {
-          id: '1',
+          id: randomUUID(),
           role: 'assistant',
           content: 'Hi there',
           createdAt: new Date(),
-          userId: 'test-user-id',
-          chatId: 'chat-id',
+          userId,
+          chatId,
         },
         {
-          id: '2',
+          id: randomUUID(),
           role: 'user',
           content: 'Hello',
           createdAt: new Date(Date.now() - 1000),
-          userId: 'test-user-id',
-          chatId: 'chat-id',
+          userId,
+          chatId,
         },
-      ];
-      mockTx.query.chatMessages.findMany.mockResolvedValueOnce(messages);
+      ]);
 
       // Execute
-      const userId = 'test-user-id';
       const result = await service.getMessages(userId);
 
       // Verify
       expect(result.length).toEqual(2);
+      // The result is ordered by createdAt DESC, so most recent first
       expect(result[0].role).toEqual('assistant');
       expect(result[0].content).toEqual('Hi there');
       expect(result[1].role).toEqual('user');
@@ -291,10 +221,10 @@ describe('ChatService', () => {
 
     it('should return empty array when no messages exist', async () => {
       // Setup
-      mockTx.query.chatMessages.findMany.mockResolvedValueOnce([]);
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
 
       // Execute
-      const userId = 'test-user-id';
       const result = await service.getMessages(userId);
 
       // Verify
@@ -305,21 +235,18 @@ describe('ChatService', () => {
   describe('createChatStream', () => {
     it('should stream chat responses and save messages', async () => {
       // Setup
-      const userId = 'test-user-id';
+      const userId = randomUUID();
       const streamingResponse = [
         { id: 'chunk1', choices: [{ delta: { content: 'Hello' } }] },
         { id: 'chunk2', choices: [{ delta: { content: ' world' } }] },
         { id: 'chunk3', choices: [{ delta: { content: '!' } }] },
       ];
 
+      // Insert user
+      await dbClient.insert(users).values({ id: userId });
+
       // Configure mocks for this test
       (openAiProvider.getOpenAiClient as any).mockReturnValue(mockOpenAiClient);
-      mockTx.query.users.findFirst.mockResolvedValueOnce({ id: userId });
-      mockTx.query.chats.findFirst.mockResolvedValueOnce({
-        id: 'chat-id',
-        userId,
-      });
-      mockTx.query.chatMessages.findMany.mockResolvedValueOnce([]);
 
       // Mock the streaming behavior
       mockOpenAiClient.chat.completions.create.mockResolvedValue({
@@ -329,21 +256,6 @@ describe('ChatService', () => {
           }
         },
       } as any);
-
-      mockTx.insert.mockReturnThis();
-      mockTx.values.mockReturnThis();
-      mockTx.returning.mockImplementation(() =>
-        Promise.resolve([
-          {
-            id: 'message-id',
-            content: 'Hello world!',
-            role: 'assistant',
-            createdAt: new Date(),
-            chatId: 'chat-id',
-            userId,
-          },
-        ]),
-      );
 
       // Create the chat request
       const request: ChatRequest = { content: 'Hi there' };
@@ -376,25 +288,38 @@ describe('ChatService', () => {
       expect(events[3].event).toEqual('message');
       expect((events[3] as any).content).toEqual('Hello world!');
       expect((events[3] as any).role).toEqual('assistant');
+
+      // Verify message was saved to the database
+      const savedMessages = await dbClient.query.chatMessages.findMany({
+        where: (messages, { eq }) => eq(messages.userId, userId),
+      });
+      expect(savedMessages.length).toEqual(2); // One user message and one assistant message
+      expect(
+        savedMessages.some(
+          (m) => m.role === 'user' && m.content === 'Hi there',
+        ),
+      ).toBeTruthy();
+      expect(
+        savedMessages.some(
+          (m) => m.role === 'assistant' && m.content === 'Hello world!',
+        ),
+      ).toBeTruthy();
     });
 
     it('should handle empty chunks correctly', async () => {
       // Setup
-      const userId = 'test-user-id';
+      const userId = randomUUID();
       const streamingResponse = [
         { id: 'chunk1', choices: [{ delta: {} }] },
         { id: 'chunk2', choices: [{ delta: { content: 'Hello' } }] },
         { id: 'chunk3', choices: [{ delta: {} }] },
       ];
 
+      // Insert user
+      await dbClient.insert(users).values({ id: userId });
+
       // Configure mocks for this test
       (openAiProvider.getOpenAiClient as any).mockReturnValue(mockOpenAiClient);
-      mockTx.query.users.findFirst.mockResolvedValueOnce({ id: userId });
-      mockTx.query.chats.findFirst.mockResolvedValueOnce({
-        id: 'chat-id',
-        userId,
-      });
-      mockTx.query.chatMessages.findMany.mockResolvedValueOnce([]);
 
       // Mock the streaming behavior
       mockOpenAiClient.chat.completions.create.mockResolvedValue({
@@ -404,21 +329,6 @@ describe('ChatService', () => {
           }
         },
       } as any);
-
-      mockTx.insert.mockReturnThis();
-      mockTx.values.mockReturnThis();
-      mockTx.returning.mockImplementation(() =>
-        Promise.resolve([
-          {
-            id: 'message-id',
-            content: 'Hello',
-            role: 'assistant',
-            createdAt: new Date(),
-            chatId: 'chat-id',
-            userId,
-          },
-        ]),
-      );
 
       // Create the chat request
       const request: ChatRequest = { content: 'Hi there' };
@@ -441,6 +351,698 @@ describe('ChatService', () => {
       expect(events[0].event).toEqual('chunk');
       expect((events[0] as any).chunk).toEqual('Hello');
       expect(events[1].event).toEqual('message');
+
+      // Verify messages saved to database
+      const savedMessages = await dbClient.query.chatMessages.findMany({
+        where: (messages, { eq }) => eq(messages.userId, userId),
+      });
+      expect(savedMessages.length).toEqual(2); // One user message and one assistant message
+    });
+
+    it('should handle tool calls and execute them', async () => {
+      // Setup
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      const toolCallId = 'tool-call-123';
+
+      // Insert user and chat
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      // Mock tool execution
+      const mockToolResult = 'This is the memory tool result';
+      const mockMemoryTool = service['tools'][0];
+      (mockMemoryTool.execute as any).mockResolvedValue(mockToolResult);
+
+      // Setup first streaming response with tool calls
+      const firstStreamResponse = [
+        {
+          id: 'chunk1',
+          choices: [
+            {
+              delta: {
+                role: 'assistant',
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: toolCallId,
+                    function: { name: 'memory' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          id: 'chunk2',
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    index: 0,
+                    function: { arguments: '{"query":"' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          id: 'chunk3',
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    index: 0,
+                    function: { arguments: 'test query"}' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ];
+
+      // Setup second streaming response after tool execution
+      const secondStreamResponse = [
+        {
+          id: 'chunk4',
+          choices: [{ delta: { content: 'Based on my memory: ' } }],
+        },
+        { id: 'chunk5', choices: [{ delta: { content: mockToolResult } }] },
+      ];
+
+      // Mock the streaming behavior to first return tool calls, then regular content
+      mockOpenAiClient.chat.completions.create.mockImplementation((params) => {
+        // Check if this is the second call (after tool execution)
+        const isSecondCall = params.messages.some(
+          (msg) =>
+            msg.role === 'tool' &&
+            'tool_call_id' in msg &&
+            msg.tool_call_id === toolCallId,
+        );
+
+        if (isSecondCall) {
+          return {
+            [Symbol.asyncIterator]: async function* () {
+              for (const chunk of secondStreamResponse) {
+                yield chunk;
+              }
+            },
+          } as any;
+        } else {
+          return {
+            [Symbol.asyncIterator]: async function* () {
+              for (const chunk of firstStreamResponse) {
+                yield chunk;
+              }
+            },
+          } as any;
+        }
+      });
+
+      // Create the chat request
+      const request: ChatRequest = { content: 'Use memory to find info' };
+
+      // Execute the stream
+      const streamGenerator = service.createChatStream(
+        request,
+        userId,
+        'mock-token',
+      );
+
+      // Collect all streamed events
+      const events: ChatEventResponse[] = [];
+      for await (const event of streamGenerator) {
+        events.push(event);
+      }
+
+      // Verify the streaming events
+      // We should have received the chunks from the second response and a final message
+      expect(
+        events.some(
+          (e) =>
+            e.event === 'chunk' && (e as any).chunk === 'Based on my memory: ',
+        ),
+      ).toBeTruthy();
+      expect(
+        events.some(
+          (e) => e.event === 'chunk' && (e as any).chunk === mockToolResult,
+        ),
+      ).toBeTruthy();
+      expect(events.some((e) => e.event === 'message')).toBeTruthy();
+
+      // Verify the final message content contains the tool result
+      const finalMessage = events.find((e) => e.event === 'message');
+      expect((finalMessage as any).content).toContain(mockToolResult);
+
+      // Verify that the memory tool was called
+      expect(mockMemoryTool.execute).toHaveBeenCalledWith(
+        userId,
+        expect.objectContaining({
+          name: 'memory',
+          arguments: '{"query":"test query"}',
+        }),
+      );
+
+      // Verify messages in the database - should have user, assistant (with tool calls), tool, and final assistant
+      const savedMessages = await dbClient.query.chatMessages.findMany({
+        where: (messages, { eq }) => eq(messages.userId, userId),
+      });
+
+      expect(savedMessages.length).toEqual(4);
+
+      // Check user message
+      expect(
+        savedMessages.some(
+          (m) => m.role === 'user' && m.content === 'Use memory to find info',
+        ),
+      ).toBeTruthy();
+
+      // Check assistant message with tool calls
+      const assistantWithToolCalls = savedMessages.find(
+        (m) =>
+          m.role === 'assistant' && m.content === '' && m.toolData !== null,
+      );
+      expect(assistantWithToolCalls).toBeDefined();
+      expect(assistantWithToolCalls?.toolData).toBeDefined();
+
+      // Check tool message
+      const toolMessage = savedMessages.find(
+        (m) => m.role === 'tool' && m.content === mockToolResult,
+      );
+      expect(toolMessage).toBeDefined();
+      expect(toolMessage?.toolData).toEqual(
+        expect.objectContaining({
+          toolCallId: toolCallId,
+          toolName: 'memory',
+        }),
+      );
+
+      // Check final assistant message
+      expect(
+        savedMessages.some(
+          (m) => m.role === 'assistant' && m.content.includes(mockToolResult),
+        ),
+      ).toBeTruthy();
+    });
+
+    it('should handle the maximum tool call depth and stop recursion', async () => {
+      // Setup
+      const userId = randomUUID();
+      const MAX_DEPTH = service['MAX_TOOL_CALL_DEPTH'];
+
+      // Set up OpenAI mock to always return tool calls
+      const toolCallStream = [
+        {
+          id: 'tool-chunk',
+          choices: [
+            {
+              delta: {
+                role: 'assistant',
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: `tool-call-${randomUUID()}`,
+                    function: {
+                      name: 'memory',
+                      arguments: '{"query":"test"}',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ];
+
+      mockOpenAiClient.chat.completions.create.mockResolvedValue({
+        [Symbol.asyncIterator]: async function* () {
+          for (const chunk of toolCallStream) {
+            yield chunk;
+          }
+        },
+      } as any);
+
+      // Insert user
+      await dbClient.insert(users).values({ id: userId });
+
+      // Mock tool execution
+      const mockMemoryTool = service['tools'][0];
+      (mockMemoryTool.execute as any).mockResolvedValue('Test result');
+
+      // Create chat request
+      const request: ChatRequest = {
+        content: 'This will recursively call tools',
+      };
+
+      // Execute the stream
+      const streamGenerator = service.createChatStream(
+        request,
+        userId,
+        'mock-token',
+      );
+
+      // Collect all streamed events
+      const events: ChatEventResponse[] = [];
+      for await (const event of streamGenerator) {
+        events.push(event);
+      }
+
+      // Verify the max tool call count
+      // The test should have stopped at MAX_TOOL_CALL_DEPTH
+      expect(mockOpenAiClient.chat.completions.create).toHaveBeenCalledTimes(
+        MAX_DEPTH + 1,
+      );
+
+      // Verify the final message mentions reaching the limit
+      const finalMessage = events.find((e) => e.event === 'message');
+      expect((finalMessage as any).content).toContain(
+        'Maximum tool call depth reached',
+      );
+
+      // Check all the messages were saved
+      const savedMessages = await dbClient.query.chatMessages.findMany({
+        where: (messages, { eq }) => eq(messages.userId, userId),
+      });
+
+      // Should have 1 user message + MAX_DEPTH pairs of (assistant with tool call + tool message) + 1 final message
+      const expectedCount = 1 + MAX_DEPTH * 2 + 1;
+      expect(savedMessages.length).toEqual(expectedCount);
+    });
+
+    it('should handle multiple tool calls in a single response', async () => {
+      // Setup
+      const userId = randomUUID();
+      const toolCall1Id = 'tool-call-1';
+      const toolCall2Id = 'tool-call-2';
+
+      // Insert user
+      await dbClient.insert(users).values({ id: userId });
+
+      // Mock tool execution
+      const mockMemoryTool = service['tools'][0];
+      (mockMemoryTool.execute as any)
+        .mockResolvedValueOnce('First tool result')
+        .mockResolvedValueOnce('Second tool result');
+
+      // Setup response with multiple tool calls
+      const multiToolCallStream = [
+        {
+          id: 'chunk1',
+          choices: [
+            {
+              delta: {
+                role: 'assistant',
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: toolCall1Id,
+                    function: { name: 'memory' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          id: 'chunk2',
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    index: 0,
+                    function: { arguments: '{"query":"first query"}' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        {
+          id: 'chunk3',
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    index: 1,
+                    id: toolCall2Id,
+                    function: {
+                      name: 'memory',
+                      arguments: '{"query":"second query"}',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ];
+
+      // Final response after tool executions
+      const finalResponseStream = [
+        {
+          id: 'chunk4',
+          choices: [{ delta: { content: 'Combined results: ' } }],
+        },
+        {
+          id: 'chunk5',
+          choices: [
+            { delta: { content: 'First tool result and Second tool result' } },
+          ],
+        },
+      ];
+
+      // Mock streaming behavior
+      mockOpenAiClient.chat.completions.create.mockImplementation((params) => {
+        // Check if any of the messages is a tool message
+        const hasToolMessages = params.messages.some(
+          (msg) => msg.role === 'tool',
+        );
+
+        // If we have all tool results (should be 2), return final response
+        const toolResultsCount = params.messages.filter(
+          (msg) => msg.role === 'tool' && 'tool_call_id' in msg,
+        ).length;
+
+        if (hasToolMessages && toolResultsCount === 2) {
+          return {
+            [Symbol.asyncIterator]: async function* () {
+              for (const chunk of finalResponseStream) {
+                yield chunk;
+              }
+            },
+          } as any;
+        } else {
+          return {
+            [Symbol.asyncIterator]: async function* () {
+              for (const chunk of multiToolCallStream) {
+                yield chunk;
+              }
+            },
+          } as any;
+        }
+      });
+
+      // Create chat request
+      const request: ChatRequest = { content: 'Use memory tools' };
+
+      // Execute the stream
+      const streamGenerator = service.createChatStream(
+        request,
+        userId,
+        'mock-token',
+      );
+
+      // Collect all streamed events
+      const events: ChatEventResponse[] = [];
+      for await (const event of streamGenerator) {
+        events.push(event);
+      }
+
+      // Verify the tool was called twice with different arguments
+      expect(mockMemoryTool.execute).toHaveBeenCalledTimes(2);
+      expect(mockMemoryTool.execute).toHaveBeenCalledWith(
+        userId,
+        expect.objectContaining({
+          name: 'memory',
+          arguments: '{"query":"first query"}',
+        }),
+      );
+      expect(mockMemoryTool.execute).toHaveBeenCalledWith(
+        userId,
+        expect.objectContaining({
+          name: 'memory',
+          arguments: '{"query":"second query"}',
+        }),
+      );
+
+      // Verify messages in database
+      const savedMessages = await dbClient.query.chatMessages.findMany({
+        where: (messages, { eq }) => eq(messages.userId, userId),
+      });
+
+      // Should have:
+      // 1 user message +
+      // 1 assistant message with tool calls +
+      // 2 tool result messages +
+      // 1 final assistant message
+      expect(savedMessages.length).toEqual(5);
+
+      // Check tool messages
+      const toolMessages = savedMessages.filter((m) => m.role === 'tool');
+      expect(toolMessages.length).toEqual(2);
+
+      // Verify tool call IDs
+      expect(
+        toolMessages.some(
+          (m) => m.toolData && (m.toolData as any).toolCallId === toolCall1Id,
+        ),
+      ).toBeTruthy();
+      expect(
+        toolMessages.some(
+          (m) => m.toolData && (m.toolData as any).toolCallId === toolCall2Id,
+        ),
+      ).toBeTruthy();
+
+      // Check final message contains both tool results
+      const finalMessage = savedMessages.find(
+        (m) =>
+          m.role === 'assistant' && m.content?.includes('Combined results'),
+      );
+      expect(finalMessage).toBeDefined();
+      expect(finalMessage?.content).toContain('First tool result');
+      expect(finalMessage?.content).toContain('Second tool result');
+    });
+
+    it('should handle errors during tool execution gracefully', async () => {
+      // Setup
+      const userId = randomUUID();
+      const toolCallId = 'error-tool-call';
+      const errorMessage = 'Tool execution failed with test error';
+
+      // Insert user
+      await dbClient.insert(users).values({ id: userId });
+
+      // Mock tool execution to throw an error
+      const mockMemoryTool = service['tools'][0];
+      (mockMemoryTool.execute as any).mockRejectedValue(
+        new Error(errorMessage),
+      );
+
+      // Setup response with tool call
+      const toolCallStream = [
+        {
+          id: 'chunk1',
+          choices: [
+            {
+              delta: {
+                role: 'assistant',
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: toolCallId,
+                    function: {
+                      name: 'memory',
+                      arguments: '{"query":"failing query"}',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ];
+
+      // Response after error handling
+      const errorHandlingStream = [
+        {
+          id: 'chunk2',
+          choices: [{ delta: { content: 'Sorry, I encountered an error: ' } }],
+        },
+        {
+          id: 'chunk3',
+          choices: [{ delta: { content: errorMessage } }],
+        },
+      ];
+
+      // Mock the streaming behavior
+      mockOpenAiClient.chat.completions.create.mockImplementation((params) => {
+        // Check if this is the second call (after tool execution with error)
+        const isSecondCall = params.messages.some(
+          (msg) =>
+            msg.role === 'tool' &&
+            'tool_call_id' in msg &&
+            msg.content.includes('Error executing tool'),
+        );
+
+        if (isSecondCall) {
+          return {
+            [Symbol.asyncIterator]: async function* () {
+              for (const chunk of errorHandlingStream) {
+                yield chunk;
+              }
+            },
+          } as any;
+        } else {
+          return {
+            [Symbol.asyncIterator]: async function* () {
+              for (const chunk of toolCallStream) {
+                yield chunk;
+              }
+            },
+          } as any;
+        }
+      });
+
+      // Create chat request
+      const request: ChatRequest = {
+        content: 'Use memory tool that will fail',
+      };
+
+      // Execute the stream
+      const streamGenerator = service.createChatStream(
+        request,
+        userId,
+        'mock-token',
+      );
+
+      // Collect all streamed events
+      const events: ChatEventResponse[] = [];
+      for await (const event of streamGenerator) {
+        events.push(event);
+      }
+
+      // Verify the tool was called and errored
+      expect(mockMemoryTool.execute).toHaveBeenCalledTimes(1);
+      expect(mockMemoryTool.execute).toHaveBeenCalledWith(
+        userId,
+        expect.objectContaining({
+          name: 'memory',
+          arguments: '{"query":"failing query"}',
+        }),
+      );
+
+      // Verify the final message contains error information
+      const finalMessage = events.find((e) => e.event === 'message');
+      expect((finalMessage as any).content).toContain(errorMessage);
+
+      // Verify messages in database
+      const savedMessages = await dbClient.query.chatMessages.findMany({
+        where: (messages, { eq }) => eq(messages.userId, userId),
+      });
+
+      // Should have: user message + assistant with tool call + tool error message + final assistant message
+      expect(savedMessages.length).toEqual(4);
+
+      // Check tool error message
+      const toolMessage = savedMessages.find((m) => m.role === 'tool');
+      expect(toolMessage).toBeDefined();
+      expect(toolMessage?.content).toContain('Error executing tool');
+      expect(toolMessage?.content).toContain(errorMessage);
+
+      // Check assistant with tool call
+      const assistantWithToolCall = savedMessages.find(
+        (m) => m.role === 'assistant' && m.toolData !== null,
+      );
+      expect(assistantWithToolCall).toBeDefined();
+
+      // Check final message
+      const finalDbMessage = savedMessages.find(
+        (m) =>
+          m.role === 'assistant' &&
+          m.content?.includes('Sorry, I encountered an error'),
+      );
+      expect(finalDbMessage).toBeDefined();
+    });
+  });
+
+  describe('onApplicationBootstrap', () => {
+    it('should add embeddings to messages without them', async () => {
+      // Setup - create messages without embeddings
+      const userId = randomUUID();
+      const chatId = randomUUID();
+
+      // Insert user and chat
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      // Insert messages without embeddings
+      const message1Id = randomUUID();
+      const message2Id = randomUUID();
+      const message3Id = randomUUID(); // This one will be empty and should be skipped
+
+      await dbClient.insert(chatMessages).values([
+        {
+          id: message1Id,
+          role: 'user',
+          content: 'Message without embedding 1',
+          userId,
+          chatId,
+          embedding: null, // Explicit null embedding
+        },
+        {
+          id: message2Id,
+          role: 'assistant',
+          content: 'Message without embedding 2',
+          userId,
+          chatId,
+          embedding: null,
+        },
+        {
+          id: message3Id,
+          role: 'user',
+          content: '', // Empty content should be skipped
+          userId,
+          chatId,
+          embedding: null,
+        },
+      ]);
+
+      // Spy on setChatMessageEmbedding
+      const setChatMessageEmbeddingSpy = vi.spyOn(
+        service,
+        'setChatMessageEmbedding',
+      );
+
+      // Execute
+      await service.onApplicationBootstrap();
+
+      // Verify setChatMessageEmbedding was called for non-empty messages
+      expect(setChatMessageEmbeddingSpy).toHaveBeenCalledTimes(2);
+      expect(setChatMessageEmbeddingSpy).toHaveBeenCalledWith(
+        message1Id,
+        'Message without embedding 1',
+      );
+      expect(setChatMessageEmbeddingSpy).toHaveBeenCalledWith(
+        message2Id,
+        'Message without embedding 2',
+      );
+
+      // Verify it was not called for the empty message
+      expect(setChatMessageEmbeddingSpy).not.toHaveBeenCalledWith(
+        message3Id,
+        '',
+      );
+
+      // Verify embeddings were added in the database
+      const updatedMessages = await dbClient.query.chatMessages.findMany({
+        where: (chatMessages, { eq, and, isNotNull }) =>
+          and(
+            eq(chatMessages.chatId, chatId),
+            isNotNull(chatMessages.embedding),
+          ),
+      });
+
+      // Only the two non-empty messages should have embeddings
+      expect(updatedMessages.length).toEqual(2);
+      expect(updatedMessages.some((m) => m.id === message1Id)).toBeTruthy();
+      expect(updatedMessages.some((m) => m.id === message2Id)).toBeTruthy();
+      expect(updatedMessages.some((m) => m.id === message3Id)).toBeFalsy();
     });
   });
 });

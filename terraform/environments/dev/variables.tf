@@ -68,16 +68,12 @@ variable "env_variables" {
   description = "Environment variables for the task"
   type        = map(string)
   default = {
-    APP_NAME                     = "EvogenomAI (dev)"
-    DEBUG                        = "true"
-    OPENID_CONFIG_URL            = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_UDFBUcuNF/.well-known/openid-configuration"
-    AZURE_OPENAI_ENDPOINT        = "https://evogenom-dev.openai.azure.com/"
-    AZURE_OPENAI_API_VERSION     = "2025-01-01-preview"
-    AZURE_OPENAI_DEPLOYMENT      = "o1"
-    AZURE_OPENAI_DEPLOYMENT_MINI = "o1"
-    AZURE_OPENAI_MODEL           = "o1"
-    CONTENTFUL_SPACE_ID          = "nslj8lsfnbof"
-    EVOGENOM_API_URL             = "https://vv2rx5jsf5girm2argm3qz2ts4.appsync-api.eu-west-1.amazonaws.com/graphql"
+    APP_NAME              = "EvogenomAI (dev)"
+    DEBUG                 = "true"
+    OPENID_CONFIG_URL     = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_UDFBUcuNF/.well-known/openid-configuration"
+    AZURE_OPENAI_ENDPOINT = "https://evogenom-dev.openai.azure.com/"
+    CONTENTFUL_SPACE_ID   = "nslj8lsfnbof"
+    EVOGENOM_API_URL      = "https://vv2rx5jsf5girm2argm3qz2ts4.appsync-api.eu-west-1.amazonaws.com/graphql"
   }
 }
 
@@ -90,4 +86,4 @@ variable "tags" {
 variable "commit_hash" {
   description = "Git commit hash to use for container image tag"
   type        = string
-} 
+}
