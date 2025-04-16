@@ -26,6 +26,7 @@ export const createTestingModuleWithDb = (
           adapter: new TransactionalAdapterDrizzleOrm({
             drizzleInstanceToken: DRIZZLE_INSTANCE,
           }),
+          enableTransactionProxy: true,
         }),
       ],
     }),

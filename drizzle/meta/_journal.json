@@ -15,6 +15,20 @@
       "when": 1743776196695,
       "tag": "0001_smiling_triton",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1744786049178,
+      "tag": "0002_bouncy_spirit",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1744803409962,
+      "tag": "0003_concerned_risque",
+      "breakpoints": true
     }
   ]
 }

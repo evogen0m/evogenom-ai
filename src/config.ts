@@ -21,9 +21,14 @@ export const EnvConfigSchema = z.object({
   AZURE_OPENAI_API_KEY: z.string().min(1),
   AZURE_OPENAI_ENDPOINT: z.string().url(),
   AZURE_OPENAI_API_VERSION: z.string().min(1),
-  AZURE_OPENAI_DEPLOYMENT: z.string().min(1),
-  AZURE_OPENAI_DEPLOYMENT_MINI: z.string().min(1),
-  AZURE_OPENAI_MODEL: z.string().min(1),
+  AZURE_OPENAI_DEPLOYMENT: z.string().min(1).default('gpt-4.5'),
+  AZURE_OPENAI_DEPLOYMENT_MINI: z.string().min(1).default('o3-mini'),
+  AZURE_OPENAI_MODEL: z.string().min(1).default('gpt-4.5'),
+  AZURE_OPENAI_MODEL_MINI: z.string().min(1).default('o3-mini'),
+  AZURE_OPENAI_EMBEDDING_MODEL: z
+    .string()
+    .min(1)
+    .default('text-embedding-3-small'),
 
   DATABASE_USE_SSL: z
     .preprocess((val) => val === 'true' || val === true, z.boolean())

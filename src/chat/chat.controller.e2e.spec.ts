@@ -1,10 +1,10 @@
 import { INestApplication } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { Test, TestingModule } from '@nestjs/testing';
+import { TestingModule } from '@nestjs/testing';
 import { EventSource } from 'eventsource';
 import { AuthGuard } from 'src/auth/auth/auth.guard';
 import { UserPrincipal } from 'src/auth/UserPrincipal';
 import request from 'supertest';
+import { createTestingModuleWithDb } from 'test/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeepMockProxy, mockDeep } from 'vitest-mock-extended';
 import { ChatModule } from './chat.module';
@@ -72,14 +72,8 @@ describe('ChatController (e2e)', () => {
     ];
     chatService.getMessages.mockResolvedValue(mockMessages);
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({
-          isGlobal: true,
-          envFilePath: '.env.test',
-        }),
-        ChatModule,
-      ],
+    const moduleFixture: TestingModule = await createTestingModuleWithDb({
+      imports: [ChatModule],
     })
       .overrideProvider(ChatService)
       .useValue(chatService)

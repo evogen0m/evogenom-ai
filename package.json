@@ -14,7 +14,7 @@
     "start:prod": "node dist/src/main --migrate",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "lint:ci": "eslint \"{src,apps,libs,test}/**/*.ts\"",
-    "db:push:test": "NODE_ENV=test drizzle-kit push",
+    "migrate:test": "NODE_ENV=test drizzle-kit migrate",
     "test": "vitest run",
     "test:watch": "vitest watch",
     "test:cov": "vitest run --coverage",
@@ -50,7 +50,8 @@
     "rxjs": "^7.8.1",
     "tsx": "^4.19.3",
     "type-fest": "^4.39.1",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
