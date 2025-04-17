@@ -959,6 +959,114 @@ describe('ChatService', () => {
       );
       expect(finalDbMessage).toBeDefined();
     });
+
+    it('should add timestamp system messages before user messages', async () => {
+      // Setup
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      const now = new Date();
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+
+      // Insert user and chat
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      // Insert multiple messages with specific timestamps
+      await dbClient.insert(chatMessages).values([
+        {
+          id: randomUUID(),
+          role: 'user',
+          content: 'First user message',
+          createdAt: fiveMinutesAgo,
+          userId,
+          chatId,
+        },
+        {
+          id: randomUUID(),
+          role: 'assistant',
+          content: 'First assistant reply',
+          createdAt: new Date(fiveMinutesAgo.getTime() + 1000),
+          userId,
+          chatId,
+        },
+        {
+          id: randomUUID(),
+          role: 'user',
+          content: 'Second user message',
+          createdAt: now,
+          userId,
+          chatId,
+        },
+      ]);
+
+      // Mock streaming behavior for the test
+      mockOpenAiClient.chat.completions.create.mockResolvedValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield { choices: [{ delta: { content: 'Test response' } }] };
+        },
+      } as any);
+
+      // Create the chat request (this will add a third user message)
+      const request: ChatRequest = { content: 'New message' };
+
+      // Execute the chat stream (which internally calls getChatHistory)
+      const streamGenerator = service.createChatStream(
+        request,
+        userId,
+        'mock-token',
+      );
+
+      // Consume the stream to trigger the calls
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _ of streamGenerator) {
+        // Just consume the stream
+      }
+
+      // Verify the OpenAI call includes timestamp system messages
+      expect(mockOpenAiClient.chat.completions.create).toHaveBeenCalled();
+      const callArgs =
+        mockOpenAiClient.chat.completions.create.mock.calls[0][0];
+
+      // Extract the messages from the call
+      const messages = callArgs.messages;
+
+      // Find all system messages containing timestamps
+      const timestampMessages = messages.filter(
+        (msg) =>
+          msg.role === 'system' &&
+          typeof msg.content === 'string' &&
+          msg.content.startsWith('Current timestamp:'),
+      );
+
+      // We should have 3 timestamp messages (one for each user message, including the new one)
+      expect(timestampMessages.length).toEqual(3);
+
+      // Check that each user message is preceded by a timestamp message
+      const messageSequence = messages.map((msg) => msg.role);
+
+      // Find indices of user messages
+      const userMessageIndices = messageSequence
+        .map((role, index) => (role === 'user' ? index : -1))
+        .filter((index) => index !== -1);
+
+      // For each user message, verify there's a system message right before it
+      userMessageIndices.forEach((userIndex) => {
+        expect(messageSequence[userIndex - 1]).toEqual('system');
+
+        // Verify the content of the timestamp message
+        const timestampMsg = messages[userIndex - 1];
+        expect(timestampMsg.content).toContain('Current timestamp:');
+        expect(typeof timestampMsg.content).toEqual('string');
+
+        // Verify it's a valid ISO date string
+        const timestampContent = timestampMsg.content as string;
+        const isoDateString = timestampContent.replace(
+          'Current timestamp: ',
+          '',
+        );
+        expect(() => new Date(isoDateString)).not.toThrow();
+      });
+    });
   });
 
   describe('onApplicationBootstrap', () => {
