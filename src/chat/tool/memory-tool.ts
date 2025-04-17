@@ -1,15 +1,15 @@
 import { TransactionHost } from '@nestjs-cls/transactional';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, asc, cosineDistance, desc, eq, gt, lt, sql } from 'drizzle-orm';
 import { ChatCompletionTool } from 'openai/resources/chat';
+import { AppConfigType } from 'src/config';
 import { chatMessages } from 'src/db';
 import { DbTransactionAdapter } from 'src/db/drizzle.provider';
 import { OpenAiProvider } from 'src/openai/openai';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Tool, ToolCall } from './tool';
-import { AppConfigType } from 'src/config';
 
 const SEARCH_MEMORY_TOOL_NAME = 'search_memory';
 const SIMILARITY_THRESHOLD = 0.7;
@@ -36,6 +36,8 @@ export class MemoryTool implements Tool {
     private readonly openai: OpenAiProvider,
     private readonly configService: ConfigService<AppConfigType>,
   ) {}
+
+  private readonly logger = new Logger(MemoryTool.name);
 
   async execute(userId: string, input: ToolCall): Promise<string> {
     const args = searchMemorySchema.parse(JSON.parse(input.arguments));
@@ -184,17 +186,22 @@ ${context.map((msg) => `${msg.role} [${msg.createdAt.toISOString()}]:\n ${msg.co
 Summary:
     `.trim();
 
-    const miniClient = this.openai.getMiniOpenAiClient();
-    const summaryResponse = await miniClient.chat.completions.create({
-      model: this.configService.getOrThrow('AZURE_OPENAI_MODEL_MINI'),
-      messages: [{ role: 'system', content: summaryPrompt }],
-      max_tokens: 1000,
-    });
+    try {
+      const miniClient = this.openai.getMiniOpenAiClient();
+      const summaryResponse = await miniClient.chat.completions.create({
+        model: this.configService.getOrThrow('AZURE_OPENAI_MODEL_MINI'),
+        messages: [{ role: 'system', content: summaryPrompt }],
+        max_tokens: 1000,
+      });
 
-    return (
-      summaryResponse.choices[0]?.message.content ||
-      'Could not generate summary.'
-    );
+      return (
+        summaryResponse.choices[0]?.message.content ||
+        'Could not generate summary.'
+      );
+    } catch (error) {
+      this.logger.error('Error generating summary:', error);
+      return 'Could not generate summary due to an error.';
+    }
   }
 
   private _formatResultsWithSingleSummary(
