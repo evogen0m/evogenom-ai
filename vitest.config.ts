@@ -12,6 +12,7 @@ export default defineConfig({
     root: './',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    fileParallelism: false,
     coverage: {
       provider: 'v8',
       reporter: ['cobertura', 'text', 'html'],
