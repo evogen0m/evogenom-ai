@@ -11,7 +11,7 @@ const createDrizzle = (config: ConfigService<AppConfigType>) => {
   return drizzle({
     connection: {
       connectionString: config.getOrThrow('DATABASE_URL'),
-      ssl: config.getOrThrow('DATABASE_USE_SSL') === 'true' && {
+      ssl: config.getOrThrow('DATABASE_USE_SSL') && {
         rejectUnauthorized: false,
         ca: path.join(__dirname, '../../pem/rds/global-bundle.pem'),
       },
