@@ -36,10 +36,9 @@ export class OpenAiProvider {
 
   async generateEmbedding(input: string): Promise<number[]> {
     const client = this.getEmbeddingClient();
-    const sanitizedInput = input.replaceAll('\n', ' ');
 
     const response = await client.embeddings.create({
-      input: sanitizedInput,
+      input: input,
       model: this.configService.getOrThrow('AZURE_OPENAI_EMBEDDING_MODEL'),
     });
 
