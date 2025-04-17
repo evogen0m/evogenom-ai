@@ -23,7 +23,7 @@ import {
 } from '../dto/chat';
 import { MemoryTool } from '../tool/memory-tool';
 import { Tool } from '../tool/tool';
-import { PromptService } from './prompt.service';
+import { ChatContextMetadata, PromptService } from './prompt.service';
 
 @Injectable()
 export class ChatService implements OnApplicationBootstrap {
@@ -53,12 +53,6 @@ export class ChatService implements OnApplicationBootstrap {
     await this.ensureUserExists(userId);
     const chat = await this.getOrCreateChat(userId);
 
-    const systemPrompt = await this.promptService.getSystemPrompt(
-      userId,
-      evogenomApiToken,
-    );
-    this.logger.debug(systemPrompt);
-
     // 1. Save user message
     const userMessageId = randomUUID();
     await this.saveMessage({
@@ -70,16 +64,40 @@ export class ChatService implements OnApplicationBootstrap {
     });
     void this.setChatMessageEmbedding(userMessageId, request.content); // Background embedding for user message
 
-    // 2. Prepare initial messages for OpenAI
-    const messages: ChatCompletionMessageParam[] = [
+    // 2. Prepare initial messages for OpenAI and count messages
+    const messages = await this.getChatHistory(userId, chat.id);
+
+    // Get total count of messages in history
+    const totalMessageCount = await this.getTotalMessageCount(userId, chat.id);
+
+    // Create context metadata
+    const contextMetadata: ChatContextMetadata = {
+      currentMessageCount: messages.length,
+      totalHistoryCount: totalMessageCount,
+    };
+
+    // Get system prompt with context metadata
+    const systemPrompt = await this.promptService.getSystemPrompt(
+      userId,
+      evogenomApiToken,
+      contextMetadata,
+    );
+    this.logger.debug(systemPrompt);
+
+    // Add system prompt as first message
+    const messagesWithSystem: ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
-      ...(await this.getChatHistory(userId, chat.id)),
-      // The latest user message is fetched by getChatHistory if it was saved before calling it
-      // Ensure getChatHistory correctly orders and includes the latest user message
+      ...messages,
     ];
 
     // 3. Start the recursive processing
-    yield* this._processChatTurn(messages, userId, chat.id, client, 0);
+    yield* this._processChatTurn(
+      messagesWithSystem,
+      userId,
+      chat.id,
+      client,
+      0,
+    );
 
     this.logger.log(`Chat stream completed for user ${userId}`);
   }
@@ -401,6 +419,22 @@ export class ChatService implements OnApplicationBootstrap {
     if (!user) {
       await tx.insert(users).values({ id: userId }).returning();
     }
+  }
+
+  @Transactional()
+  private async getTotalMessageCount(
+    userId: string,
+    chatId: string,
+  ): Promise<number> {
+    const tx = this.txHost.tx;
+    const result = await tx
+      .select({ count: sql<number>`count(*)` })
+      .from(chatMessages)
+      .where(
+        and(eq(chatMessages.userId, userId), eq(chatMessages.chatId, chatId)),
+      );
+
+    return result[0]?.count || 0;
   }
 
   @Transactional()
