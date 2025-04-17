@@ -416,7 +416,7 @@ export class ChatService implements OnApplicationBootstrap {
         eq(chatMessages.chatId, chatId),
       ),
       orderBy: [desc(chatMessages.createdAt)], // Fetch most recent first
-      limit: 50, // Limit history size for performance/cost
+      limit: 30,
     });
 
     // Sort back to chronological order for API
@@ -426,12 +426,20 @@ export class ChatService implements OnApplicationBootstrap {
     const history: ChatCompletionMessageParam[] = [];
     for (const message of dbMessages) {
       switch (message.role) {
-        case 'user':
+        case 'user': {
+          // Add timestamp as system message before each user message
+          const timestamp = new Date(message.createdAt).toISOString();
+          history.push({
+            role: 'system',
+            content: `Current timestamp: ${timestamp}`,
+          });
+
           history.push({
             role: 'user',
             content: message.content,
           } as ChatCompletionUserMessageParam);
           break;
+        }
         case 'assistant': {
           // Need to handle potential tool_calls stored in the DB message
           const toolData = message.toolData as {
@@ -452,13 +460,10 @@ export class ChatService implements OnApplicationBootstrap {
           const toolData = message.toolData as { toolCallId?: string } | null;
           const toolCallId = toolData?.toolCallId;
           if (!toolCallId) {
-            this.logger.error(
-              `Tool message ${message.id} is missing toolCallId in toolData`,
-            );
+            const errorMessage = `Tool message ${message.id} is missing toolCallId in toolData`;
+            this.logger.error(errorMessage);
             // Handle error case appropriately, maybe skip or throw
-            throw new Error(
-              `Tool message ${message.id} is missing toolCallId in toolData`,
-            );
+            throw new Error(errorMessage);
           }
           history.push({
             role: 'tool',
