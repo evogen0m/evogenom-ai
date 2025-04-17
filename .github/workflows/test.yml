@@ -57,7 +57,7 @@ jobs:
         env:
           NODE_ENV: test
         run: |
-          pnpm exec drizzle-kit push
+          pnpm migrate:test
           pnpm test:cov
       - name: Code Coverage Summary Report
         uses: irongut/CodeCoverageSummary@v1.3.0
