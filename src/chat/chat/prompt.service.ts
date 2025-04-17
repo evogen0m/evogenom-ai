@@ -8,6 +8,12 @@ import {
 import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { ProductFragment } from 'src/evogenom-api-client/generated/request';
 
+// Add ChatContextMetadata interface
+export interface ChatContextMetadata {
+  currentMessageCount: number;
+  totalHistoryCount: number;
+}
+
 const toneAndFeel = `
 Chat Between AI Coach & Linda
 Coach:
@@ -121,7 +127,11 @@ export class PromptService {
     private readonly contentfulApiClient: ContentfulApiClient,
   ) {}
 
-  async getSystemPrompt(userId: string, evogenomApiToken: string) {
+  async getSystemPrompt(
+    userId: string,
+    evogenomApiToken: string,
+    contextMetadata?: ChatContextMetadata,
+  ) {
     const results = await this.evogenomApiClient.getUserResults(
       userId,
       evogenomApiToken,
@@ -146,7 +156,11 @@ export class PromptService {
     const productsByProductCode =
       await this.getProductByProductCode(productCodes);
 
-    return this.formatSystemPrompt(resultsByProductCode, productsByProductCode);
+    return this.formatSystemPrompt(
+      resultsByProductCode,
+      productsByProductCode,
+      contextMetadata,
+    );
   }
 
   async getResultRowsByProductCode(productCodes: string[]) {
@@ -176,6 +190,7 @@ export class PromptService {
   formatSystemPrompt(
     results: Record<string, TypeResultRowFields>,
     products: Record<string, TypeProductFields>,
+    contextMetadata?: ChatContextMetadata,
   ) {
     const formatResult = (productCode: string) => {
       const result = results[productCode];
@@ -193,6 +208,19 @@ export class PromptService {
       .map((result) => `  - ${result}`)
       .join('\n');
 
+    const chatContextInfo = contextMetadata
+      ? `
+# Chat Context Information
+- Current conversation: ${contextMetadata.currentMessageCount} messages
+- Total history: ${contextMetadata.totalHistoryCount} messages
+${
+  contextMetadata.totalHistoryCount > contextMetadata.currentMessageCount
+    ? '- Note: There are previous conversations not included in this context. Use the memory tool to search this history if needed.'
+    : ''
+}
+`
+      : '';
+
     return `
 # Your Role & Purpose
 You are an AI Wellness Coach. Your role is to:
@@ -209,7 +237,7 @@ You are an AI Wellness Coach. Your role is to:
 Remember that you are not just a chatbot - you are a coach who knows the user personally and is invested in their wellness journey.
 
 You are employed at Evogenom, a DNA genotyping company. Evogenom sells DNA tests to customers and provides insights into their DNA, specifically how their DNA affects their health and wellbeing.
-
+${chatContextInfo}
 # User's genotyping results
 ${productResults}
 
