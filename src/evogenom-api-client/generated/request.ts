@@ -2671,8 +2671,6 @@ export type ProductFragment = { __typename?: 'Product', id: string, name: string
 
 export type UserOrderFragment = { __typename?: 'OrderPackage', id: string, package: { __typename?: 'Package', id: string, name: string | null, productCode: number | null, productType: ProductType | null, createdAt: any } };
 
-export type UserResultFragment = { __typename?: 'Result', id: string, name: string, description: string | null, createdAt: any, sampleResultsId: string | null, productResultsId: string | null };
-
 export type ListUserOrdersQueryVariables = Exact<{
   userId: Scalars['String']['input'];
   nextToken: InputMaybe<Scalars['String']['input']>;
@@ -2680,6 +2678,8 @@ export type ListUserOrdersQueryVariables = Exact<{
 
 
 export type ListUserOrdersQuery = { __typename?: 'Query', listOrderPackages: { __typename?: 'ModelOrderPackageConnection', nextToken: string | null, items: Array<{ __typename?: 'OrderPackage', id: string, package: { __typename?: 'Package', id: string, name: string | null, productCode: number | null, productType: ProductType | null, createdAt: any } } | null> } | null };
+
+export type UserResultFragment = { __typename?: 'Result', id: string, name: string, description: string | null, createdAt: any, sampleResultsId: string | null, productResultsId: string | null };
 
 export type ListUserResultsQueryVariables = Exact<{
   userId: Scalars['ID']['input'];

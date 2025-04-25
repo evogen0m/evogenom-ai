@@ -1,2 +1,6 @@
-schema: 'graphql/schema.graphql'
+schema:
+  - 'graphql/schema.graphql'
+  - https://graphql.contentful.com/content/v1/spaces/nslj8lsfnbof:
+      headers:
+        Authorization: 'Bearer _cWAWRuTJrTFSyrJ6aaIPGdFXWKXKG58F4Pmi9ymzQU'
 documents: 'src/**/*.{graphql,js,ts,jsx,tsx}'
