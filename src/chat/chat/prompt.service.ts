@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import * as R from 'remeda';
 import { ContentfulApiClient } from 'src/contentful/contentful-api-client';
+
 import {
-  TypeProductFields,
-  TypeResultRowFields,
-} from 'src/contentful/generated-types';
+  ProductFieldsFragment,
+  ResultRowFieldsFragment,
+} from 'src/contentful/generated/types';
 import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { ProductFragment } from 'src/evogenom-api-client/generated/request';
 
@@ -164,32 +165,43 @@ export class PromptService {
   }
 
   async getResultRowsByProductCode(productCodes: string[]) {
-    const resultRows = await this.contentfulApiClient.getResults(productCodes);
+    const resultRowsCollection =
+      await this.contentfulApiClient.getResults(productCodes);
 
     return R.pipe(
-      resultRows.items,
-      R.map((resultRow) => resultRow.fields),
-      R.indexBy((resultRow) => resultRow.productCode as string),
-    ) as Record<string, TypeResultRowFields>;
+      resultRowsCollection,
+      R.filter(
+        (resultRow): resultRow is NonNullable<ResultRowFieldsFragment> =>
+          resultRow?.productCode != null,
+      ),
+      R.map((resultRow) => ({
+        productCode: resultRow.productCode,
+        resultText: resultRow.resultText,
+        // Add other properties as needed
+      })),
+      R.indexBy((resultRow) => (resultRow.productCode as string) || ''),
+    ) as Record<string, ResultRowFieldsFragment>;
   }
 
   async getProductByProductCode(productCodes: string[]) {
     const products = await this.contentfulApiClient.getProducts(productCodes);
-    return R.pipe(
-      products.items,
-      R.map((product) => product.fields),
 
-      R.indexBy((product) =>
-        R.isNumber(product.productCode)
-          ? product.productCode.toString()
-          : product.productCode.values.toString(),
+    // Create an empty array of products if productsCollection is null
+
+    return R.pipe(
+      products,
+      R.filter(
+        (product): product is NonNullable<ProductFieldsFragment> =>
+          product !== null,
       ),
-    ) as Record<string, TypeProductFields>;
+
+      R.indexBy((product) => product.productCode?.toString() || ''),
+    ) as Record<string, ProductFieldsFragment>;
   }
 
   formatSystemPrompt(
-    results: Record<string, TypeResultRowFields>,
-    products: Record<string, TypeProductFields>,
+    results: Record<string, ResultRowFieldsFragment>,
+    products: Record<string, ProductFieldsFragment>,
     contextMetadata?: ChatContextMetadata,
   ) {
     const formatResult = (productCode: string) => {

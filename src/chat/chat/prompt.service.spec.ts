@@ -3,9 +3,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentfulApiClient } from '../../contentful/contentful-api-client';
 import {
-  TypeProductFields,
-  TypeResultRowFields,
-} from '../../contentful/generated-types';
+  ProductFieldsFragment,
+  ResultRowFieldsFragment,
+} from '../../contentful/generated/types';
 import { EvogenomApiClient } from '../../evogenom-api-client/evogenom-api.client';
 import {
   ProductFragment,
@@ -54,41 +54,47 @@ describe('PromptService', () => {
     },
   ];
 
-  const mockResultRows = {
-    items: [
-      {
-        fields: {
-          productCode: '101',
-          resultText: 'Result for Product One',
-        },
-      },
-      {
-        fields: {
-          productCode: '102',
-          resultText: 'Result for Product Two',
-        },
-      },
-    ],
-  };
+  // Update mock results to match GraphQL response format
+  const mockResultRows: ResultRowFieldsFragment[] = [
+    {
+      productCode: '101',
+      resultText: 'Result for Product One',
+      tip: null,
+      result: null,
+      classification: null,
+      fact: null,
+      science: null,
+      sys: { id: 'result-sys-1', __typename: 'Sys' },
+      __typename: 'ResultRow',
+    } as ResultRowFieldsFragment,
+    {
+      productCode: '102',
+      resultText: 'Result for Product Two',
+      tip: null,
+      result: null,
+      classification: null,
+      fact: null,
+      science: null,
+      sys: { id: 'result-sys-2', __typename: 'Sys' },
+      __typename: 'ResultRow',
+    } as ResultRowFieldsFragment,
+  ];
 
-  const mockProducts2 = {
-    items: [
-      {
-        fields: {
-          productCode: 101,
-          name: 'Product One',
-          description: 'Description for Product One',
-        },
-      },
-      {
-        fields: {
-          productCode: 102,
-          name: 'Product Two',
-          description: 'Description for Product Two',
-        },
-      },
-    ],
-  };
+  // Update mock products to match GraphQL response format
+  const mockProducts2: ProductFieldsFragment[] = [
+    {
+      productCode: 101,
+      name: 'Product One',
+      sys: { id: 'product-sys-1', __typename: 'Sys' },
+      __typename: 'Product',
+    } as ProductFieldsFragment,
+    {
+      productCode: 102,
+      name: 'Product Two',
+      sys: { id: 'product-sys-2', __typename: 'Sys' },
+      __typename: 'Product',
+    } as ProductFieldsFragment,
+  ];
 
   beforeEach(async () => {
     // Create mocks
@@ -201,18 +207,27 @@ describe('PromptService', () => {
 
   describe('formatSystemPrompt', () => {
     it('should format the system prompt with product results', () => {
-      const results: Record<string, TypeResultRowFields> = {
+      const results: Record<string, ResultRowFieldsFragment> = {
         '101': {
           productCode: '101',
           resultText: 'Result for Product One',
-        } as any,
+          tip: null,
+          result: null,
+          classification: null,
+          fact: null,
+          science: null,
+          sys: { id: 'sys-id-1', __typename: 'Sys' },
+          __typename: 'ResultRow',
+        } as ResultRowFieldsFragment,
       };
 
-      const products: Record<string, TypeProductFields> = {
+      const products: Record<string, ProductFieldsFragment> = {
         '101': {
           productCode: 101,
           name: 'Product One',
-        } as any,
+          sys: { id: 'sys-id-1', __typename: 'Sys' },
+          __typename: 'Product',
+        } as ProductFieldsFragment,
       };
 
       const prompt = service.formatSystemPrompt(results, products);
@@ -222,18 +237,27 @@ describe('PromptService', () => {
     });
 
     it('should include chat context metadata when provided', () => {
-      const results: Record<string, TypeResultRowFields> = {
+      const results: Record<string, ResultRowFieldsFragment> = {
         '101': {
           productCode: '101',
           resultText: 'Result for Product One',
-        } as any,
+          tip: null,
+          result: null,
+          classification: null,
+          fact: null,
+          science: null,
+          sys: { id: 'sys-id-1', __typename: 'Sys' },
+          __typename: 'ResultRow',
+        } as ResultRowFieldsFragment,
       };
 
-      const products: Record<string, TypeProductFields> = {
+      const products: Record<string, ProductFieldsFragment> = {
         '101': {
           productCode: 101,
           name: 'Product One',
-        } as any,
+          sys: { id: 'sys-id-1', __typename: 'Sys' },
+          __typename: 'Product',
+        } as ProductFieldsFragment,
       };
 
       const metadata = {
@@ -251,18 +275,27 @@ describe('PromptService', () => {
     });
 
     it('should handle content wrapped in ContentfulWrapper', () => {
-      const results: Record<string, TypeResultRowFields> = {
+      const results: Record<string, ResultRowFieldsFragment> = {
         '101': {
           productCode: '101',
           resultText: 'Result for Product One',
-        } as any,
+          tip: null,
+          result: null,
+          classification: null,
+          fact: null,
+          science: null,
+          sys: { id: 'sys-id-1', __typename: 'Sys' },
+          __typename: 'ResultRow',
+        } as ResultRowFieldsFragment,
       };
 
-      const products: Record<string, TypeProductFields> = {
+      const products: Record<string, ProductFieldsFragment> = {
         '101': {
           productCode: 101,
           name: { values: 'Product One Wrapped' },
-        } as any,
+          sys: { id: 'sys-id-1', __typename: 'Sys' },
+          __typename: 'Product',
+        } as unknown as ProductFieldsFragment,
       };
 
       const prompt = service.formatSystemPrompt(results, products);
@@ -271,18 +304,27 @@ describe('PromptService', () => {
     });
 
     it('should skip products or results that are not found', () => {
-      const results: Record<string, TypeResultRowFields> = {
+      const results: Record<string, ResultRowFieldsFragment> = {
         '101': {
           productCode: '101',
           resultText: 'Result for Product One',
-        } as any,
+          tip: null,
+          result: null,
+          classification: null,
+          fact: null,
+          science: null,
+          sys: { id: 'sys-id-1', __typename: 'Sys' },
+          __typename: 'ResultRow',
+        } as ResultRowFieldsFragment,
       };
 
-      const products: Record<string, TypeProductFields> = {
+      const products: Record<string, ProductFieldsFragment> = {
         '102': {
           productCode: 102,
           name: 'Product Two',
-        } as any,
+          sys: { id: 'sys-id-2', __typename: 'Sys' },
+          __typename: 'Product',
+        } as ProductFieldsFragment,
       };
 
       const prompt = service.formatSystemPrompt(results, products);

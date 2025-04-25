@@ -6,7 +6,11 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs', 'src/evogenom-api-client/generated/**/*.ts'],
+    ignores: [
+      'eslint.config.mjs',
+      'src/evogenom-api-client/generated/**/*.ts',
+      'src/contentful/generated/**/*.ts',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
