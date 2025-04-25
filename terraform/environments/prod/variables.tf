@@ -22,8 +22,6 @@ variable "container_port" {
   default     = 8000
 }
 
-
-
 variable "domain_name" {
   description = "Domain name for the ALB"
   type        = string
@@ -63,16 +61,25 @@ variable "memory" {
 variable "desired_count" {
   description = "Number of instances of the task to run"
   type        = number
-  default     = 2
+  default     = 1
 }
 
-variable "openid_config_url" {
-  description = "OpenID configuration URL"
-  type        = string
-  # Pool deployed via aws amplify 
-  # https://eu-west-1.console.aws.amazon.com/cognito/v2/idp/user-pools/eu-west-1_ccL74j0HP/overview?region=eu-west-1
-  default     = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_ccL74j0HP/.well-known/openid-configuration"
+variable "env_variables" {
+  description = "Environment variables for the task"
+  type        = map(string)
+  default = {
+    APP_NAME          = "EvogenomAI (prod)"
+    DEBUG             = "true"
+    OPENID_CONFIG_URL = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_ccL74j0HP/.well-known/openid-configuration"
+    #TODO create prod endpoint, remember to update secret
+    AZURE_OPENAI_ENDPOINT    = "https://evogenom-dev.openai.azure.com/"
+    AZURE_OPENAI_API_VERSION = "2025-01-01-preview"
+    CONTENTFUL_SPACE_ID      = "nslj8lsfnbof"
+    # evogenom-main
+    EVOGENOM_API_URL = "https://on5w2opsozd6ddgewx26drt3d4.appsync-api.eu-west-1.amazonaws.com/graphql"
+  }
 }
+
 
 variable "tags" {
   description = "Tags to apply to all resources"
@@ -83,4 +90,4 @@ variable "tags" {
 variable "commit_hash" {
   description = "Git commit hash to use for container image tag"
   type        = string
-} 
+}

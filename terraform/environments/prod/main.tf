@@ -80,17 +80,15 @@ module "ecs" {
 
   # Service discovery and environment variables
   db_credentials_secret_arn = module.rds.db_credentials_secret_arn
-  environment_variables = {
-    APP_NAME          = "EvogenomAI"
-    DEBUG             = "false"
-    HOST              = "0.0.0.0"
-    PORT              = tostring(var.container_port)
-    OPENID_CONFIG_URL = var.openid_config_url
-  }
+  environment_variables = merge(var.env_variables, {
+    # These are dynamically set and override any potential values in var.env_variables
+    HOST = "0.0.0.0"
+    PORT = tostring(var.container_port)
+  })
 
   # Autoscaling configuration
   enable_autoscaling           = true
-  min_capacity                 = 2
+  min_capacity                 = 1
   max_capacity                 = 10
   cpu_target_tracking_value    = 60
   memory_target_tracking_value = 60
