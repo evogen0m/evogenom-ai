@@ -75,6 +75,7 @@ variable "env_variables" {
     AZURE_OPENAI_API_VERSION = "2025-01-01-preview"
     CONTENTFUL_SPACE_ID      = "nslj8lsfnbof"
     EVOGENOM_API_URL         = "https://vv2rx5jsf5girm2argm3qz2ts4.appsync-api.eu-west-1.amazonaws.com/graphql"
+    LANGFUSE_BASEURL         = "https://cloud.langfuse.com"
   }
 }
 

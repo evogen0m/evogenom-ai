@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "SENTRY_RELEASE=${SENTRY_RELEASE:-$(git rev-parse HEAD)} nest build && pnpm sentry:sourcemaps",
+    "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "dev": "nest start --watch",
@@ -22,7 +22,11 @@
     "test:e2e": "vitest run --config ./vitest.e2e.config.ts",
     "codegen": "graphql-codegen --config codegen.ts && pnpm lint",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org evogenom --project node-nestjs ./dist && sentry-cli sourcemaps upload --org evogenom --project node-nestjs --release ${SENTRY_RELEASE:-$(git rev-parse HEAD)} ./dist",
-    "docker:build": "docker build --build-arg SENTRY_RELEASE=$(git rev-parse HEAD) -t evogenomai ."
+    "sentry:release": "sentry-cli releases new ${SENTRY_RELEASE:-$(git rev-parse HEAD)} --org evogenom --project node-nestjs",
+    "sentry:deploy": "sentry-cli releases deploys ${SENTRY_RELEASE:-$(git rev-parse HEAD)} new --env ${NODE_ENV:-production} --org evogenom --project node-nestjs",
+    "sentry:finalize": "sentry-cli releases finalize ${SENTRY_RELEASE:-$(git rev-parse HEAD)} --org evogenom --project node-nestjs",
+    "sentry:full": "pnpm sentry:release && pnpm build && pnpm sentry:sourcemaps && pnpm sentry:finalize && pnpm sentry:deploy",
+    "docker:build": "docker build --build-arg SENTRY_RELEASE=${SENTRY_RELEASE:-$(git rev-parse HEAD)} -t evogenomai ."
   },
   "dependencies": {
     "@graphql-typed-document-node/core": "^3.2.0",
@@ -44,6 +48,7 @@
     "graphql-request": "^7.1.2",
     "graphql-tag": "^2.12.6",
     "jose": "^5.10.0",
+    "langfuse": "^3.37.2",
     "nestjs-cls": "^5.4.2",
     "nestjs-zod": "^4.3.1",
     "openai": "^4.91.1",

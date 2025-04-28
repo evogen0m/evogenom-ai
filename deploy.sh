@@ -13,6 +13,8 @@ show_help() {
   echo "  -p, --plan                 Run Terraform plan only (don't apply)"
   echo "  -a, --apply                Apply Terraform plan (default)"
   echo "  -t, --tag <tag>            Docker image tag to use (default: git commit hash)"
+  echo "  -s, --sentry-release <tag> Sentry release tag (default: same as Docker tag)"
+  echo "  --sentry                   Create and finalize Sentry release"
   echo ""
   exit 1
 }
@@ -24,7 +26,9 @@ GIT_COMMIT_HASH=$(git rev-parse HEAD)
 ACTION="apply"
 ENVIRONMENT=""
 DOCKER_TAG="$GIT_COMMIT_HASH"
+SENTRY_RELEASE=""
 BUILD_DOCKER=false
+CREATE_SENTRY_RELEASE=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -54,12 +58,26 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    -s|--sentry-release)
+      SENTRY_RELEASE="$2"
+      shift
+      shift
+      ;;
+    --sentry)
+      CREATE_SENTRY_RELEASE=true
+      shift
+      ;;
     *)
       ENVIRONMENT="$1"
       shift
       ;;
   esac
 done
+
+# Set Sentry release to Docker tag if not specified
+if [ -z "$SENTRY_RELEASE" ]; then
+  SENTRY_RELEASE="$DOCKER_TAG"
+fi
 
 # Validate environment
 if [[ ! "$ENVIRONMENT" =~ ^(dev|staging|prod)$ ]]; then
@@ -74,6 +92,25 @@ export AWS_PROFILE=evogenom-$ENVIRONMENT
 TERRAFORM_DIR="terraform/environments/$ENVIRONMENT"
 ECR_REPO_NAME="evogenom-$ENVIRONMENT-app"
 
+# Load environment variables from .env if it exists
+if [ -f ".env" ]; then
+  export $(grep -v '^#' .env | xargs)
+fi
+
+# Create Sentry release if requested
+if [ "$CREATE_SENTRY_RELEASE" = true ]; then
+  echo "Creating Sentry release: $SENTRY_RELEASE..."
+  export SENTRY_RELEASE="$SENTRY_RELEASE"
+  pnpm sentry:release
+  
+  # Only run this step if we're building the Docker image
+  if [ "$BUILD_DOCKER" = true ]; then
+    echo "Preparing for sourcemaps upload..."
+    pnpm build
+    pnpm sentry:sourcemaps
+  fi
+fi
+
 # Function to get ECR repository URL
 get_ecr_repo_url() {
   aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --query 'repositories[0].repositoryUri' --output text
@@ -86,8 +123,10 @@ if [ "$BUILD_DOCKER" = true ]; then
   # Get ECR login
   aws ecr get-login-password | docker login --username AWS --password-stdin "$(aws sts get-caller-identity --query 'Account' --output text).dkr.ecr.$(aws configure get region).amazonaws.com"
   
-  # Build image
-  docker build --platform linux/amd64 -t "$ECR_REPO_NAME:$DOCKER_TAG" .
+  # Build image with Sentry release
+  docker build --platform linux/amd64 \
+    --build-arg SENTRY_RELEASE="$SENTRY_RELEASE" \
+    -t "$ECR_REPO_NAME:$DOCKER_TAG" .
   
   # Tag and push
   REPO_URL=$(get_ecr_repo_url)
@@ -114,5 +153,14 @@ case $ACTION in
     terraform apply -var="commit_hash=$DOCKER_TAG"
     ;;
 esac
+
+# Finalize Sentry release and create deployment if needed
+if [ "$CREATE_SENTRY_RELEASE" = true ]; then
+  echo "Finalizing Sentry release: $SENTRY_RELEASE..."
+  export SENTRY_RELEASE="$SENTRY_RELEASE"
+  export NODE_ENV="$ENVIRONMENT"
+  pnpm sentry:finalize
+  pnpm sentry:deploy
+fi
 
 echo "Deployment to $ENVIRONMENT environment completed successfully!" 
