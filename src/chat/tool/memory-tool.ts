@@ -1,10 +1,10 @@
-import { TransactionHost } from '@nestjs-cls/transactional';
+import { Transactional, TransactionHost } from '@nestjs-cls/transactional';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, asc, cosineDistance, desc, eq, gt, lt, sql } from 'drizzle-orm';
 import { ChatCompletionTool } from 'openai/resources/chat';
 import { AppConfigType } from 'src/config';
-import { chatMessages } from 'src/db';
+import { chatMessages, chats } from 'src/db';
 import { DbTransactionAdapter } from 'src/db/drizzle.provider';
 import { OpenAiProvider } from 'src/openai/openai';
 import { z } from 'zod';
@@ -39,10 +39,17 @@ export class MemoryTool implements Tool {
 
   private readonly logger = new Logger(MemoryTool.name);
 
+  @Transactional()
   async execute(userId: string, input: ToolCall): Promise<string> {
     const args = searchMemorySchema.parse(JSON.parse(input.arguments));
 
-    const embedding = await this._generateEmbedding(args.searchString);
+    // Get the chat ID for this user (assuming there's only one active chat)
+    const chatId = await this._getUserChatId(userId);
+    if (!chatId) {
+      return 'No chat history found to search from.';
+    }
+
+    const embedding = await this._generateEmbedding(args.searchString, chatId);
     const results = await this._performSimilaritySearch(userId, embedding);
 
     if (results.length === 0) {
@@ -53,6 +60,7 @@ export class MemoryTool implements Tool {
     const overallSummary = await this._generateOverallSummary(
       combinedContext,
       args.searchString,
+      chatId,
     );
 
     return this._formatResultsWithSingleSummary(
@@ -62,8 +70,22 @@ export class MemoryTool implements Tool {
     );
   }
 
-  private async _generateEmbedding(searchString: string): Promise<number[]> {
-    return this.openai.generateEmbedding(searchString);
+  private async _getUserChatId(userId: string): Promise<string | null> {
+    // Get the first chat for this user - assuming one active chat per user
+    const chatResult = await this.txHost.tx
+      .select({ id: chats.id })
+      .from(chats)
+      .where(eq(chats.userId, userId))
+      .limit(1);
+
+    return chatResult.length > 0 ? chatResult[0].id : null;
+  }
+
+  private async _generateEmbedding(
+    searchString: string,
+    chatId: string,
+  ): Promise<number[]> {
+    return this.openai.generateEmbedding(searchString, chatId);
   }
 
   private async _performSimilaritySearch(
@@ -175,6 +197,7 @@ export class MemoryTool implements Tool {
   private async _generateOverallSummary(
     context: SearchResult[],
     searchString: string,
+    chatId: string,
   ): Promise<string> {
     // Context is already sorted from _fetchCombinedContext
     const summaryPrompt = `
@@ -187,7 +210,7 @@ Summary:
     `.trim();
 
     try {
-      const miniClient = this.openai.getMiniOpenAiClient();
+      const miniClient = this.openai.getMiniOpenAiClient({ sessionId: chatId });
       const summaryResponse = await miniClient.chat.completions.create({
         model: this.configService.getOrThrow('AZURE_OPENAI_MODEL_MINI'),
         messages: [{ role: 'system', content: summaryPrompt }],

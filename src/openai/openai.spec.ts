@@ -48,7 +48,7 @@ describe('OpenAiProvider', () => {
         (key) => mockConfig[key],
       );
 
-      openAiProvider.getOpenAiClient();
+      openAiProvider.getOpenAiClient({ sessionId: 'test-session-id' });
 
       expect(AzureOpenAI).toHaveBeenCalledWith({
         apiKey: 'test-api-key',
@@ -70,7 +70,7 @@ describe('OpenAiProvider', () => {
         (key) => mockConfig[key],
       );
 
-      openAiProvider.getMiniOpenAiClient();
+      openAiProvider.getMiniOpenAiClient({ sessionId: 'test-session-id' });
 
       expect(AzureOpenAI).toHaveBeenCalledWith({
         apiKey: 'test-api-key',
@@ -92,7 +92,7 @@ describe('OpenAiProvider', () => {
         (key) => mockConfig[key],
       );
 
-      openAiProvider.getEmbeddingClient();
+      openAiProvider.getEmbeddingClient({ sessionId: 'test-session-id' });
 
       expect(AzureOpenAI).toHaveBeenCalledWith({
         apiKey: 'test-api-key',
@@ -128,7 +128,10 @@ describe('OpenAiProvider', () => {
         mockEmbeddingsClient as any,
       );
 
-      const embedding = await openAiProvider.generateEmbedding('test input');
+      const embedding = await openAiProvider.generateEmbedding(
+        'test input',
+        'test-session-id',
+      );
 
       expect(mockEmbeddingsClient.embeddings.create).toHaveBeenCalledWith({
         input: 'test input',
@@ -159,7 +162,7 @@ describe('OpenAiProvider', () => {
         mockEmbeddingsClient as any,
       );
 
-      await openAiProvider.generateEmbedding('another test');
+      await openAiProvider.generateEmbedding('another test', 'test-session-id');
 
       expect(mockEmbeddingsClient.embeddings.create).toHaveBeenCalledWith({
         input: 'another test',

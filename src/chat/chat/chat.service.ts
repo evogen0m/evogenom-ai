@@ -47,11 +47,14 @@ export class ChatService implements OnApplicationBootstrap {
     userId: string,
     evogenomApiToken: string,
   ): AsyncGenerator<ChatEventResponse> {
-    const client = this.openai.getOpenAiClient();
     this.logger.log(`Streaming chat for user ${userId}`);
 
     await this.ensureUserExists(userId);
     const chat = await this.getOrCreateChat(userId);
+
+    const client = this.openai.getOpenAiClient({
+      sessionId: chat.id,
+    });
 
     // 1. Save user message
     const userMessageId = randomUUID();
@@ -524,7 +527,22 @@ export class ChatService implements OnApplicationBootstrap {
 
     try {
       await this.txHost.withTransaction(async () => {
-        const embedding = await this.openai.generateEmbedding(text);
+        // Get the chatId for this message
+        const message = await this.txHost.tx
+          .select({ chatId: chatMessages.chatId })
+          .from(chatMessages)
+          .where(eq(chatMessages.id, messageId))
+          .limit(1);
+
+        if (!message || message.length === 0) {
+          this.logger.warn(
+            `Message ${messageId} not found when setting embedding`,
+          );
+          return;
+        }
+
+        const chatId = message[0].chatId;
+        const embedding = await this.openai.generateEmbedding(text, chatId);
         const [res] = await this.txHost.tx
           .update(chatMessages)
           .set({ embedding })
@@ -554,6 +572,7 @@ export class ChatService implements OnApplicationBootstrap {
       .select({
         id: chatMessages.id,
         content: chatMessages.content,
+        chatId: chatMessages.chatId,
       })
       .from(chatMessages)
       .where(
