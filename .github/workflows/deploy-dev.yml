@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       commit_hash:
-        description: "Commit hash to deploy"
+        description: 'Commit hash to deploy'
         required: false
-        default: ""
+        default: ''
 
 # Add permissions for OIDC authentication
 permissions:
@@ -61,6 +61,8 @@ jobs:
           tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            SENTRY_RELEASE=${{ github.sha }}
 
       - name: Download task definition
         run: |

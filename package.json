@@ -22,7 +22,7 @@
     "test:e2e": "vitest run --config ./vitest.e2e.config.ts",
     "codegen": "graphql-codegen --config codegen.ts && pnpm lint",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org evogenom --project node-nestjs ./dist && sentry-cli sourcemaps upload --org evogenom --project node-nestjs --release ${SENTRY_RELEASE:-$(git rev-parse HEAD)} ./dist",
-    "docker:build": "docker build --build-arg COMMIT_SHA=$(git rev-parse HEAD) -t evogenomai ."
+    "docker:build": "docker build --build-arg SENTRY_RELEASE=$(git rev-parse HEAD) -t evogenomai ."
   },
   "dependencies": {
     "@graphql-typed-document-node/core": "^3.2.0",
