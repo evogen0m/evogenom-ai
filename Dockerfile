@@ -15,6 +15,10 @@ COPY drizzle ./drizzle
 COPY pem ./pem
 COPY drizzle.config.ts tsconfig*.json nest-cli.json ./
 
+# Capture git commit hash
+ARG COMMIT_SHA
+ENV SENTRY_RELEASE=${COMMIT_SHA}
+
 # Build application
 RUN pnpm build
 
@@ -24,6 +28,9 @@ RUN npm install -g pnpm
 WORKDIR /app
 
 ENV NODE_ENV=production
+# Pass SENTRY_RELEASE to the runner stage
+ARG COMMIT_SHA
+ENV SENTRY_RELEASE=${COMMIT_SHA}
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
