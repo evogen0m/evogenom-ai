@@ -2,6 +2,8 @@ import { ClsPluginTransactional } from '@nestjs-cls/transactional';
 import { TransactionalAdapterDrizzleOrm } from '@nestjs-cls/transactional-adapter-drizzle-orm';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER } from '@nestjs/core';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { ClsModule } from 'nestjs-cls';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
@@ -14,6 +16,7 @@ import { OpenAIModule } from './openai/openai.module';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ChatModule,
     DbModule,
     ConfigModule.forRoot({
@@ -38,6 +41,12 @@ import { OpenAIModule } from './openai/openai.module';
     ContentfulModule,
   ],
   controllers: [],
-  providers: [ContentfulApiClient],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
+    ContentfulApiClient,
+  ],
 })
 export class AppModule {}

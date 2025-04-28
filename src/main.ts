@@ -1,3 +1,6 @@
+//this should be the first import in the file
+import './instrument';
+
 import { ConsoleLogger, Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -5,6 +8,7 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import * as path from 'path';
 import { AppModule } from './app.module';
 import { DRIZZLE_INSTANCE } from './db/drizzle.provider';
+
 /**
  * Checks if the --migrate flag is present in command line arguments
  * @returns boolean indicating if migration should be run

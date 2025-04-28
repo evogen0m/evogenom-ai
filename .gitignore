@@ -80,3 +80,6 @@ terraform.tfvars.json
 
 #coverage
 coverage
+
+# Sentry Config File
+.sentryclirc
