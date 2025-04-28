@@ -90,17 +90,19 @@ describe('MemoryTool', () => {
   });
 
   describe('when searching memory', () => {
+    let chatId: string;
+
     beforeEach(async () => {
       // Setup chat messages in the database with embeddings
       const mockEmbedding = Array(1536).fill(0.1);
 
       // Create chat entries first
-      const chat1Id = randomUUID();
+      chatId = randomUUID();
       const chat2Id = randomUUID();
       const chat3Id = randomUUID();
 
       await dbClient.insert(chats).values([
-        { id: chat1Id, userId },
+        { id: chatId, userId },
         { id: chat2Id, userId },
         { id: chat3Id, userId },
       ]);
@@ -110,7 +112,7 @@ describe('MemoryTool', () => {
         {
           id: randomUUID(),
           userId,
-          chatId: chat1Id,
+          chatId: chatId,
           content: 'Hello, how are you?',
           role: 'user',
           createdAt: new Date(Date.now() - 3000),
@@ -138,6 +140,9 @@ describe('MemoryTool', () => {
     });
 
     it('should return a summary when relevant memories are found', async () => {
+      // Mock _getUserChatId to return the chatId
+      vi.spyOn(memoryTool as any, '_getUserChatId').mockResolvedValue(chatId);
+
       // Create a mock tool call
       const toolCall: ToolCall = {
         name: 'search_memory',
@@ -149,9 +154,10 @@ describe('MemoryTool', () => {
       // Execute the tool
       const result = await memoryTool.execute(userId, toolCall);
 
-      // Verify embeddings were generated
+      // Verify embeddings were generated with chatId
       expect(openAiProvider.generateEmbedding).toHaveBeenCalledWith(
         'machine learning',
+        chatId,
       );
 
       // Verify summary was generated
@@ -165,18 +171,14 @@ describe('MemoryTool', () => {
     });
 
     it('should return a message when no memories are found', async () => {
+      // Mock _getUserChatId to return the chatId
+      vi.spyOn(memoryTool as any, '_getUserChatId').mockResolvedValue(chatId);
+
       // Mock similarity search to return an empty array
-      vi.spyOn(dbClient, 'select').mockImplementationOnce(() => {
-        return {
-          from: () => ({
-            where: () => ({
-              orderBy: () => ({
-                limit: () => [],
-              }),
-            }),
-          }),
-        } as any;
-      });
+      vi.spyOn(
+        memoryTool as any,
+        '_performSimilaritySearch',
+      ).mockResolvedValueOnce([]);
 
       // Create a mock tool call
       const toolCall: ToolCall = {
@@ -196,6 +198,9 @@ describe('MemoryTool', () => {
     });
 
     it('should handle embedding generation error gracefully', async () => {
+      // Mock _getUserChatId to return the chatId
+      vi.spyOn(memoryTool as any, '_getUserChatId').mockResolvedValue(chatId);
+
       // Mock embedding generation to fail
       vi.mocked(openAiProvider.generateEmbedding).mockRejectedValueOnce(
         new Error('Embedding generation failed'),
@@ -214,6 +219,9 @@ describe('MemoryTool', () => {
     });
 
     it('should handle summary generation error gracefully', async () => {
+      // Mock _getUserChatId to return the chatId
+      vi.spyOn(memoryTool as any, '_getUserChatId').mockResolvedValue(chatId);
+
       // Mock summary generation to fail
       mockMiniOpenAiClient.chat.completions.create.mockRejectedValueOnce(
         new Error('Summary generation failed'),
@@ -234,6 +242,25 @@ describe('MemoryTool', () => {
       expect(result).toContain(
         'What you remember given the search query "machine learning"',
       );
+    });
+
+    it('should return a message when no chat is found for the user', async () => {
+      // Mock _getUserChatId to return null (no chat found)
+      vi.spyOn(memoryTool as any, '_getUserChatId').mockResolvedValue(null);
+
+      // Create a mock tool call
+      const toolCall: ToolCall = {
+        name: 'search_memory',
+        arguments: JSON.stringify({
+          searchString: 'machine learning',
+        }),
+      };
+
+      // Execute the tool
+      const result = await memoryTool.execute(userId, toolCall);
+
+      // Verify the response for no chat found
+      expect(result).toContain('No chat history found to search from.');
     });
   });
 
