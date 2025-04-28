@@ -88,14 +88,15 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '23'
           cache: 'pnpm'
-
-      - name: Install pnpm
-        run: npm install -g pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
