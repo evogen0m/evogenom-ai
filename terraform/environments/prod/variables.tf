@@ -77,6 +77,7 @@ variable "env_variables" {
     CONTENTFUL_SPACE_ID      = "nslj8lsfnbof"
     # evogenom-main
     EVOGENOM_API_URL = "https://on5w2opsozd6ddgewx26drt3d4.appsync-api.eu-west-1.amazonaws.com/graphql"
+    LANGFUSE_BASEURL = "https://cloud.langfuse.com"
   }
 }
 

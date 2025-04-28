@@ -22,6 +22,9 @@ env:
   ECS_SERVICE: evogenom-dev-service # This should match the <prefix>-service from the ECS module
   TASK_DEFINITION: evogenom-dev-service # This should match the family from the task definition
   CI_ROLE_ARN: arn:aws:iam::787152464465:role/evogenom-dev-ci-role
+  SENTRY_ORG: evogenom
+  SENTRY_PROJECT: node-nestjs
+  NODE_ENV: production
 
 jobs:
   deploy:
@@ -63,7 +66,6 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             SENTRY_RELEASE=${{ github.sha }}
-            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Download task definition
         run: |
@@ -85,6 +87,58 @@ jobs:
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '23'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create Sentry release
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: ${{ github.sha }}
+        run: |
+          echo "Creating Sentry release ${{ github.sha }}..."
+          pnpm sentry:release
+
+      - name: Build app for sourcemaps
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: ${{ github.sha }}
+        run: |
+          echo "Building app for sourcemaps..."
+          pnpm build
+
+      - name: Upload sourcemaps to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: ${{ github.sha }}
+        run: |
+          echo "Uploading sourcemaps to Sentry..."
+          pnpm sentry:sourcemaps
+
+      - name: Finalize Sentry release
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: ${{ github.sha }}
+        run: |
+          echo "Finalizing Sentry release..."
+          pnpm sentry:finalize
+
+      - name: Create Sentry deployment
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_RELEASE: ${{ github.sha }}
+        run: |
+          echo "Creating Sentry deployment..."
+          pnpm sentry:deploy
 
       - name: Deployment Status
         if: always()

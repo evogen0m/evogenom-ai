@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { observeOpenAI } from 'langfuse';
 import { AzureOpenAI } from 'openai';
 import { AppConfigType } from 'src/config';
 
@@ -8,30 +9,40 @@ export class OpenAiProvider {
   constructor(private readonly configService: ConfigService<AppConfigType>) {}
 
   getOpenAiClient() {
-    return new AzureOpenAI({
-      apiKey: this.configService.getOrThrow('AZURE_OPENAI_API_KEY'),
-      endpoint: this.configService.getOrThrow('AZURE_OPENAI_ENDPOINT'),
-      apiVersion: this.configService.getOrThrow('AZURE_OPENAI_API_VERSION'),
-      deployment: this.configService.getOrThrow('AZURE_OPENAI_DEPLOYMENT'),
-    });
+    return observeOpenAI(
+      new AzureOpenAI({
+        apiKey: this.configService.getOrThrow('AZURE_OPENAI_API_KEY'),
+        endpoint: this.configService.getOrThrow('AZURE_OPENAI_ENDPOINT'),
+        apiVersion: this.configService.getOrThrow('AZURE_OPENAI_API_VERSION'),
+        deployment: this.configService.getOrThrow('AZURE_OPENAI_DEPLOYMENT'),
+      }),
+    );
   }
 
   getMiniOpenAiClient() {
-    return new AzureOpenAI({
-      apiKey: this.configService.getOrThrow('AZURE_OPENAI_API_KEY'),
-      endpoint: this.configService.getOrThrow('AZURE_OPENAI_ENDPOINT'),
-      apiVersion: this.configService.getOrThrow('AZURE_OPENAI_API_VERSION'),
-      deployment: this.configService.getOrThrow('AZURE_OPENAI_DEPLOYMENT_MINI'),
-    });
+    return observeOpenAI(
+      new AzureOpenAI({
+        apiKey: this.configService.getOrThrow('AZURE_OPENAI_API_KEY'),
+        endpoint: this.configService.getOrThrow('AZURE_OPENAI_ENDPOINT'),
+        apiVersion: this.configService.getOrThrow('AZURE_OPENAI_API_VERSION'),
+        deployment: this.configService.getOrThrow(
+          'AZURE_OPENAI_DEPLOYMENT_MINI',
+        ),
+      }),
+    );
   }
 
   getEmbeddingClient() {
-    return new AzureOpenAI({
-      apiKey: this.configService.getOrThrow('AZURE_OPENAI_API_KEY'),
-      endpoint: this.configService.getOrThrow('AZURE_OPENAI_ENDPOINT'),
-      apiVersion: this.configService.getOrThrow('AZURE_OPENAI_API_VERSION'),
-      deployment: this.configService.getOrThrow('AZURE_OPENAI_EMBEDDING_MODEL'),
-    });
+    return observeOpenAI(
+      new AzureOpenAI({
+        apiKey: this.configService.getOrThrow('AZURE_OPENAI_API_KEY'),
+        endpoint: this.configService.getOrThrow('AZURE_OPENAI_ENDPOINT'),
+        apiVersion: this.configService.getOrThrow('AZURE_OPENAI_API_VERSION'),
+        deployment: this.configService.getOrThrow(
+          'AZURE_OPENAI_EMBEDDING_MODEL',
+        ),
+      }),
+    );
   }
 
   async generateEmbedding(input: string): Promise<number[]> {
