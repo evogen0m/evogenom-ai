@@ -8,7 +8,7 @@ import { AppConfigType } from 'src/config';
 export class OpenAiProvider {
   constructor(private readonly configService: ConfigService<AppConfigType>) {}
 
-  getOpenAiClient() {
+  getOpenAiClient({ sessionId }: { sessionId: string }) {
     return observeOpenAI(
       new AzureOpenAI({
         apiKey: this.configService.getOrThrow('AZURE_OPENAI_API_KEY'),
@@ -16,10 +16,13 @@ export class OpenAiProvider {
         apiVersion: this.configService.getOrThrow('AZURE_OPENAI_API_VERSION'),
         deployment: this.configService.getOrThrow('AZURE_OPENAI_DEPLOYMENT'),
       }),
+      {
+        sessionId,
+      },
     );
   }
 
-  getMiniOpenAiClient() {
+  getMiniOpenAiClient({ sessionId }: { sessionId: string }) {
     return observeOpenAI(
       new AzureOpenAI({
         apiKey: this.configService.getOrThrow('AZURE_OPENAI_API_KEY'),
@@ -29,10 +32,13 @@ export class OpenAiProvider {
           'AZURE_OPENAI_DEPLOYMENT_MINI',
         ),
       }),
+      {
+        sessionId,
+      },
     );
   }
 
-  getEmbeddingClient() {
+  getEmbeddingClient({ sessionId }: { sessionId: string }) {
     return observeOpenAI(
       new AzureOpenAI({
         apiKey: this.configService.getOrThrow('AZURE_OPENAI_API_KEY'),
@@ -42,11 +48,14 @@ export class OpenAiProvider {
           'AZURE_OPENAI_EMBEDDING_MODEL',
         ),
       }),
+      {
+        sessionId,
+      },
     );
   }
 
-  async generateEmbedding(input: string): Promise<number[]> {
-    const client = this.getEmbeddingClient();
+  async generateEmbedding(input: string, sessionId: string): Promise<number[]> {
+    const client = this.getEmbeddingClient({ sessionId });
 
     const response = await client.embeddings.create({
       input: input,
