@@ -19,6 +19,10 @@ COPY drizzle.config.ts tsconfig*.json nest-cli.json ./
 ARG SENTRY_RELEASE
 ENV SENTRY_RELEASE=${SENTRY_RELEASE}
 
+# Add Sentry auth token
+ARG SENTRY_AUTH_TOKEN
+ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+
 # Build application
 RUN pnpm build
 

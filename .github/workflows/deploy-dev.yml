@@ -63,6 +63,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             SENTRY_RELEASE=${{ github.sha }}
+            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Download task definition
         run: |
