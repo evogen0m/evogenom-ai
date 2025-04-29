@@ -40,7 +40,9 @@ export class EvogenomApiClient {
         userId,
         nextToken: nextToken || null,
       });
-      this.logger.debug(`ListUserOrders took ${Date.now() - now}ms`);
+      this.logger.debug(
+        `ListUserOrders took ${Date.now() - now}ms ${listOrderPackages?.items.length} rows returned`,
+      );
       if (listOrderPackages?.nextToken) {
         return [
           ...(listOrderPackages?.items.filter(Boolean) ?? []),
@@ -73,7 +75,9 @@ export class EvogenomApiClient {
         userId,
         nextToken: nextToken || null,
       });
-      this.logger.debug(`ListUserResults took ${Date.now() - now}ms`);
+      this.logger.debug(
+        `ListUserResults took ${Date.now() - now}ms ${listResults?.items.length} rows returned`,
+      );
       if (listResults?.nextToken) {
         return [
           ...(listResults?.items ?? []),
@@ -101,7 +105,9 @@ export class EvogenomApiClient {
     const { listProducts } = await sdk.ListProducts({
       nextToken: nextToken || null,
     });
-    this.logger.log(`ListProducts took ${Date.now() - now}ms`);
+    this.logger.debug(
+      `ListProducts took ${Date.now() - now}ms ${listProducts?.items.length} rows returned`,
+    );
 
     if (listProducts?.nextToken) {
       return [
