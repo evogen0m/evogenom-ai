@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GraphQLClient } from 'graphql-request';
 
@@ -12,6 +12,8 @@ import {
 @Injectable()
 export class EvogenomApiClient {
   constructor(private readonly configService: ConfigService) {}
+
+  logger = new Logger(EvogenomApiClient.name);
 
   getClient(accessToken: string): GraphQLClient {
     return new GraphQLClient(this.getApiUrl(), {
@@ -33,11 +35,12 @@ export class EvogenomApiClient {
     try {
       const client = this.getClient(accessToken);
       const sdk = getSdk(client);
+      const now = Date.now();
       const { listOrderPackages } = await sdk.ListUserOrders({
         userId,
         nextToken: nextToken || null,
       });
-
+      this.logger.debug(`ListUserOrders took ${Date.now() - now}ms`);
       if (listOrderPackages?.nextToken) {
         return [
           ...(listOrderPackages?.items.filter(Boolean) ?? []),
@@ -65,11 +68,12 @@ export class EvogenomApiClient {
     try {
       const client = this.getClient(accessToken);
       const sdk = getSdk(client);
+      const now = Date.now();
       const { listResults } = await sdk.ListUserResults({
         userId,
         nextToken: nextToken || null,
       });
-
+      this.logger.debug(`ListUserResults took ${Date.now() - now}ms`);
       if (listResults?.nextToken) {
         return [
           ...(listResults?.items ?? []),
@@ -93,9 +97,11 @@ export class EvogenomApiClient {
   ): Promise<ProductFragment[]> {
     const client = this.getClient(accessToken);
     const sdk = getSdk(client);
+    const now = Date.now();
     const { listProducts } = await sdk.ListProducts({
       nextToken: nextToken || null,
     });
+    this.logger.log(`ListProducts took ${Date.now() - now}ms`);
 
     if (listProducts?.nextToken) {
       return [
@@ -103,6 +109,7 @@ export class EvogenomApiClient {
         ...(await this.getAllProducts(accessToken, listProducts.nextToken)),
       ];
     }
+
     return (listProducts?.items as ProductFragment[]) ?? [];
   }
 }

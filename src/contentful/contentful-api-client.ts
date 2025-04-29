@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GraphQLClient } from 'graphql-request';
 import { AppConfigType } from 'src/config';
@@ -13,6 +13,8 @@ import {
 @Injectable()
 export class ContentfulApiClient {
   constructor(private readonly configService: ConfigService<AppConfigType>) {}
+
+  logger = new Logger(ContentfulApiClient.name);
 
   getClient(): GraphQLClient {
     const spaceId = this.configService.getOrThrow('CONTENTFUL_SPACE_ID');
@@ -40,7 +42,9 @@ export class ContentfulApiClient {
         locale: 'en-US',
       };
 
+      const now = Date.now();
       const result = await sdk.GetResults(variables);
+      this.logger.debug(`GetResults took ${Date.now() - now}ms`);
       return (
         (result.resultRowCollection?.items?.filter(
           Boolean,
@@ -61,7 +65,9 @@ export class ContentfulApiClient {
         locale: 'en-US',
       };
 
+      const now = Date.now();
       const result = await sdk.GetProducts(variables);
+      this.logger.debug(`GetProducts took ${Date.now() - now}ms`);
       return (
         (result.productCollection?.items?.filter(
           Boolean,
