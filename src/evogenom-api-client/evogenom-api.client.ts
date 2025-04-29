@@ -43,7 +43,7 @@ export class EvogenomApiClient {
       this.logger.debug(
         `ListUserOrders took ${Date.now() - now}ms ${listOrderPackages?.items.length} rows returned`,
       );
-      if (listOrderPackages?.nextToken) {
+      if (listOrderPackages?.nextToken && listOrderPackages?.items.length > 0) {
         return [
           ...(listOrderPackages?.items.filter(Boolean) ?? []),
           ...(await this.getUserOrders(
@@ -78,7 +78,7 @@ export class EvogenomApiClient {
       this.logger.debug(
         `ListUserResults took ${Date.now() - now}ms ${listResults?.items.length} rows returned`,
       );
-      if (listResults?.nextToken) {
+      if (listResults?.nextToken && listResults?.items.length > 0) {
         return [
           ...(listResults?.items ?? []),
           ...(await this.getUserResults(
@@ -109,7 +109,7 @@ export class EvogenomApiClient {
       `ListProducts took ${Date.now() - now}ms ${listProducts?.items.length} rows returned`,
     );
 
-    if (listProducts?.nextToken) {
+    if (listProducts?.nextToken && listProducts?.items.length > 0) {
       return [
         ...(listProducts?.items.filter(Boolean) as ProductFragment[]),
         ...(await this.getAllProducts(accessToken, listProducts.nextToken)),
