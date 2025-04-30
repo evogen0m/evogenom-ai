@@ -1522,7 +1522,7 @@ export type GetProductsQueryVariables = Exact<{
 }>;
 
 
-export type GetProductsQuery = { __typename?: 'Query', productCollection: { __typename?: 'ProductCollection', total: number, skip: number, limit: number, items: Array<{ __typename?: 'Product', name: string | null, productCode: number | null } | null> } | null };
+export type GetProductsQuery = { __typename?: 'Query', productCollection: { __typename?: 'ProductCollection', total: number, skip: number, limit: number, items: Array<{ __typename?: 'Product', productCode: number | null, name: string | null, sys: { __typename?: 'Sys', id: string } } | null> } | null };
 
 export const ResultRowFieldsFragmentDoc = gql`
     fragment ResultRowFields on ResultRow {
@@ -1576,12 +1576,11 @@ export const GetProductsDocument = gql`
     skip
     limit
     items {
-      name
-      productCode
+      ...ProductFields
     }
   }
 }
-    `;
+    ${ProductFieldsFragmentDoc}`;
 
 export type SdkFunctionWrapper = <T>(action: (requestHeaders?:Record<string, string>) => Promise<T>, operationName: string, operationType?: string, variables?: any) => Promise<T>;
 

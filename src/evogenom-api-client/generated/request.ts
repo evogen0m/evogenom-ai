@@ -2671,13 +2671,13 @@ export type ProductFragment = { __typename?: 'Product', id: string, name: string
 
 export type UserOrderFragment = { __typename?: 'OrderPackage', id: string, package: { __typename?: 'Package', id: string, name: string | null, productCode: number | null, productType: ProductType | null, createdAt: any } };
 
-export type ListUserOrdersQueryVariables = Exact<{
-  userId: Scalars['String']['input'];
+export type GetUserOrdersAndPackagesQueryVariables = Exact<{
+  userId: Scalars['ID']['input'];
   nextToken: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type ListUserOrdersQuery = { __typename?: 'Query', listOrderPackages: { __typename?: 'ModelOrderPackageConnection', nextToken: string | null, items: Array<{ __typename?: 'OrderPackage', id: string, package: { __typename?: 'Package', id: string, name: string | null, productCode: number | null, productType: ProductType | null, createdAt: any } } | null> } | null };
+export type GetUserOrdersAndPackagesQuery = { __typename?: 'Query', orderByOwner: { __typename?: 'ModelOrderConnection', nextToken: string | null, items: Array<{ __typename?: 'Order', id: string, packages: { __typename?: 'ModelOrderPackageConnection', items: Array<{ __typename?: 'OrderPackage', id: string, package: { __typename?: 'Package', id: string, name: string | null, productCode: number | null, productType: ProductType | null, createdAt: any } } | null> } | null } | null> } | null };
 
 export type UserResultFragment = { __typename?: 'Result', id: string, name: string, description: string | null, createdAt: any, sampleResultsId: string | null, productResultsId: string | null };
 
@@ -2687,7 +2687,7 @@ export type ListUserResultsQueryVariables = Exact<{
 }>;
 
 
-export type ListUserResultsQuery = { __typename?: 'Query', listResults: { __typename?: 'ModelResultConnection', nextToken: string | null, items: Array<{ __typename?: 'Result', id: string, name: string, description: string | null, createdAt: any, sampleResultsId: string | null, productResultsId: string | null } | null> } | null };
+export type ListUserResultsQuery = { __typename?: 'Query', resultByOwner: { __typename?: 'ModelResultConnection', nextToken: string | null, items: Array<{ __typename?: 'Result', id: string, name: string, description: string | null, createdAt: any, sampleResultsId: string | null, productResultsId: string | null } | null> } | null };
 
 export type ListProductsQueryVariables = Exact<{
   nextToken: InputMaybe<Scalars['String']['input']>;
@@ -2725,15 +2725,21 @@ export const UserResultFragmentDoc = gql`
   productResultsId
 }
     `;
-export const ListUserOrdersDocument = gql`
-    query ListUserOrders($userId: String!, $nextToken: String) {
-  listOrderPackages(
-    filter: {owner: {eq: $userId}}
-    limit: 1000
+export const GetUserOrdersAndPackagesDocument = gql`
+    query GetUserOrdersAndPackages($userId: ID!, $nextToken: String) {
+  orderByOwner(
+    owner: $userId
+    limit: 100
     nextToken: $nextToken
+    sortDirection: DESC
   ) {
     items {
-      ...UserOrder
+      id
+      packages(limit: 1000) {
+        items {
+          ...UserOrder
+        }
+      }
     }
     nextToken
   }
@@ -2741,7 +2747,12 @@ export const ListUserOrdersDocument = gql`
     ${UserOrderFragmentDoc}`;
 export const ListUserResultsDocument = gql`
     query ListUserResults($userId: ID!, $nextToken: String) {
-  listResults(filter: {owner: {eq: $userId}}, limit: 1000, nextToken: $nextToken) {
+  resultByOwner(
+    owner: $userId
+    limit: 1000
+    nextToken: $nextToken
+    sortDirection: DESC
+  ) {
     items {
       ...UserResult
     }
@@ -2767,8 +2778,8 @@ const defaultWrapper: SdkFunctionWrapper = (action, _operationName, _operationTy
 
 export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = defaultWrapper) {
   return {
-    ListUserOrders(variables: ListUserOrdersQueryVariables, requestHeaders?: GraphQLClientRequestHeaders): Promise<ListUserOrdersQuery> {
-      return withWrapper((wrappedRequestHeaders) => client.request<ListUserOrdersQuery>(ListUserOrdersDocument, variables, {...requestHeaders, ...wrappedRequestHeaders}), 'ListUserOrders', 'query', variables);
+    GetUserOrdersAndPackages(variables: GetUserOrdersAndPackagesQueryVariables, requestHeaders?: GraphQLClientRequestHeaders): Promise<GetUserOrdersAndPackagesQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GetUserOrdersAndPackagesQuery>(GetUserOrdersAndPackagesDocument, variables, {...requestHeaders, ...wrappedRequestHeaders}), 'GetUserOrdersAndPackages', 'query', variables);
     },
     ListUserResults(variables: ListUserResultsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders): Promise<ListUserResultsQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<ListUserResultsQuery>(ListUserResultsDocument, variables, {...requestHeaders, ...wrappedRequestHeaders}), 'ListUserResults', 'query', variables);

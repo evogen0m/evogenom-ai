@@ -30,92 +30,107 @@ export class EvogenomApiClient {
   async getUserOrders(
     userId: string,
     accessToken: string,
-    nextToken?: string,
   ): Promise<UserOrderFragment[]> {
     try {
       const client = this.getClient(accessToken);
       const sdk = getSdk(client);
       const now = Date.now();
-      const { listOrderPackages } = await sdk.ListUserOrders({
+
+      const response = await sdk.GetUserOrdersAndPackages({
         userId,
-        nextToken: nextToken || null,
+        nextToken: null,
       });
+      const orderByOwner = response.orderByOwner;
       this.logger.debug(
-        `ListUserOrders took ${Date.now() - now}ms ${listOrderPackages?.items.length} rows returned`,
+        `[userId: ${userId}] GetUserOrdersAndPackages (single fetch) took ${Date.now() - now}ms, orders fetched: ${orderByOwner?.items?.length ?? 0}`,
       );
-      if (listOrderPackages?.nextToken && listOrderPackages?.items.length > 0) {
-        return [
-          ...(listOrderPackages?.items.filter(Boolean) ?? []),
-          ...(await this.getUserOrders(
-            userId,
-            accessToken,
-            listOrderPackages.nextToken,
-          )),
-        ] as UserOrderFragment[];
+
+      let fetchedPackages: UserOrderFragment[] = [];
+      if (orderByOwner?.items) {
+        fetchedPackages = orderByOwner.items.flatMap(
+          (order) => order?.packages?.items?.filter(Boolean) ?? [],
+        ) as UserOrderFragment[];
       }
 
-      return (
-        (listOrderPackages?.items?.filter(Boolean) as UserOrderFragment[]) ?? []
-      );
+      if (orderByOwner?.nextToken) {
+        this.logger.warn(
+          `[userId: ${userId}] GetUserOrdersAndPackages response contained a nextToken (${orderByOwner.nextToken.substring(0, 10)}...), but pagination is disabled. Fetched ${fetchedPackages.length} packages.`,
+        );
+      }
+
+      return fetchedPackages;
     } catch (error) {
-      throw new Error(`Failed to fetch user orders: ${error.message}`);
+      this.logger.error(
+        `[userId: ${userId}] Failed to fetch user orders: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(
+        `[userId: ${userId}] Failed to fetch user orders: ${error.message}`,
+      );
     }
   }
 
   async getUserResults(
     userId: string,
     accessToken: string,
-    nextToken?: string,
   ): Promise<UserResultFragment[]> {
     try {
       const client = this.getClient(accessToken);
       const sdk = getSdk(client);
       const now = Date.now();
-      const { listResults } = await sdk.ListUserResults({
+
+      const response = await sdk.ListUserResults({
         userId,
-        nextToken: nextToken || null,
+        nextToken: null,
       });
+
+      const resultByOwner = response.resultByOwner;
       this.logger.debug(
-        `ListUserResults took ${Date.now() - now}ms ${listResults?.items.length} rows returned`,
+        `[userId: ${userId}] ListUserResults (single fetch) took ${Date.now() - now}ms ${resultByOwner?.items.length} rows returned`,
       );
-      if (listResults?.nextToken && listResults?.items.length > 0) {
-        return [
-          ...(listResults?.items ?? []),
-          ...(await this.getUserResults(
-            userId,
-            accessToken,
-            listResults.nextToken,
-          )),
-        ] as UserResultFragment[];
+
+      const currentItems =
+        (resultByOwner?.items?.filter(Boolean) as UserResultFragment[]) ?? [];
+
+      if (resultByOwner?.nextToken) {
+        this.logger.warn(
+          `[userId: ${userId}] ListUserResults response contained a nextToken (${resultByOwner.nextToken.substring(0, 10)}...), but pagination is disabled. Fetched ${currentItems.length} results.`,
+        );
       }
 
-      return (listResults?.items as UserResultFragment[]) ?? [];
+      return currentItems;
     } catch (error) {
-      throw new Error(`Failed to fetch user results: ${error.message}`);
+      this.logger.error(
+        `[userId: ${userId}] Failed to fetch user results: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(
+        `[userId: ${userId}] Failed to fetch user results: ${error.message}`,
+      );
     }
   }
 
-  async getAllProducts(
-    accessToken: string,
-    nextToken?: string,
-  ): Promise<ProductFragment[]> {
+  async getAllProducts(accessToken: string): Promise<ProductFragment[]> {
     const client = this.getClient(accessToken);
     const sdk = getSdk(client);
     const now = Date.now();
+
     const { listProducts } = await sdk.ListProducts({
-      nextToken: nextToken || null,
+      nextToken: null,
     });
     this.logger.debug(
-      `ListProducts took ${Date.now() - now}ms ${listProducts?.items.length} rows returned`,
+      `ListProducts (single fetch) took ${Date.now() - now}ms ${listProducts?.items.length} rows returned`,
     );
 
-    if (listProducts?.nextToken && listProducts?.items.length > 0) {
-      return [
-        ...(listProducts?.items.filter(Boolean) as ProductFragment[]),
-        ...(await this.getAllProducts(accessToken, listProducts.nextToken)),
-      ];
+    const currentItems =
+      (listProducts?.items?.filter(Boolean) as ProductFragment[]) ?? [];
+
+    if (listProducts?.nextToken) {
+      this.logger.warn(
+        `ListProducts response contained a nextToken (${listProducts.nextToken.substring(0, 10)}...), but pagination is disabled. Fetched ${currentItems.length} products.`,
+      );
     }
 
-    return (listProducts?.items as ProductFragment[]) ?? [];
+    return currentItems;
   }
 }
