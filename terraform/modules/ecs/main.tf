@@ -166,7 +166,8 @@ locals {
         { name = "HOST", value = "0.0.0.0" },
         { name = "NODE_ENV", value = "production" },
         { name = "DATABASE_USE_SSL", value = "true" },
-        { name = "SAMPLE_EVENTS_SQS_URL", value = aws_sqs_queue.sample_events.url }
+        { name = "SAMPLE_EVENTS_SQS_URL", value = aws_sqs_queue.sample_events.url },
+        { name = "ORDER_EVENTS_SQS_URL", value = aws_sqs_queue.order_events.url }
       ],
       [
         for k, v in var.environment_variables : {
@@ -318,6 +319,23 @@ resource "aws_sqs_queue" "sample_events" {
   )
 }
 
+# SQS Queue for order events
+resource "aws_sqs_queue" "order_events" {
+  name                       = "${var.prefix}-orderEvents"
+  delay_seconds              = 0
+  max_message_size           = 262144
+  message_retention_seconds  = 345600 # 4 days
+  receive_wait_time_seconds  = 10
+  visibility_timeout_seconds = 30
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}-orderEvents"
+    }
+  )
+}
+
 # Policy to allow access to SQS queues
 resource "aws_iam_policy" "sqs_access" {
   name        = "${var.prefix}-sqs-access"
@@ -333,8 +351,11 @@ resource "aws_iam_policy" "sqs_access" {
           "sqs:GetQueueAttributes",
           "sqs:GetQueueUrl"
         ]
-        Effect   = "Allow"
-        Resource = aws_sqs_queue.sample_events.arn
+        Effect = "Allow"
+        Resource = [
+          aws_sqs_queue.sample_events.arn,
+          aws_sqs_queue.order_events.arn
+        ]
       }
     ]
   })

@@ -37,6 +37,7 @@ export const EnvConfigSchema = z.object({
   EVOGENOM_API_URL: z.string().url(),
   CONTENTFUL_ACCESS_TOKEN: z.string().min(1),
   CONTENTFUL_SPACE_ID: z.string().min(1),
+  SAMPLE_EVENTS_SQS_URL: z.string().url().nullable(),
 });
 
 export type AppConfigType = z.infer<typeof EnvConfigSchema>;
