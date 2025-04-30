@@ -166,6 +166,7 @@ locals {
         { name = "HOST", value = "0.0.0.0" },
         { name = "NODE_ENV", value = "production" },
         { name = "DATABASE_USE_SSL", value = "true" },
+        { name = "SAMPLE_EVENTS_SQS_URL", value = aws_sqs_queue.sample_events.url }
       ],
       [
         for k, v in var.environment_variables : {
@@ -298,4 +299,49 @@ resource "aws_appautoscaling_policy" "memory_tracking" {
     scale_in_cooldown  = 300
     scale_out_cooldown = 60
   }
+}
+
+# SQS Queues for sample events
+resource "aws_sqs_queue" "sample_events" {
+  name                       = "${var.prefix}-sampleEvents"
+  delay_seconds              = 0
+  max_message_size           = 262144
+  message_retention_seconds  = 345600 # 4 days
+  receive_wait_time_seconds  = 10
+  visibility_timeout_seconds = 30
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}-sampleEvents"
+    }
+  )
+}
+
+# Policy to allow access to SQS queues
+resource "aws_iam_policy" "sqs_access" {
+  name        = "${var.prefix}-sqs-access"
+  description = "Allow access to SQS queues"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl"
+        ]
+        Effect   = "Allow"
+        Resource = aws_sqs_queue.sample_events.arn
+      }
+    ]
+  })
+}
+
+# Attach SQS policy to task role
+resource "aws_iam_role_policy_attachment" "sqs_access" {
+  role       = aws_iam_role.task_role.name
+  policy_arn = aws_iam_policy.sqs_access.arn
 }
