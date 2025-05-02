@@ -89,3 +89,9 @@ variable "commit_hash" {
   description = "Git commit hash to use for container image tag"
   type        = string
 }
+
+variable "firebase_service_account_ssm_path" {
+  description = "SSM parameter path for Firebase admin SDK service account"
+  type        = string
+  default     = "/amplify/ds7n2bdw9vehe/dev/AMPLIFY_evogenomApi_FIREBASE__ADMIN_SDK_SERVICE_ACCOUNT"
+}
