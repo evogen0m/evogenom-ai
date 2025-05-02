@@ -1,12 +1,20 @@
 import {
   index,
   jsonb,
+  pgEnum,
   pgTable,
   text,
   timestamp,
   uuid,
   vector,
 } from 'drizzle-orm/pg-core';
+
+// Enums
+export const followUpStatusEnum = pgEnum('follow_up_status', [
+  'pending',
+  'sent',
+  'failed',
+]);
 
 // Base tables with common fields
 export const users = pgTable('users', {
@@ -73,7 +81,7 @@ export const followUps = pgTable(
       .references(() => chats.id, { onDelete: 'cascade' }),
     content: text('content').notNull(),
     dueDate: timestamp('due_date').notNull(),
-    status: text('status').notNull().default('pending'),
+    status: followUpStatusEnum('status').notNull().default('pending'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },

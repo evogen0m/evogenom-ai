@@ -12,6 +12,7 @@ import { ContentfulApiClient } from './contentful/contentful-api-client';
 import { ContentfulModule } from './contentful/contentful.module';
 import { DbModule } from './db/db.module';
 import { DRIZZLE_INSTANCE } from './db/drizzle.provider';
+import { FollowUpModule } from './followup/followup.module';
 import { NotificationModule } from './notification/notification.module';
 import { OpenAIModule } from './openai/openai.module';
 
@@ -41,6 +42,7 @@ import { OpenAIModule } from './openai/openai.module';
     OpenAIModule,
     ContentfulModule,
     NotificationModule,
+    FollowUpModule,
   ],
   controllers: [],
   providers: [
