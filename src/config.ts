@@ -40,7 +40,7 @@ export const EnvConfigSchema = z.object({
   FIREBASE_SERVICE_ACCOUNT: z
     .string()
     .min(1)
-    .regex(/^{.*}$/, 'Value should be a valid JSON object'),
+    .startsWith('{', 'Value should be a valid JSON object'),
   SAMPLE_EVENTS_SQS_URL: z.string().url().optional(),
   ORDER_EVENTS_SQS_URL: z.string().url().optional(),
 });

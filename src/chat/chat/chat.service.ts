@@ -21,6 +21,7 @@ import {
   ChatMessageResponse,
   ChatRequest,
 } from '../dto/chat';
+import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
 import { Tool } from '../tool/tool';
 import { ChatContextMetadata, PromptService } from './prompt.service';
@@ -33,8 +34,9 @@ export class ChatService implements OnApplicationBootstrap {
     private readonly configService: ConfigService<AppConfigType>,
     private readonly promptService: PromptService,
     private readonly memoryTool: MemoryTool,
+    private readonly followupTool: FollowupTool,
   ) {
-    this.tools = [this.memoryTool];
+    this.tools = [this.memoryTool, this.followupTool];
   }
 
   private readonly tools: Tool[];
