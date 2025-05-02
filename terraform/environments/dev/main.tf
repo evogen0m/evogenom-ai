@@ -78,8 +78,9 @@ module "ecs" {
   alb_listener_arn  = module.alb.https_listener_arn
 
   # Service discovery and environment variables
-  db_credentials_secret_arn = module.rds.db_credentials_secret_arn
-  environment_variables     = var.env_variables
+  db_credentials_secret_arn         = module.rds.db_credentials_secret_arn
+  environment_variables             = var.env_variables
+  firebase_service_account_ssm_path = var.firebase_service_account_ssm_path
 
   # Autoscaling configuration
   enable_autoscaling           = true

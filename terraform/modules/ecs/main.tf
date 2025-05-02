@@ -16,6 +16,8 @@ resource "aws_ecs_cluster" "main" {
   )
 }
 
+
+
 resource "aws_ecs_cluster_capacity_providers" "main" {
   cluster_name = aws_ecs_cluster.main.name
 
@@ -101,6 +103,14 @@ resource "aws_iam_policy" "secrets_access" {
         ]
         Effect   = "Allow"
         Resource = aws_secretsmanager_secret.app_env_variables.arn
+      },
+      {
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters"
+        ]
+        Effect   = "Allow"
+        Resource = var.firebase_service_account_ssm_path != "" ? "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter${var.firebase_service_account_ssm_path}" : "*"
       }
     ]
   })
@@ -142,6 +152,12 @@ resource "aws_iam_role_policy_attachment" "secrets_access" {
   policy_arn = aws_iam_policy.secrets_access[0].arn
 }
 
+
+# Get Firebase service account from SSM if path is provided
+data "aws_ssm_parameter" "firebase_service_account" {
+  count = var.firebase_service_account_ssm_path != "" ? 1 : 0
+  name  = var.firebase_service_account_ssm_path
+}
 
 locals {
   container_definition = {
@@ -190,7 +206,13 @@ locals {
           name      = key
           valueFrom = "${aws_secretsmanager_secret.app_env_variables.arn}:${key}::"
         }
-      ]
+      ],
+      var.firebase_service_account_ssm_path != "" ? [
+        {
+          name      = "FIREBASE_SERVICE_ACCOUNT"
+          valueFrom = data.aws_ssm_parameter.firebase_service_account[0].arn
+        }
+      ] : []
     )
 
     logConfiguration = {

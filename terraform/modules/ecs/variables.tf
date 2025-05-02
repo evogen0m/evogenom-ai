@@ -121,4 +121,10 @@ variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)
   default     = {}
-} 
+}
+
+variable "firebase_service_account_ssm_path" {
+  description = "SSM parameter path for Firebase admin SDK service account"
+  type        = string
+  default     = ""
+}

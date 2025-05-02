@@ -79,7 +79,8 @@ module "ecs" {
   alb_listener_arn  = module.alb.https_listener_arn
 
   # Service discovery and environment variables
-  db_credentials_secret_arn = module.rds.db_credentials_secret_arn
+  db_credentials_secret_arn         = module.rds.db_credentials_secret_arn
+  firebase_service_account_ssm_path = var.firebase_service_account_ssm_path
   environment_variables = merge(var.env_variables, {
     # These are dynamically set and override any potential values in var.env_variables
     HOST = "0.0.0.0"
