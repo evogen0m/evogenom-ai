@@ -27,6 +27,7 @@ describe('when validating environment configuration', () => {
       EVOGENOM_API_URL: 'https://api.example.com',
       CONTENTFUL_ACCESS_TOKEN: 'token',
       CONTENTFUL_SPACE_ID: 'space',
+      FIREBASE_SERVICE_ACCOUNT: '{"project_id": "test-project-id"}',
     };
 
     // Act

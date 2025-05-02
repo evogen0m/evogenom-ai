@@ -7,6 +7,7 @@ import { createTestingModuleWithDb } from 'test/utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpenAiProvider } from '../../openai/openai';
 import { ChatEventResponse, ChatRequest } from '../dto/chat';
+import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
 import { Tool } from '../tool/tool';
 import { ChatService } from './chat.service';
@@ -74,6 +75,23 @@ describe('ChatService', () => {
       toolDefinition: mockToolDefinition as any,
     });
 
+    const mockFollowupToolDefinition = {
+      type: 'function',
+      function: {
+        name: 'create_followup',
+        description: 'Create a follow-up reminder',
+        parameters: {
+          type: 'object',
+        },
+      },
+    };
+
+    const mockFollowupTool: Tool = vi.mocked({
+      execute: vi.fn(),
+      canExecute: vi.fn(),
+      toolDefinition: mockFollowupToolDefinition as any,
+    });
+
     const moduleBuilder = createTestingModuleWithDb({
       providers: [
         ChatService,
@@ -90,6 +108,7 @@ describe('ChatService', () => {
           useValue: mockPromptService,
         },
         { provide: MemoryTool, useValue: mockMemoryTool },
+        { provide: FollowupTool, useValue: mockFollowupTool },
       ],
     });
 
