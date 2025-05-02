@@ -29,6 +29,7 @@
     "docker:build": "docker build --build-arg SENTRY_RELEASE=${SENTRY_RELEASE:-$(git rev-parse HEAD)} -t evogenomai ."
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.799.0",
     "@graphql-typed-document-node/core": "^3.2.0",
     "@nestjs-cls/transactional": "^2.6.1",
     "@nestjs-cls/transactional-adapter-drizzle-orm": "^1.1.15",
@@ -44,6 +45,8 @@
     "dotenv": "^16.4.7",
     "drizzle-kit": "^0.30.6",
     "drizzle-orm": "^0.41.0",
+    "firebase": "^11.6.1",
+    "firebase-admin": "^13.3.0",
     "graphql": "^16.10.0",
     "graphql-request": "^7.1.2",
     "graphql-tag": "^2.12.6",

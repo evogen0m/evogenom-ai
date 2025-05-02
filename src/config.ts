@@ -37,6 +37,10 @@ export const EnvConfigSchema = z.object({
   EVOGENOM_API_URL: z.string().url(),
   CONTENTFUL_ACCESS_TOKEN: z.string().min(1),
   CONTENTFUL_SPACE_ID: z.string().min(1),
+  FIREBASE_SERVICE_ACCOUNT: z
+    .string()
+    .min(1)
+    .regex(/^{.*}$/, 'Value should be a valid JSON object'),
   SAMPLE_EVENTS_SQS_URL: z.string().url().optional(),
   ORDER_EVENTS_SQS_URL: z.string().url().optional(),
 });
