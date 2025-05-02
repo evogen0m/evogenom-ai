@@ -11,6 +11,7 @@ import {
 // Base tables with common fields
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
+  timeZone: text('time_zone').notNull().default('Europe/Helsinki'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -56,5 +57,30 @@ export const chatMessages = pgTable(
     index('chat_message_chat_id_index').on(t.chatId),
     index('chat_message_user_id_index').on(t.userId),
     index('chat_message_user_id_created_at_index').on(t.userId, t.createdAt),
+  ],
+);
+
+// Follow up models
+export const followUps = pgTable(
+  'follow_up',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    chatId: uuid('chat_id')
+      .notNull()
+      .references(() => chats.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    dueDate: timestamp('due_date').notNull(),
+    status: text('status').notNull().default('pending'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('follow_up_user_id_index').on(t.userId),
+    index('follow_up_chat_id_index').on(t.chatId),
+    index('follow_up_due_date_index').on(t.dueDate),
+    index('follow_up_status_index').on(t.status),
   ],
 );

@@ -16,7 +16,7 @@ export class NotificationService implements OnModuleInit {
 
   constructor(private readonly configService: ConfigService) {
     this.cognitoClient = new CognitoIdentityProviderClient({
-      region: this.configService.get<string>('AWS_REGION') || 'us-east-1',
+      region: this.configService.get<string>('AWS_REGION') || 'eu-west-1',
     });
   }
 
