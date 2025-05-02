@@ -125,6 +125,8 @@ export class ChatService implements OnApplicationBootstrap {
       stream: true,
       tools: this.tools.map((tool) => tool.toolDefinition),
       tool_choice: 'auto',
+      temperature: 0.7,
+      top_p: 0.5,
     });
 
     // Process response stream
