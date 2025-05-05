@@ -98,12 +98,6 @@ describe('FollowUpService', () => {
       expect(insertedFollowUp.length).toBe(1);
       expect(insertedFollowUp[0].status).toBe('pending');
 
-      // Mock the advisory lock to always succeed for this test
-      vi.spyOn(service as any, 'acquireAdvisoryLock').mockResolvedValue(true);
-      vi.spyOn(service as any, 'releaseAdvisoryLock').mockResolvedValue(
-        undefined,
-      );
-
       // Run the check
       await service.checkForDueFollowUps();
 
@@ -144,12 +138,6 @@ describe('FollowUpService', () => {
         new Error('Test error'),
       );
 
-      // Mock locks
-      vi.spyOn(service as any, 'acquireAdvisoryLock').mockResolvedValue(true);
-      vi.spyOn(service as any, 'releaseAdvisoryLock').mockResolvedValue(
-        undefined,
-      );
-
       // Run the check
       await service.checkForDueFollowUps();
 
@@ -160,38 +148,6 @@ describe('FollowUpService', () => {
         .where(eq(followUps.id, mockFollowUpId));
 
       expect(updatedFollowUp[0].status).toBe('failed');
-    });
-
-    it('should not process follow-ups if unable to acquire lock', async () => {
-      // Insert test follow-up
-      const now = new Date();
-      const pastDue = new Date(now.getTime() - 15 * 60 * 1000); // 15 minutes ago
-
-      await db.insert(followUps).values({
-        id: mockFollowUpId,
-        userId: mockUserId,
-        chatId: mockChatId,
-        content: 'Test follow-up content',
-        dueDate: pastDue,
-        status: 'pending',
-      });
-
-      // Mock acquireAdvisoryLock to return false (couldn't acquire lock)
-      vi.spyOn(service as any, 'acquireAdvisoryLock').mockResolvedValue(false);
-
-      // Run the check
-      await service.checkForDueFollowUps();
-
-      // Verify notification was not sent
-      expect(notificationService.sendNotification).not.toHaveBeenCalled();
-
-      // Verify the follow-up was not updated (still pending)
-      const followUp = await db
-        .select()
-        .from(followUps)
-        .where(eq(followUps.id, mockFollowUpId));
-
-      expect(followUp[0].status).toBe('pending');
     });
 
     it('should only process follow-ups that are due', async () => {
@@ -208,12 +164,6 @@ describe('FollowUpService', () => {
         status: 'pending',
       });
 
-      // Mock lock management
-      vi.spyOn(service as any, 'acquireAdvisoryLock').mockResolvedValue(true);
-      vi.spyOn(service as any, 'releaseAdvisoryLock').mockResolvedValue(
-        undefined,
-      );
-
       // Run the check
       await service.checkForDueFollowUps();
 
@@ -229,7 +179,7 @@ describe('FollowUpService', () => {
       expect(followUp[0].status).toBe('pending');
     });
 
-    it('should test the advisory lock functions are called', async () => {
+    it('should use database transaction for processing follow-ups', async () => {
       // Insert test follow-up
       const now = new Date();
       const pastDue = new Date(now.getTime() - 15 * 60 * 1000); // 15 minutes ago
@@ -243,22 +193,16 @@ describe('FollowUpService', () => {
         status: 'pending',
       });
 
-      // Spy on the advisory lock methods
-      const acquireLockSpy = vi
-        .spyOn(service as any, 'acquireAdvisoryLock')
-        .mockResolvedValue(true);
-      const releaseLockSpy = vi
-        .spyOn(service as any, 'releaseAdvisoryLock')
-        .mockResolvedValue(undefined);
+      // Spy on the database transaction
+      const transactionSpy = vi.spyOn(db, 'transaction');
 
       // Run the check
       await service.checkForDueFollowUps();
 
-      // Verify the lock methods were called
-      expect(acquireLockSpy).toHaveBeenCalled();
-      expect(releaseLockSpy).toHaveBeenCalled();
+      // Verify the transaction was called
+      expect(transactionSpy).toHaveBeenCalled();
 
-      // Verify the notification was sent (since lock was acquired successfully)
+      // Verify the notification was sent
       expect(notificationService.sendNotification).toHaveBeenCalled();
     });
   });
