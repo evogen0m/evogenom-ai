@@ -452,9 +452,7 @@ export class ChatService implements OnApplicationBootstrap {
   }
 
   @Transactional()
-  private async getPendingFollowups(
-    userId: string,
-  ): Promise<{ id: string; dueDate: string }[]> {
+  private async getPendingFollowups(userId: string) {
     const tx = this.txHost.tx;
 
     const user = await tx.query.users.findFirst({
