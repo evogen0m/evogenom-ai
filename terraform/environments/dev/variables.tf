@@ -52,7 +52,7 @@ locals {
   tags = {}
 
   # SSM parameter path for Firebase admin SDK service account
-  firebase_service_account_ssm_path = "/amplify/ds7n2bdw9vehe/dev/AMPLIFY_evogenomApi_FIREBASE__ADMIN_SDK_SERVICE_ACCOUNT"
+  firebase_service_account_ssm_path = "/amplify/ds7n2bdw9vehe/main/AMPLIFY_evogenomApi_FIREBASE__ADMIN_SDK_SERVICE_ACCOUNT"
 }
 
 variable "commit_hash" {

@@ -613,7 +613,7 @@ export class ChatService implements OnApplicationBootstrap {
   }
 
   async onApplicationBootstrap() {
-    // Initialize embedding for messages that don't have one
+    // Initialize embedding for messages that don't have embedding
     this.logger.log('Checking for chat messages without embeddings...');
 
     const messagesWithoutEmbedding = await this.txHost.tx
@@ -642,5 +642,30 @@ export class ChatService implements OnApplicationBootstrap {
         );
       }
     }
+  }
+
+  /**
+   * Creates an assistant message in the chat history
+   * @param userId The user ID
+   * @param content The content of the message
+   * @returns The created message
+   */
+  @Transactional()
+  async createAssistantMessage(userId: string, content: string) {
+    const chat = await this.getOrCreateChat(userId);
+    const messageId = randomUUID();
+
+    const savedMessage = await this.saveMessage({
+      id: messageId,
+      content,
+      role: 'assistant',
+      userId,
+      chatId: chat.id,
+    });
+
+    // Trigger embedding generation in the background
+    void this.setChatMessageEmbedding(messageId, content);
+
+    return savedMessage;
   }
 }

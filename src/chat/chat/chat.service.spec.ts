@@ -284,6 +284,77 @@ describe('ChatService', () => {
     });
   });
 
+  describe('createAssistantMessage', () => {
+    it('should create an assistant message in chat history', async () => {
+      // Setup
+      const userId = randomUUID();
+      const content = 'This is a follow-up notification message';
+
+      // Insert user
+      await dbClient.insert(users).values({ id: userId });
+
+      // Spy on setChatMessageEmbedding to verify it's called
+      const setChatMessageEmbeddingSpy = vi.spyOn(
+        service,
+        'setChatMessageEmbedding',
+      );
+
+      // Execute
+      const savedMessage = await service.createAssistantMessage(
+        userId,
+        content,
+      );
+
+      // Verify
+      expect(savedMessage).toBeDefined();
+      expect(savedMessage.role).toEqual('assistant');
+      expect(savedMessage.content).toEqual(content);
+      expect(savedMessage.userId).toEqual(userId);
+
+      // Verify chat was created
+      const chat = await dbClient.query.chats.findFirst({
+        where: (chats, { eq }) => eq(chats.userId, userId),
+      });
+      expect(chat).toBeDefined();
+      expect(savedMessage.chatId).toEqual(chat!.id);
+
+      // Verify message exists in database
+      const dbMessage = await dbClient.query.chatMessages.findFirst({
+        where: (messages, { eq }) => eq(messages.id, savedMessage.id),
+      });
+      expect(dbMessage).toBeDefined();
+      expect(dbMessage!.role).toEqual('assistant');
+      expect(dbMessage!.content).toEqual(content);
+
+      // Verify embedding was triggered
+      expect(setChatMessageEmbeddingSpy).toHaveBeenCalledWith(
+        savedMessage.id,
+        content,
+      );
+    });
+
+    it('should use existing chat if one exists', async () => {
+      // Setup
+      const userId = randomUUID();
+      const content = 'Assistant message using existing chat';
+
+      // Insert user
+      await dbClient.insert(users).values({ id: userId });
+
+      // Create a chat first
+      const existingChat = await service.getOrCreateChat(userId);
+
+      // Execute
+      const savedMessage = await service.createAssistantMessage(
+        userId,
+        content,
+      );
+
+      // Verify message uses existing chat
+      expect(savedMessage.chatId).toEqual(existingChat.id);
+    });
+  });
+
   describe('createChatStream', () => {
     it('should stream chat responses and save messages', async () => {
       // Setup

@@ -2,6 +2,7 @@
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestingModuleWithDb } from '../../test/utils';
+import { ChatService } from '../chat/chat/chat.service';
 import { DRIZZLE_INSTANCE, DrizzleInstanceType } from '../db/drizzle.provider';
 import { chats, followUps, users } from '../db/schema';
 import { NotificationService } from '../notification/notification.service';
@@ -10,6 +11,7 @@ import { FollowUpService } from './followup.service';
 describe('FollowUpService', () => {
   let service: FollowUpService;
   let notificationService: NotificationService;
+  let chatService: ChatService;
   let db: DrizzleInstanceType;
 
   // Test data
@@ -53,11 +55,22 @@ describe('FollowUpService', () => {
             sendNotification: vi.fn().mockResolvedValue(undefined),
           },
         },
+        {
+          provide: ChatService,
+          useValue: {
+            createAssistantMessage: vi.fn().mockResolvedValue({
+              id: 'mock-message-id',
+              content: 'Mock content',
+              role: 'assistant',
+            }),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<FollowUpService>(FollowUpService);
     notificationService = module.get<NotificationService>(NotificationService);
+    chatService = module.get<ChatService>(ChatService);
     db = module.get<DrizzleInstanceType>(DRIZZLE_INSTANCE);
 
     // Set up test data
@@ -75,16 +88,17 @@ describe('FollowUpService', () => {
   });
 
   describe('checkForDueFollowUps', () => {
-    it('should process due follow-ups', async () => {
+    it('should process due follow-ups and add them as assistant messages', async () => {
       // Insert test follow-up directly into database
       const now = new Date();
       const pastDue = new Date(now.getTime() - 15 * 60 * 1000); // 15 minutes ago
+      const followUpContent = 'Test follow-up content';
 
       await db.insert(followUps).values({
         id: mockFollowUpId,
         userId: mockUserId,
         chatId: mockChatId,
-        content: 'Test follow-up content',
+        content: followUpContent,
         dueDate: pastDue,
         status: 'pending',
       });
@@ -106,7 +120,7 @@ describe('FollowUpService', () => {
         mockUserId,
         {
           title: 'Evogenom wellness coach',
-          body: 'Test follow-up content',
+          body: followUpContent,
         },
       );
 
@@ -117,18 +131,25 @@ describe('FollowUpService', () => {
         .where(eq(followUps.id, mockFollowUpId));
 
       expect(updatedFollowUp[0].status).toBe('sent');
+
+      // Verify assistant message was created for the follow-up
+      expect(chatService.createAssistantMessage).toHaveBeenCalledWith(
+        mockUserId,
+        followUpContent,
+      );
     });
 
-    it('should mark follow-up as failed if notification fails', async () => {
+    it('should mark follow-up as failed if notification fails and not create assistant message', async () => {
       // Insert test follow-up
       const now = new Date();
       const pastDue = new Date(now.getTime() - 15 * 60 * 1000); // 15 minutes ago
+      const followUpContent = 'Test follow-up content';
 
       await db.insert(followUps).values({
         id: mockFollowUpId,
         userId: mockUserId,
         chatId: mockChatId,
-        content: 'Test follow-up content',
+        content: followUpContent,
         dueDate: pastDue,
         status: 'pending',
       });
@@ -148,6 +169,9 @@ describe('FollowUpService', () => {
         .where(eq(followUps.id, mockFollowUpId));
 
       expect(updatedFollowUp[0].status).toBe('failed');
+
+      // Verify assistant message was NOT created (because notification failed)
+      expect(chatService.createAssistantMessage).not.toHaveBeenCalled();
     });
 
     it('should only process follow-ups that are due', async () => {

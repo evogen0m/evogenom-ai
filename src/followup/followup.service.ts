@@ -3,6 +3,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { and, eq, lte, sql } from 'drizzle-orm';
 import { DbTransactionAdapter } from 'src/db/drizzle.provider';
+import { ChatService } from '../chat/chat/chat.service';
 import { followUps } from '../db/schema';
 import { NotificationService } from '../notification/notification.service';
 
@@ -14,6 +15,7 @@ export class FollowUpService implements OnModuleInit {
   constructor(
     private readonly txHost: TransactionHost<DbTransactionAdapter>,
     private readonly notificationService: NotificationService,
+    private readonly chatService: ChatService,
   ) {}
 
   async onModuleInit() {
@@ -66,6 +68,12 @@ export class FollowUpService implements OnModuleInit {
             updatedAt: new Date(),
           })
           .where(eq(followUps.id, followUp.id));
+
+        // Add follow-up as an assistant message in the chat
+        await this.chatService.createAssistantMessage(
+          followUp.userId,
+          followUp.content,
+        );
 
         this.logger.debug(
           `Follow-up ${followUp.id} notification sent successfully`,

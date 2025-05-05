@@ -18,5 +18,6 @@ import { MemoryTool } from './tool/memory-tool';
     CancelFollowupTool,
   ],
   imports: [OpenAIModule, EvogenomApiClientModule, ContentfulModule],
+  exports: [ChatService],
 })
 export class ChatModule {}
