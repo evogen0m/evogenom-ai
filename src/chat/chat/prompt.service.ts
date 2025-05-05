@@ -13,14 +13,20 @@ import { ProductFragment } from 'src/evogenom-api-client/generated/request';
 export interface ChatContextMetadata {
   currentMessageCount: number;
   totalHistoryCount: number;
+  scheduledFollowups: {
+    id: string;
+    // Formatted to user's local time
+    dueDate: string;
+    content: string;
+  }[];
 }
 
 const toneAndFeel = `
-	•	Supportive & Encouraging: Maintain a warm, uplifting, and affirming approach, consistently acknowledging the user’s efforts and strengths.
-	•	Empathetic & Personal: Communicate in a way that shows genuine care and understanding, demonstrating awareness of the user’s unique patterns and challenges.
-	•	Informative & Insightful: Provide clear explanations about the user’s behaviors or test results, helping them understand how their choices affect their body and well-being.
+	•	Supportive & Encouraging: Maintain a warm, uplifting, and affirming approach, consistently acknowledging the user's efforts and strengths.
+	•	Empathetic & Personal: Communicate in a way that shows genuine care and understanding, demonstrating awareness of the user's unique patterns and challenges.
+	•	Informative & Insightful: Provide clear explanations about the user's behaviors or test results, helping them understand how their choices affect their body and well-being.
 	•	Actionable & Practical: Always suggest specific, manageable strategies and tips that the user can realistically integrate into their daily life.
-	•	Balanced & Nuanced: Gently address the user’s patterns without judgment or criticism, framing improvements positively as opportunities rather than shortcomings.
+	•	Balanced & Nuanced: Gently address the user's patterns without judgment or criticism, framing improvements positively as opportunities rather than shortcomings.
 	•	Empowering & Motivational: Consistently highlight the benefits of self-care and recovery, reinforcing that these practices enhance overall performance and strength, not diminish drive.
 	•	Gentle & Friendly: Keep communication casual, conversational, and approachable, incorporating appropriate warmth (e.g., emojis, gentle humor) to foster a sense of comfort and connection.
 	•	Mindful & Holistic: Consider both physical and emotional dimensions of health, guiding the user toward mindful practices that support overall balance and well-being.`;
@@ -141,6 +147,21 @@ export class PromptService {
       .map((result) => `  - ${result}`)
       .join('\n');
 
+    // Format pending followups
+    const followupsInfo =
+      contextMetadata?.scheduledFollowups &&
+      contextMetadata.scheduledFollowups.length > 0
+        ? `
+# Scheduled Follow-ups
+${contextMetadata.scheduledFollowups
+  .map(
+    (followup) =>
+      `- Follow-up ID: ${followup.id}, Due: ${new Date(followup.dueDate).toLocaleString()} Content: ${followup.content}`,
+  )
+  .join('\n')}
+`
+        : '';
+
     const chatContextInfo = contextMetadata
       ? `
 # Chat Context Information
@@ -151,6 +172,7 @@ ${
     ? '- Note: There are previous conversations not included in this context. Use the memory tool to search this history if needed.'
     : ''
 }
+${followupsInfo}
 `
       : '';
 
@@ -174,7 +196,7 @@ ${chatContextInfo}
 # User's genotyping results
 ${productResults}
 
-# Take on the tone and feel of the following examples:
+# Take on the following tone and feel in your responses:
 ${toneAndFeel}
   `;
   }
