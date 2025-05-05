@@ -62,6 +62,17 @@ module "rds" {
   tags = var.tags
 }
 
+module "bastion" {
+  source = "../../modules/bastion"
+
+  prefix                = local.prefix
+  vpc_id                = module.networking.vpc_id
+  subnet_id             = module.networking.public_subnet_ids[0]
+  instance_type         = "t4g.nano"
+  rds_security_group_id = module.networking.rds_security_group_id
+  tags                  = var.tags
+}
+
 module "ecs" {
   source = "../../modules/ecs"
 
