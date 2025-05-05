@@ -14,6 +14,7 @@ export const followUpStatusEnum = pgEnum('follow_up_status', [
   'pending',
   'sent',
   'failed',
+  'cancelled',
 ]);
 
 // Base tables with common fields
