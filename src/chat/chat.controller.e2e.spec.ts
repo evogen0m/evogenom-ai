@@ -70,7 +70,7 @@ describe('ChatController (e2e)', () => {
         createdAt: new Date(),
       },
     ];
-    chatService.getMessages.mockResolvedValue(mockMessages);
+    chatService.getMessagesForUi.mockResolvedValue(mockMessages);
 
     const moduleFixture: TestingModule = await createTestingModuleWithDb({
       imports: [ChatModule],
@@ -182,7 +182,7 @@ describe('ChatController (e2e)', () => {
 
       // Verify the service was called correctly
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(chatService.getMessages).toHaveBeenCalledWith(mockUser.id);
+      expect(chatService.getMessagesForUi).toHaveBeenCalledWith(mockUser.id);
 
       // Verify the response body
       expect(response.body).toEqual(

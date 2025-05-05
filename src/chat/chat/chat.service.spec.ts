@@ -216,7 +216,7 @@ describe('ChatService', () => {
   });
 
   describe('getMessages', () => {
-    it('should return messages for a user', async () => {
+    it('should return messages for a user, excluding tool messages', async () => {
       // Setup
       const userId = randomUUID();
       const chatId = randomUUID();
@@ -225,7 +225,7 @@ describe('ChatService', () => {
       await dbClient.insert(users).values({ id: userId });
       await dbClient.insert(chats).values({ id: chatId, userId });
 
-      // Insert messages
+      // Insert messages including a tool message that should be filtered out
       await dbClient.insert(chatMessages).values([
         {
           id: randomUUID(),
@@ -243,10 +243,19 @@ describe('ChatService', () => {
           userId,
           chatId,
         },
+        {
+          id: randomUUID(),
+          role: 'tool',
+          content: 'Tool response',
+          createdAt: new Date(Date.now() - 500),
+          userId,
+          chatId,
+          toolData: { toolCallId: 'test-id' },
+        },
       ]);
 
       // Execute
-      const result = await service.getMessages(userId);
+      const result = await service.getMessagesForUi(userId);
 
       // Verify
       expect(result.length).toEqual(2);
@@ -255,6 +264,11 @@ describe('ChatService', () => {
       expect(result[0].content).toEqual('Hi there');
       expect(result[1].role).toEqual('user');
       expect(result[1].content).toEqual('Hello');
+
+      // All messages should be either 'user' or 'assistant' (no 'tool' messages)
+      expect(
+        result.every((msg) => msg.role === 'user' || msg.role === 'assistant'),
+      ).toBe(true);
     });
 
     it('should return empty array when no messages exist', async () => {
@@ -263,7 +277,7 @@ describe('ChatService', () => {
       await dbClient.insert(users).values({ id: userId });
 
       // Execute
-      const result = await service.getMessages(userId);
+      const result = await service.getMessagesForUi(userId);
 
       // Verify
       expect(result).toEqual([]);

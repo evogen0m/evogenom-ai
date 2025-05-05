@@ -1,73 +1,41 @@
-variable "region" {
-  description = "AWS region"
-  type        = string
-  default     = "eu-west-1"
-}
+locals {
+  cognito_user_pool_id = "eu-west-1_UDFBUcuNF"
 
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
-  type        = string
-  default     = "10.0.0.0/16"
-}
+  # AWS region
+  region = "eu-west-1"
 
-variable "availability_zones" {
-  description = "List of availability zones to use"
-  type        = list(string)
-  default     = ["eu-west-1a", "eu-west-1b"]
-}
+  # CIDR block for the VPC
+  vpc_cidr = "10.0.0.0/16"
 
-variable "container_port" {
-  description = "Port the container will be listening on"
-  type        = number
-  default     = 8000
-}
+  # List of availability zones to use
+  availability_zones = ["eu-west-1a", "eu-west-1b"]
 
-variable "domain_name" {
-  description = "Domain name for the ALB (leave empty for no HTTPS)"
-  type        = string
-  default     = "api.dev.evogenomapp.com"
-}
+  # Port the container will be listening on
+  container_port = 8000
 
-variable "db_name" {
-  description = "Name of the database to create"
-  type        = string
-  default     = "postgres"
-}
+  # Domain name for the ALB
+  domain_name = "api.dev.evogenomapp.com"
 
-variable "db_username" {
-  description = "Username for the database"
-  type        = string
-  default     = "postgres"
-}
+  # Name of the database to create
+  db_name = "postgres"
 
-variable "db_instance_class" {
-  description = "Instance class for the RDS instance"
-  type        = string
-  default     = "db.t4g.micro"
-}
+  # Username for the database
+  db_username = "postgres"
 
-variable "cpu" {
-  description = "CPU units for the task (1 vCPU = 1024 CPU units)"
-  type        = number
-  default     = 512
-}
+  # Instance class for the RDS instance
+  db_instance_class = "db.t4g.micro"
 
-variable "memory" {
-  description = "Memory for the task in MiB"
-  type        = number
-  default     = 1024
-}
+  # CPU units for the task (1 vCPU = 1024 CPU units)
+  cpu = 512
 
-variable "desired_count" {
-  description = "Number of instances of the task to run"
-  type        = number
-  default     = 1
-}
+  # Memory for the task in MiB
+  memory = 1024
 
-variable "env_variables" {
-  description = "Environment variables for the task"
-  type        = map(string)
-  default = {
+  # Number of instances of the task to run
+  desired_count = 1
+
+  # Environment variables for the task
+  env_variables = {
     APP_NAME                 = "EvogenomAI (dev)"
     DEBUG                    = "true"
     OPENID_CONFIG_URL        = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_UDFBUcuNF/.well-known/openid-configuration"
@@ -77,14 +45,14 @@ variable "env_variables" {
     EVOGENOM_API_URL         = "https://vv2rx5jsf5girm2argm3qz2ts4.appsync-api.eu-west-1.amazonaws.com/graphql"
     LANGFUSE_BASEURL         = "https://cloud.langfuse.com"
     AWS_REGION               = "eu-west-1"
-    COGNITO_USER_POOL_ID     = "eu-west-1_UDFBUcuNF"
+    COGNITO_USER_POOL_ID     = local.cognito_user_pool_id
   }
-}
 
-variable "tags" {
-  description = "Tags to apply to all resources"
-  type        = map(string)
-  default     = {}
+  # Tags to apply to all resources
+  tags = {}
+
+  # SSM parameter path for Firebase admin SDK service account
+  firebase_service_account_ssm_path = "/amplify/ds7n2bdw9vehe/dev/AMPLIFY_evogenomApi_FIREBASE__ADMIN_SDK_SERVICE_ACCOUNT"
 }
 
 variable "commit_hash" {
@@ -92,8 +60,3 @@ variable "commit_hash" {
   type        = string
 }
 
-variable "firebase_service_account_ssm_path" {
-  description = "SSM parameter path for Firebase admin SDK service account"
-  type        = string
-  default     = "/amplify/ds7n2bdw9vehe/dev/AMPLIFY_evogenomApi_FIREBASE__ADMIN_SDK_SERVICE_ACCOUNT"
-}

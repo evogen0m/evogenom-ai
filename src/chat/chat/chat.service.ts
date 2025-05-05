@@ -3,7 +3,7 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { formatInTimeZone } from 'date-fns-tz';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, not, sql } from 'drizzle-orm';
 import OpenAI from 'openai';
 import {
   ChatCompletionAssistantMessageParam,
@@ -44,6 +44,7 @@ export class ChatService implements OnApplicationBootstrap {
 
   private readonly tools: Tool[];
   private readonly MAX_TOOL_CALL_DEPTH = 10;
+  private readonly MAX_HISTORY_MESSAGES = 30;
 
   logger = new Logger(ChatService.name);
 
@@ -412,11 +413,15 @@ export class ChatService implements OnApplicationBootstrap {
   }
 
   @Transactional()
-  async getMessages(userId: string): Promise<ChatMessageResponse[]> {
+  async getMessagesForUi(userId: string): Promise<ChatMessageResponse[]> {
     const tx = this.txHost.tx;
 
     const messages = await tx.query.chatMessages.findMany({
-      where: eq(chatMessages.userId, userId),
+      where: and(
+        eq(chatMessages.userId, userId),
+        not(eq(chatMessages.role, 'tool')),
+        sql`${chatMessages.toolData} IS NULL`,
+      ),
       orderBy: [desc(chatMessages.createdAt)],
     });
 
@@ -495,9 +500,12 @@ export class ChatService implements OnApplicationBootstrap {
         eq(chatMessages.userId, userId),
         eq(chatMessages.chatId, chatId),
       ),
-      orderBy: [asc(chatMessages.createdAt)],
-      limit: 30,
+      orderBy: [desc(chatMessages.createdAt)],
+      limit: this.MAX_HISTORY_MESSAGES,
     });
+
+    // Reverse the order of messages to get the most recent messages first
+    dbMessages.reverse();
 
     // Map DB messages to OpenAI format
     const history: ChatCompletionMessageParam[] = [];

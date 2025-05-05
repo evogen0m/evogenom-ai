@@ -1,5 +1,5 @@
 provider "aws" {
-  region = var.region
+  region = local.region
 
   default_tags {
     tags = {
@@ -18,17 +18,17 @@ module "networking" {
   source = "../../modules/networking"
 
   prefix             = local.prefix
-  vpc_cidr           = var.vpc_cidr
-  availability_zones = var.availability_zones
-  container_port     = var.container_port
-  tags               = var.tags
+  vpc_cidr           = local.vpc_cidr
+  availability_zones = local.availability_zones
+  container_port     = local.container_port
+  tags               = local.tags
 }
 
 module "ecr" {
   source = "../../modules/ecr"
 
   prefix = local.prefix
-  tags   = var.tags
+  tags   = local.tags
 }
 
 module "alb" {
@@ -38,10 +38,10 @@ module "alb" {
   vpc_id                     = module.networking.vpc_id
   subnet_ids                 = module.networking.public_subnet_ids
   security_group_id          = module.networking.alb_security_group_id
-  domain_name                = var.domain_name
-  target_port                = var.container_port
+  domain_name                = local.domain_name
+  target_port                = local.container_port
   enable_deletion_protection = true
-  tags                       = var.tags
+  tags                       = local.tags
 }
 
 module "rds" {
@@ -50,9 +50,9 @@ module "rds" {
   prefix            = local.prefix
   subnet_ids        = module.networking.private_subnet_ids
   security_group_id = module.networking.rds_security_group_id
-  db_name           = var.db_name
-  db_username       = var.db_username
-  instance_class    = var.db_instance_class
+  db_name           = local.db_name
+  db_username       = local.db_username
+  instance_class    = local.db_instance_class
 
   # Production-specific settings
   skip_final_snapshot     = false
@@ -60,19 +60,30 @@ module "rds" {
   backup_retention_period = 30
   max_allocated_storage   = 500
 
-  tags = var.tags
+  tags = local.tags
+}
+
+module "bastion" {
+  source = "../../modules/bastion"
+
+  prefix                = local.prefix
+  vpc_id                = module.networking.vpc_id
+  subnet_id             = module.networking.public_subnet_ids[0]
+  instance_type         = "t4g.nano"
+  rds_security_group_id = module.networking.rds_security_group_id
+  tags                  = local.tags
 }
 
 module "ecs" {
   source = "../../modules/ecs"
 
   prefix            = local.prefix
-  region            = var.region
+  region            = local.region
   container_image   = "${module.ecr.repository_url}:${var.commit_hash}"
-  container_port    = var.container_port
-  cpu               = var.cpu
-  memory            = var.memory
-  desired_count     = var.desired_count
+  container_port    = local.container_port
+  cpu               = local.cpu
+  memory            = local.memory
+  desired_count     = local.desired_count
   subnet_ids        = module.networking.private_subnet_ids
   security_group_id = module.networking.ecs_security_group_id
   target_group_arn  = module.alb.target_group_arn
@@ -80,11 +91,11 @@ module "ecs" {
 
   # Service discovery and environment variables
   db_credentials_secret_arn         = module.rds.db_credentials_secret_arn
-  firebase_service_account_ssm_path = var.firebase_service_account_ssm_path
-  environment_variables = merge(var.env_variables, {
+  firebase_service_account_ssm_path = local.firebase_service_account_ssm_path
+  environment_variables = merge(local.env_variables, {
     # These are dynamically set and override any potential values in var.env_variables
     HOST = "0.0.0.0"
-    PORT = tostring(var.container_port)
+    PORT = tostring(local.container_port)
   })
 
   # Autoscaling configuration
@@ -97,5 +108,7 @@ module "ecs" {
   # Don't use spot instances for production
   use_fargate_spot = false
 
-  tags = var.tags
+  cognito_user_pool_id = local.cognito_user_pool_id
+
+  tags = local.tags
 }

@@ -1,5 +1,5 @@
 provider "aws" {
-  region = var.region
+  region = local.region
 
   default_tags {
     tags = {
@@ -18,17 +18,17 @@ module "networking" {
   source = "../../modules/networking"
 
   prefix             = local.prefix
-  vpc_cidr           = var.vpc_cidr
-  availability_zones = var.availability_zones
-  container_port     = var.container_port
-  tags               = var.tags
+  vpc_cidr           = local.vpc_cidr
+  availability_zones = local.availability_zones
+  container_port     = local.container_port
+  tags               = local.tags
 }
 
 module "ecr" {
   source = "../../modules/ecr"
 
   prefix = local.prefix
-  tags   = var.tags
+  tags   = local.tags
 }
 
 module "alb" {
@@ -38,10 +38,10 @@ module "alb" {
   vpc_id                     = module.networking.vpc_id
   subnet_ids                 = module.networking.public_subnet_ids
   security_group_id          = module.networking.alb_security_group_id
-  domain_name                = var.domain_name
-  target_port                = var.container_port
+  domain_name                = local.domain_name
+  target_port                = local.container_port
   enable_deletion_protection = false
-  tags                       = var.tags
+  tags                       = local.tags
 }
 
 module "rds" {
@@ -50,16 +50,16 @@ module "rds" {
   prefix            = local.prefix
   subnet_ids        = module.networking.private_subnet_ids
   security_group_id = module.networking.rds_security_group_id
-  db_name           = var.db_name
-  db_username       = var.db_username
-  instance_class    = var.db_instance_class
+  db_name           = local.db_name
+  db_username       = local.db_username
+  instance_class    = local.db_instance_class
 
   # Development-specific settings
   skip_final_snapshot     = true
   deletion_protection     = false
   backup_retention_period = 1
 
-  tags = var.tags
+  tags = local.tags
 }
 
 module "bastion" {
@@ -70,19 +70,19 @@ module "bastion" {
   subnet_id             = module.networking.public_subnet_ids[0]
   instance_type         = "t4g.nano"
   rds_security_group_id = module.networking.rds_security_group_id
-  tags                  = var.tags
+  tags                  = local.tags
 }
 
 module "ecs" {
   source = "../../modules/ecs"
 
   prefix            = local.prefix
-  region            = var.region
+  region            = local.region
   container_image   = "${module.ecr.repository_url}:${var.commit_hash}"
-  container_port    = var.container_port
-  cpu               = var.cpu
-  memory            = var.memory
-  desired_count     = var.desired_count
+  container_port    = local.container_port
+  cpu               = local.cpu
+  memory            = local.memory
+  desired_count     = local.desired_count
   subnet_ids        = module.networking.private_subnet_ids
   security_group_id = module.networking.ecs_security_group_id
   target_group_arn  = module.alb.target_group_arn
@@ -90,8 +90,8 @@ module "ecs" {
 
   # Service discovery and environment variables
   db_credentials_secret_arn         = module.rds.db_credentials_secret_arn
-  environment_variables             = var.env_variables
-  firebase_service_account_ssm_path = var.firebase_service_account_ssm_path
+  environment_variables             = local.env_variables
+  firebase_service_account_ssm_path = local.firebase_service_account_ssm_path
 
   # Autoscaling configuration
   enable_autoscaling           = true
@@ -103,7 +103,9 @@ module "ecs" {
   # Use spot instances for dev to save costs
   use_fargate_spot = true
 
-  tags = var.tags
+  cognito_user_pool_id = local.cognito_user_pool_id
+
+  tags = local.tags
 }
 
 # GitHub OIDC Provider for CI
@@ -139,7 +141,7 @@ resource "aws_iam_role" "ci_role" {
   })
 
   tags = merge(
-    var.tags,
+    local.tags,
     {
       Name = "${local.prefix}-ci-role"
     }
@@ -171,7 +173,7 @@ resource "aws_iam_policy" "ci_ecr_policy" {
           "ecr:ListImages"
         ]
         Resource = [
-          "arn:aws:ecr:${var.region}:*:repository/${local.prefix}-app"
+          "arn:aws:ecr:${local.region}:*:repository/${local.prefix}-app"
         ]
       },
       {
@@ -207,7 +209,7 @@ resource "aws_iam_policy" "ci_ecs_policy" {
           "ecs:UpdateService",
           "ecs:DescribeServices"
         ]
-        Resource = "arn:aws:ecs:${var.region}:*:service/${module.ecs.cluster_name}/${module.ecs.service_name}"
+        Resource = "arn:aws:ecs:${local.region}:*:service/${module.ecs.cluster_name}/${module.ecs.service_name}"
       },
       {
         Effect = "Allow"

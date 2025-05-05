@@ -128,3 +128,9 @@ variable "firebase_service_account_ssm_path" {
   type        = string
   default     = ""
 }
+
+variable "cognito_user_pool_id" {
+  description = "ID of the Cognito user pool to grant access to"
+  type        = string
+  default     = ""
+}

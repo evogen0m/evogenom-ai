@@ -1,73 +1,21 @@
-variable "region" {
-  description = "AWS region"
+variable "commit_hash" {
+  description = "Git commit hash to use for container image tag"
   type        = string
-  default     = "eu-west-1"
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
-  type        = string
-  default     = "10.2.0.0/16"
-}
-
-variable "availability_zones" {
-  description = "List of availability zones to use"
-  type        = list(string)
-  default     = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
-}
-
-variable "container_port" {
-  description = "Port the container will be listening on"
-  type        = number
-  default     = 8000
-}
-
-variable "domain_name" {
-  description = "Domain name for the ALB"
-  type        = string
-  default     = "api.evogenomapp.com"
-}
-
-variable "db_name" {
-  description = "Name of the database to create"
-  type        = string
-  default     = "evogenom"
-}
-
-variable "db_username" {
-  description = "Username for the database"
-  type        = string
-  default     = "evogenom"
-}
-
-variable "db_instance_class" {
-  description = "Instance class for the RDS instance"
-  type        = string
-  default     = "db.t4g.medium"
-}
-
-variable "cpu" {
-  description = "CPU units for the task (1 vCPU = 1024 CPU units)"
-  type        = number
-  default     = 1024
-}
-
-variable "memory" {
-  description = "Memory for the task in MiB"
-  type        = number
-  default     = 2048
-}
-
-variable "desired_count" {
-  description = "Number of instances of the task to run"
-  type        = number
-  default     = 1
-}
-
-variable "env_variables" {
-  description = "Environment variables for the task"
-  type        = map(string)
-  default = {
+locals {
+  region             = "eu-west-1"
+  vpc_cidr           = "10.2.0.0/16"
+  availability_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
+  container_port     = 8000
+  domain_name        = "api.evogenomapp.com"
+  db_name            = "evogenom"
+  db_username        = "evogenom"
+  db_instance_class  = "db.t4g.medium"
+  cpu                = 1024
+  memory             = 2048
+  desired_count      = 1
+  env_variables = {
     APP_NAME          = "EvogenomAI (prod)"
     DEBUG             = "true"
     OPENID_CONFIG_URL = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_ccL74j0HP/.well-known/openid-configuration"
@@ -78,25 +26,10 @@ variable "env_variables" {
     # evogenom-main
     EVOGENOM_API_URL     = "https://on5w2opsozd6ddgewx26drt3d4.appsync-api.eu-west-1.amazonaws.com/graphql"
     LANGFUSE_BASEURL     = "https://cloud.langfuse.com"
-    COGNITO_USER_POOL_ID = "eu-west-1_ccL74j0HP"
+    COGNITO_USER_POOL_ID = local.cognito_user_pool_id
     AWS_REGION           = "eu-west-1"
   }
-}
-
-
-variable "tags" {
-  description = "Tags to apply to all resources"
-  type        = map(string)
-  default     = {}
-}
-
-variable "commit_hash" {
-  description = "Git commit hash to use for container image tag"
-  type        = string
-}
-
-variable "firebase_service_account_ssm_path" {
-  description = "SSM parameter path for Firebase admin SDK service account"
-  type        = string
-  default     = "/amplify/ds7n2bdw9vehe/main/AMPLIFY_evogenomApi_FIREBASE__ADMIN_SDK_SERVICE_ACCOUNT"
+  tags                              = {}
+  firebase_service_account_ssm_path = "/amplify/ds7n2bdw9vehe/main/AMPLIFY_evogenomApi_FIREBASE__ADMIN_SDK_SERVICE_ACCOUNT"
+  cognito_user_pool_id              = "eu-west-1_ccL74j0HP"
 }

@@ -388,3 +388,31 @@ resource "aws_iam_role_policy_attachment" "sqs_access" {
   role       = aws_iam_role.task_role.name
   policy_arn = aws_iam_policy.sqs_access.arn
 }
+
+# Policy to allow access to Cognito user pool
+resource "aws_iam_policy" "cognito_access" {
+  name        = "${var.prefix}-cognito-access"
+  description = "Allow access to Cognito user pool operations"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:AdminInitiateAuth",
+          "cognito-idp:AdminUpdateUserAttributes",
+          "cognito-idp:ListUsers"
+        ]
+        Effect   = "Allow"
+        Resource = var.cognito_user_pool_id != "" ? "arn:aws:cognito-idp:${var.region}:${data.aws_caller_identity.current.account_id}:userpool/${var.cognito_user_pool_id}" : "arn:aws:cognito-idp:${var.region}:${data.aws_caller_identity.current.account_id}:userpool/*"
+      }
+    ]
+  })
+}
+
+# Attach Cognito policy to task role
+resource "aws_iam_role_policy_attachment" "cognito_access" {
+  role       = aws_iam_role.task_role.name
+  policy_arn = aws_iam_policy.cognito_access.arn
+}

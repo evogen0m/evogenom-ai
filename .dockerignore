@@ -2,3 +2,4 @@
 **/*.mock.ts
 __tests__
 __mocks__
+terraform

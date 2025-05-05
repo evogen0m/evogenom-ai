@@ -122,7 +122,7 @@ export class ChatController {
   async getMessages(
     @User() user: UserPrincipal,
   ): Promise<ChatMessagesResponse> {
-    const messages = await this.chatService.getMessages(user.id);
+    const messages = await this.chatService.getMessagesForUi(user.id);
     return {
       items: messages,
       total: messages.length,
