@@ -81,7 +81,7 @@ export const followUps = pgTable(
       .notNull()
       .references(() => chats.id, { onDelete: 'cascade' }),
     content: text('content').notNull(),
-    dueDate: timestamp('due_date').notNull(),
+    dueDate: timestamp('due_date', { withTimezone: true }).notNull(),
     status: followUpStatusEnum('status').notNull().default('pending'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
