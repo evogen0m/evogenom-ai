@@ -6,6 +6,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { App, cert, initializeApp } from 'firebase-admin/app';
 import { Message, getMessaging } from 'firebase-admin/messaging';
+import { AppConfigType } from 'src/config';
 import { Notification } from './notification.types';
 
 @Injectable()
@@ -14,7 +15,7 @@ export class NotificationService implements OnModuleInit {
   private readonly cognitoClient: CognitoIdentityProviderClient;
   private firebaseApp: App;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly configService: ConfigService<AppConfigType>) {
     this.cognitoClient = new CognitoIdentityProviderClient({
       region: this.configService.get<string>('AWS_REGION') || 'eu-west-1',
     });
@@ -89,10 +90,6 @@ export class NotificationService implements OnModuleInit {
       const userPoolId = this.configService.getOrThrow<string>(
         'COGNITO_USER_POOL_ID',
       );
-
-      if (!userPoolId) {
-        throw new Error('COGNITO_USER_POOL_ID environment variable not set');
-      }
 
       const command = new AdminGetUserCommand({
         UserPoolId: userPoolId,

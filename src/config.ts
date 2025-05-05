@@ -43,6 +43,8 @@ export const EnvConfigSchema = z.object({
     .startsWith('{', 'Value should be a valid JSON object'),
   SAMPLE_EVENTS_SQS_URL: z.string().url().optional(),
   ORDER_EVENTS_SQS_URL: z.string().url().optional(),
+  COGNITO_USER_POOL_ID: z.string().min(1),
+  AWS_REGION: z.string().min(1),
 });
 
 export type AppConfigType = z.infer<typeof EnvConfigSchema>;

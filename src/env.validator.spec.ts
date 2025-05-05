@@ -28,6 +28,8 @@ describe('when validating environment configuration', () => {
       CONTENTFUL_ACCESS_TOKEN: 'token',
       CONTENTFUL_SPACE_ID: 'space',
       FIREBASE_SERVICE_ACCOUNT: '{"project_id": "test-project-id"}',
+      COGNITO_USER_POOL_ID: 'fake',
+      AWS_REGION: 'fake',
     };
 
     // Act

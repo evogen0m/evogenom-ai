@@ -76,8 +76,10 @@ variable "env_variables" {
     AZURE_OPENAI_API_VERSION = "2025-01-01-preview"
     CONTENTFUL_SPACE_ID      = "nslj8lsfnbof"
     # evogenom-main
-    EVOGENOM_API_URL = "https://on5w2opsozd6ddgewx26drt3d4.appsync-api.eu-west-1.amazonaws.com/graphql"
-    LANGFUSE_BASEURL = "https://cloud.langfuse.com"
+    EVOGENOM_API_URL     = "https://on5w2opsozd6ddgewx26drt3d4.appsync-api.eu-west-1.amazonaws.com/graphql"
+    LANGFUSE_BASEURL     = "https://cloud.langfuse.com"
+    COGNITO_USER_POOL_ID = "eu-west-1_ccL74j0HP"
+    AWS_REGION           = "eu-west-1"
   }
 }
 
