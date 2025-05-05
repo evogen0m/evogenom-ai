@@ -2,7 +2,8 @@ import { Transactional, TransactionHost } from '@nestjs-cls/transactional';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { formatInTimeZone } from 'date-fns-tz';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import OpenAI from 'openai';
 import {
   ChatCompletionAssistantMessageParam,
@@ -13,7 +14,7 @@ import {
   ChatCompletionUserMessageParam,
 } from 'openai/resources/chat';
 import { AppConfigType } from 'src/config';
-import { chatMessages, chats, users } from 'src/db';
+import { chatMessages, chats, followUps, users } from 'src/db';
 import { DbTransactionAdapter } from 'src/db/drizzle.provider';
 import { OpenAiProvider } from 'src/openai/openai';
 import {
@@ -21,11 +22,11 @@ import {
   ChatMessageResponse,
   ChatRequest,
 } from '../dto/chat';
+import { CancelFollowupTool } from '../tool/cancel-followup.tool';
 import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
 import { Tool } from '../tool/tool';
 import { ChatContextMetadata, PromptService } from './prompt.service';
-import { CancelFollowupTool } from '../tool/cancel-followup.tool';
 
 @Injectable()
 export class ChatService implements OnApplicationBootstrap {
@@ -77,10 +78,14 @@ export class ChatService implements OnApplicationBootstrap {
     // Get total count of messages in history
     const totalMessageCount = await this.getTotalMessageCount(userId, chat.id);
 
+    // Get pending followups
+    const scheduledFollowups = await this.getPendingFollowups(userId);
+
     // Create context metadata
     const contextMetadata: ChatContextMetadata = {
       currentMessageCount: messages.length,
       totalHistoryCount: totalMessageCount,
+      scheduledFollowups,
     };
 
     // Get system prompt with context metadata
@@ -447,6 +452,40 @@ export class ChatService implements OnApplicationBootstrap {
   }
 
   @Transactional()
+  private async getPendingFollowups(
+    userId: string,
+  ): Promise<{ id: string; dueDate: string }[]> {
+    const tx = this.txHost.tx;
+
+    const user = await tx.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: {
+        timeZone: true,
+      },
+    });
+
+    const pendingFollowups = await tx.query.followUps.findMany({
+      where: and(eq(followUps.userId, userId), eq(followUps.status, 'pending')),
+      orderBy: [asc(followUps.dueDate)],
+      columns: {
+        id: true,
+        dueDate: true,
+        content: true,
+      },
+    });
+
+    return pendingFollowups.map((followup) => ({
+      id: followup.id,
+      dueDate: formatInTimeZone(
+        followup.dueDate,
+        user!.timeZone || 'UTC',
+        'yyyy-MM-dd HH:mm',
+      ),
+      content: followup.content,
+    }));
+  }
+
+  @Transactional()
   private async getChatHistory(
     userId: string,
     chatId: string,
@@ -458,12 +497,9 @@ export class ChatService implements OnApplicationBootstrap {
         eq(chatMessages.userId, userId),
         eq(chatMessages.chatId, chatId),
       ),
-      orderBy: [desc(chatMessages.createdAt)], // Fetch most recent first
+      orderBy: [asc(chatMessages.createdAt)],
       limit: 30,
     });
-
-    // Sort back to chronological order for API
-    dbMessages.reverse(); // Efficient reversal after fetching with DESC
 
     // Map DB messages to OpenAI format
     const history: ChatCompletionMessageParam[] = [];
