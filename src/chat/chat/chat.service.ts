@@ -25,6 +25,7 @@ import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
 import { Tool } from '../tool/tool';
 import { ChatContextMetadata, PromptService } from './prompt.service';
+import { CancelFollowupTool } from '../tool/cancel-followup.tool';
 
 @Injectable()
 export class ChatService implements OnApplicationBootstrap {
@@ -35,8 +36,9 @@ export class ChatService implements OnApplicationBootstrap {
     private readonly promptService: PromptService,
     private readonly memoryTool: MemoryTool,
     private readonly followupTool: FollowupTool,
+    private readonly cancelFollowupTool: CancelFollowupTool,
   ) {
-    this.tools = [this.memoryTool, this.followupTool];
+    this.tools = [this.memoryTool, this.followupTool, this.cancelFollowupTool];
   }
 
   private readonly tools: Tool[];

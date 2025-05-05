@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method */
 import { randomUUID } from 'crypto';
 import { sql } from 'drizzle-orm';
 import { chats, followUps, users } from 'src/db';

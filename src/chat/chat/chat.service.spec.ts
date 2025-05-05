@@ -7,6 +7,7 @@ import { createTestingModuleWithDb } from 'test/utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpenAiProvider } from '../../openai/openai';
 import { ChatEventResponse, ChatRequest } from '../dto/chat';
+import { CancelFollowupTool } from '../tool/cancel-followup.tool';
 import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
 import { Tool } from '../tool/tool';
@@ -92,6 +93,23 @@ describe('ChatService', () => {
       toolDefinition: mockFollowupToolDefinition as any,
     });
 
+    const mockCancelFollowupToolDefinition = {
+      type: 'function',
+      function: {
+        name: 'cancel_followup',
+        description: 'Cancel an existing follow-up reminder',
+        parameters: {
+          type: 'object',
+        },
+      },
+    };
+
+    const mockCancelFollowupTool: Tool = vi.mocked({
+      execute: vi.fn(),
+      canExecute: vi.fn(),
+      toolDefinition: mockCancelFollowupToolDefinition as any,
+    });
+
     const moduleBuilder = createTestingModuleWithDb({
       providers: [
         ChatService,
@@ -109,6 +127,7 @@ describe('ChatService', () => {
         },
         { provide: MemoryTool, useValue: mockMemoryTool },
         { provide: FollowupTool, useValue: mockFollowupTool },
+        { provide: CancelFollowupTool, useValue: mockCancelFollowupTool },
       ],
     });
 

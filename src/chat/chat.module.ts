@@ -5,12 +5,18 @@ import { OpenAIModule } from 'src/openai/openai.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat/chat.service';
 import { PromptService } from './chat/prompt.service';
+import { CancelFollowupTool } from './tool/cancel-followup.tool';
 import { FollowupTool } from './tool/followup.tool';
 import { MemoryTool } from './tool/memory-tool';
-
 @Module({
   controllers: [ChatController],
-  providers: [ChatService, PromptService, MemoryTool, FollowupTool],
+  providers: [
+    ChatService,
+    PromptService,
+    MemoryTool,
+    FollowupTool,
+    CancelFollowupTool,
+  ],
   imports: [OpenAIModule, EvogenomApiClientModule, ContentfulModule],
 })
 export class ChatModule {}
