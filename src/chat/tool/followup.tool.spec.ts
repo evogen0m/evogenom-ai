@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import * as dateFnsTz from 'date-fns-tz';
 import { sql } from 'drizzle-orm';
 import { chats, followUps, users } from 'src/db';
 import { DRIZZLE_INSTANCE, DrizzleInstanceType } from 'src/db/drizzle.provider';
@@ -143,5 +144,40 @@ describe('FollowupTool', () => {
         arguments: '{}',
       }),
     ).toBe(false);
+  });
+
+  it('should convert time zone correctly', async () => {
+    // Create a tool call with non-zoned time
+    const testDate = '2023-12-31';
+    const testTime = '14:00'; // 2PM in unspecified zone
+
+    const toolCall: ToolCall = {
+      name: 'create_followup',
+      arguments: JSON.stringify({
+        content: 'Check time zone conversion',
+        date: testDate,
+        time: testTime,
+      }),
+    };
+
+    // Execute the tool
+    await followupTool.execute(userId, toolCall);
+
+    // Verify the follow-up was created with correct time zone conversion
+    const savedFollowUps = await dbClient
+      .select()
+      .from(followUps)
+      .where(sql`user_id = ${userId}`);
+
+    expect(savedFollowUps).toHaveLength(1);
+
+    const expectedSavedDate = dateFnsTz.fromZonedTime(
+      new Date(`${testDate}T${testTime}:00`),
+      'Europe/Helsinki',
+    );
+
+    const savedDate = savedFollowUps[0].dueDate;
+
+    expect(savedDate).toEqual(expectedSavedDate);
   });
 });

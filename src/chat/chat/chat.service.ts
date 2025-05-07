@@ -56,6 +56,11 @@ export class ChatService implements OnApplicationBootstrap {
     this.logger.log(`Streaming chat for user ${userId}`);
 
     await this.ensureUserExists(userId);
+
+    const user = await this.txHost.tx.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
     const chat = await this.getOrCreateChat(userId);
 
     const client = this.openai.getOpenAiClient({
@@ -87,6 +92,7 @@ export class ChatService implements OnApplicationBootstrap {
       currentMessageCount: messages.length,
       totalHistoryCount: totalMessageCount,
       scheduledFollowups,
+      userTimeZone: user!.timeZone || 'UTC',
     };
 
     // Get system prompt with context metadata
@@ -516,7 +522,7 @@ export class ChatService implements OnApplicationBootstrap {
           const timestamp = new Date(message.createdAt).toISOString();
           history.push({
             role: 'system',
-            content: `Current timestamp: ${timestamp}`,
+            content: `Timestamp: ${timestamp}`,
           });
 
           history.push({

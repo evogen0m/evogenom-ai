@@ -11,7 +11,7 @@ import {
   ProductFragment,
   UserResultFragment,
 } from '../../evogenom-api-client/generated/request';
-import { PromptService } from './prompt.service';
+import { ChatContextMetadata, PromptService } from './prompt.service';
 
 describe('PromptService', () => {
   let service: PromptService;
@@ -96,6 +96,14 @@ describe('PromptService', () => {
     } as ProductFieldsFragment,
   ];
 
+  // Default mock ChatContextMetadata for tests
+  const defaultChatContextMetadata: ChatContextMetadata = {
+    currentMessageCount: 1,
+    totalHistoryCount: 1,
+    userTimeZone: 'UTC',
+    scheduledFollowups: [],
+  };
+
   beforeEach(async () => {
     // Create mocks
     evogenomApiClient = {
@@ -131,7 +139,11 @@ describe('PromptService', () => {
 
   describe('getSystemPrompt', () => {
     it('should fetch user results and products from Evogenom API', async () => {
-      await service.getSystemPrompt(mockUserId, mockEvogenomApiToken);
+      await service.getSystemPrompt(
+        mockUserId,
+        mockEvogenomApiToken,
+        defaultChatContextMetadata,
+      );
 
       expect(evogenomApiClient.getUserResults).toHaveBeenCalledWith(
         mockUserId,
@@ -143,7 +155,11 @@ describe('PromptService', () => {
     });
 
     it('should fetch result rows and products from Contentful', async () => {
-      await service.getSystemPrompt(mockUserId, mockEvogenomApiToken);
+      await service.getSystemPrompt(
+        mockUserId,
+        mockEvogenomApiToken,
+        defaultChatContextMetadata,
+      );
 
       expect(contentfulApiClient.getResults).toHaveBeenCalledWith([
         '101',
@@ -158,15 +174,21 @@ describe('PromptService', () => {
     it('should return formatted system prompt', async () => {
       const spy = vi.spyOn(service, 'formatSystemPrompt');
 
-      await service.getSystemPrompt(mockUserId, mockEvogenomApiToken);
+      await service.getSystemPrompt(
+        mockUserId,
+        mockEvogenomApiToken,
+        defaultChatContextMetadata,
+      );
 
       expect(spy).toHaveBeenCalled();
     });
 
     it('should include chat context metadata when provided', async () => {
-      const metadata = {
+      const metadata: ChatContextMetadata = {
         currentMessageCount: 5,
         totalHistoryCount: 10,
+        userTimeZone: 'UTC',
+        scheduledFollowups: [],
       };
 
       const spy = vi.spyOn(service, 'formatSystemPrompt');
@@ -230,7 +252,11 @@ describe('PromptService', () => {
         } as ProductFieldsFragment,
       };
 
-      const prompt = service.formatSystemPrompt(results, products);
+      const prompt = service.formatSystemPrompt(
+        results,
+        products,
+        defaultChatContextMetadata,
+      );
 
       expect(prompt).toContain('Product One: Result for Product One');
       expect(prompt).toContain('# Your Role & Purpose');
@@ -260,9 +286,11 @@ describe('PromptService', () => {
         } as ProductFieldsFragment,
       };
 
-      const metadata = {
+      const metadata: ChatContextMetadata = {
         currentMessageCount: 5,
         totalHistoryCount: 10,
+        userTimeZone: 'UTC',
+        scheduledFollowups: [],
       };
 
       const prompt = service.formatSystemPrompt(results, products, metadata);
@@ -298,7 +326,11 @@ describe('PromptService', () => {
         } as unknown as ProductFieldsFragment,
       };
 
-      const prompt = service.formatSystemPrompt(results, products);
+      const prompt = service.formatSystemPrompt(
+        results,
+        products,
+        defaultChatContextMetadata,
+      );
 
       expect(prompt).toContain('Product One Wrapped');
     });
@@ -327,7 +359,11 @@ describe('PromptService', () => {
         } as ProductFieldsFragment,
       };
 
-      const prompt = service.formatSystemPrompt(results, products);
+      const prompt = service.formatSystemPrompt(
+        results,
+        products,
+        defaultChatContextMetadata,
+      );
 
       expect(prompt).not.toContain('Product One');
       expect(prompt).not.toContain('Product Two');

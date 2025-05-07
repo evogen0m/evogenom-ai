@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import * as dateFnsTz from 'date-fns-tz';
 import * as R from 'remeda';
 import { ContentfulApiClient } from 'src/contentful/contentful-api-client';
-
 import {
   ProductFieldsFragment,
   ResultRowFieldsFragment,
@@ -13,6 +13,7 @@ import { ProductFragment } from 'src/evogenom-api-client/generated/request';
 export interface ChatContextMetadata {
   currentMessageCount: number;
   totalHistoryCount: number;
+  userTimeZone: string;
   scheduledFollowups: {
     id: string;
     // Formatted to user's local time
@@ -58,7 +59,7 @@ export class PromptService {
   async getSystemPrompt(
     userId: string,
     evogenomApiToken: string,
-    contextMetadata?: ChatContextMetadata,
+    contextMetadata: ChatContextMetadata,
   ) {
     const results = await this.evogenomApiClient.getUserResults(
       userId,
@@ -129,7 +130,7 @@ export class PromptService {
   formatSystemPrompt(
     results: Record<string, ResultRowFieldsFragment>,
     products: Record<string, ProductFieldsFragment>,
-    contextMetadata?: ChatContextMetadata,
+    contextMetadata: ChatContextMetadata,
   ) {
     const formatResult = (productCode: string) => {
       const result = results[productCode];
@@ -177,6 +178,7 @@ ${followupsInfo}
       : '';
 
     return `
+# Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), contextMetadata.userTimeZone, 'yyyy-MM-dd HH:mm')}
 # Your Role & Purpose
 You are an AI Wellness Coach. Your role is to:
 - Act as a smart, supportive companion for the user
@@ -198,6 +200,7 @@ ${productResults}
 
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
+
   `;
   }
 }

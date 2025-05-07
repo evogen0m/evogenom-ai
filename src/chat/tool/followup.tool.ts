@@ -1,6 +1,6 @@
 import { Transactional, TransactionHost } from '@nestjs-cls/transactional';
 import { Injectable, Logger } from '@nestjs/common';
-import { toZonedTime } from 'date-fns-tz';
+import * as dateFnsTz from 'date-fns-tz';
 import { eq } from 'drizzle-orm';
 import { ChatCompletionTool } from 'openai/resources/chat';
 import { chats, followUps, users } from 'src/db';
@@ -74,7 +74,7 @@ export class FollowupTool implements Tool {
         const zonedDate = new Date(dateTimeString);
 
         // Convert the zoned date to a UTC date using toZonedTime
-        const dueDate = toZonedTime(zonedDate, timeZone);
+        const dueDate = dateFnsTz.fromZonedTime(zonedDate, timeZone);
 
         // Insert the follow-up
         await this.txHost.tx.insert(followUps).values({

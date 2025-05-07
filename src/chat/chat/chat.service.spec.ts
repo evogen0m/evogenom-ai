@@ -1158,7 +1158,7 @@ describe('ChatService', () => {
         (msg) =>
           msg.role === 'system' &&
           typeof msg.content === 'string' &&
-          msg.content.startsWith('Current timestamp:'),
+          msg.content.startsWith('Timestamp:'),
       );
 
       // We should have 3 timestamp messages (one for each user message, including the new one)
@@ -1178,15 +1178,12 @@ describe('ChatService', () => {
 
         // Verify the content of the timestamp message
         const timestampMsg = messages[userIndex - 1];
-        expect(timestampMsg.content).toContain('Current timestamp:');
+        expect(timestampMsg.content).toContain('Timestamp:');
         expect(typeof timestampMsg.content).toEqual('string');
 
         // Verify it's a valid ISO date string
         const timestampContent = timestampMsg.content as string;
-        const isoDateString = timestampContent.replace(
-          'Current timestamp: ',
-          '',
-        );
+        const isoDateString = timestampContent.replace('Timestamp: ', '');
         expect(() => new Date(isoDateString)).not.toThrow();
       });
     });
