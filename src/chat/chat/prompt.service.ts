@@ -4,6 +4,7 @@ import * as dateFnsTz from 'date-fns-tz';
 import { formatInTimeZone } from 'date-fns-tz';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import * as R from 'remeda';
+import { ProfileField } from 'src/chat/tool/profile.tool';
 import { ContentfulApiClient } from 'src/contentful/contentful-api-client';
 import {
   ProductFieldsFragment,
@@ -24,6 +25,7 @@ export interface ChatContextMetadata {
     dueDate: string;
     content: string;
   }[];
+  userProfile: ProfileField | null;
 }
 
 const toneAndFeel = `
@@ -73,6 +75,15 @@ export class PromptService {
       columns: { timeZone: true },
     });
     return user?.timeZone || 'UTC'; // Default to UTC if not set
+  }
+
+  @Transactional()
+  private async getUserProfile(userId: string): Promise<ProfileField | null> {
+    const user = await this.txHost.tx.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { profile: true },
+    });
+    return (user?.profile as ProfileField) || null;
   }
 
   @Transactional()
@@ -143,12 +154,14 @@ export class PromptService {
       totalHistoryCount,
       currentMessageCount,
       scheduledFollowups,
+      userProfile,
       resultsFromApi,
       productByProductIdResponse,
     ] = await Promise.all([
       this.getTotalMessageCount(userId, chatId),
       this.getCurrentMessageCount(userId, chatId),
       this.getPendingFollowups(userId, userTimeZone),
+      this.getUserProfile(userId),
       this.evogenomApiClient.getUserResults(userId, evogenomApiToken),
       this.evogenomApiClient.getAllProducts(evogenomApiToken),
     ]);
@@ -158,6 +171,7 @@ export class PromptService {
       totalHistoryCount,
       userTimeZone,
       scheduledFollowups,
+      userProfile,
     };
 
     const results = resultsFromApi;
@@ -268,6 +282,25 @@ ${followupsInfo}
 `
       : '';
 
+    let userProfileInfo = '';
+    if (contextMetadata.userProfile) {
+      const profile = contextMetadata.userProfile;
+      const profileEntries = Object.entries(profile)
+        .filter(
+          ([, value]) => value !== undefined && value !== null && value !== '',
+        )
+        .map(
+          ([key, value]) =>
+            `  - ${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`,
+        );
+      if (profileEntries.length > 0) {
+        userProfileInfo = `
+# User Profile
+${profileEntries.join('\n')}
+`;
+      }
+    }
+
     return `
 # Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), contextMetadata.userTimeZone, 'yyyy-MM-dd HH:mm')}
 # Your Role & Purpose
@@ -288,7 +321,7 @@ You are employed at Evogenom, a DNA genotyping company. Evogenom sells DNA tests
 ${chatContextInfo}
 # User's genotyping results
 ${productResults}
-
+${userProfileInfo}
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
 
