@@ -4,7 +4,10 @@ import * as dateFnsTz from 'date-fns-tz';
 import { formatInTimeZone } from 'date-fns-tz';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import * as R from 'remeda';
-import { ProfileField } from 'src/chat/tool/profile.tool';
+import {
+  PATCH_USER_PROFILE_TOOL_NAME,
+  ProfileField,
+} from 'src/chat/tool/profile.tool';
 import { ContentfulApiClient } from 'src/contentful/contentful-api-client';
 import {
   ProductFieldsFragment,
@@ -13,6 +16,7 @@ import {
 import { chatMessages, DbTransactionAdapter, followUps, users } from 'src/db';
 import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { ProductFragment } from 'src/evogenom-api-client/generated/request';
+import { COMPLETE_ONBOARDING_TOOL_NAME } from '../tool/onboarding.tool';
 
 // Add ChatContextMetadata interface
 export interface ChatContextMetadata {
@@ -26,6 +30,7 @@ export interface ChatContextMetadata {
     content: string;
   }[];
   userProfile: ProfileField | null;
+  isOnboarded: boolean;
 }
 
 const toneAndFeel = `
@@ -84,6 +89,15 @@ export class PromptService {
       columns: { profile: true },
     });
     return (user?.profile as ProfileField) || null;
+  }
+
+  @Transactional()
+  private async getIsUserOnboarded(userId: string): Promise<boolean> {
+    const user = await this.txHost.tx.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { isOnboarded: true },
+    });
+    return user?.isOnboarded || false;
   }
 
   @Transactional()
@@ -155,6 +169,7 @@ export class PromptService {
       currentMessageCount,
       scheduledFollowups,
       userProfile,
+      isOnboarded,
       resultsFromApi,
       productByProductIdResponse,
     ] = await Promise.all([
@@ -162,6 +177,7 @@ export class PromptService {
       this.getCurrentMessageCount(userId, chatId),
       this.getPendingFollowups(userId, userTimeZone),
       this.getUserProfile(userId),
+      this.getIsUserOnboarded(userId),
       this.evogenomApiClient.getUserResults(userId, evogenomApiToken),
       this.evogenomApiClient.getAllProducts(evogenomApiToken),
     ]);
@@ -172,6 +188,7 @@ export class PromptService {
       userTimeZone,
       scheduledFollowups,
       userProfile,
+      isOnboarded,
     };
 
     const results = resultsFromApi;
@@ -301,6 +318,24 @@ ${profileEntries.join('\n')}
       }
     }
 
+    let onboardingInstructions = '';
+    if (!contextMetadata.isOnboarded) {
+      onboardingInstructions = `
+# IMPORTANT! Your current task is as follows:
+1. Inform the user that their profile is incomplete and that you will guide them through setting it up.
+2. Ask for the following profile fields one by one or in small groups. For each piece of information the user provides, use the '${PATCH_USER_PROFILE_TOOL_NAME}' tool to save it immediately:
+    - Name
+    - Age
+    - Gender
+    - Height (in cm)
+    - Weight (in kg)
+    - Work/Occupation
+    - Physical Activity Level
+3. Acknowledge if the user chooses not to provide certain information.
+4. Once all fields have been prompted for, or the user indicates they do not wish to provide more information, use the '${COMPLETE_ONBOARDING_TOOL_NAME}' tool to mark their onboarding as complete.
+`;
+    }
+
     return `
 # Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), contextMetadata.userTimeZone, 'yyyy-MM-dd HH:mm')}
 # Your Role & Purpose
@@ -316,7 +351,6 @@ You are an AI Wellness Coach. Your role is to:
 - You may use ONLY the following markdown tags: bold, italic, underline, bullet points
 
 Remember that you are not just a chatbot - you are a coach who knows the user personally and is invested in their wellness journey.
-
 You are employed at Evogenom, a DNA genotyping company. Evogenom sells DNA tests to customers and provides insights into their DNA, specifically how their DNA affects their health and wellbeing.
 ${chatContextInfo}
 # User's genotyping results
@@ -325,6 +359,7 @@ ${userProfileInfo}
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
 
+${onboardingInstructions}
   `;
   }
 }
