@@ -1,15 +1,20 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { sql } from 'drizzle-orm';
 import { chatMessages, chats, users } from 'src/db';
 import { DRIZZLE_INSTANCE, DrizzleInstanceType } from 'src/db/drizzle.provider';
+import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { createTestingModuleWithDb } from 'test/utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpenAiProvider } from '../../openai/openai';
 import { ChatEventResponse, ChatRequest } from '../dto/chat';
+import { ChatState } from '../enum/chat-state.enum';
 import { CancelFollowupTool } from '../tool/cancel-followup.tool';
 import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
+import { OnboardingTool } from '../tool/onboarding.tool';
+import { ProfileTool } from '../tool/profile.tool';
 import { Tool } from '../tool/tool';
 import { ChatService } from './chat.service';
 import { PromptService } from './prompt.service';
@@ -18,6 +23,7 @@ describe('ChatService', () => {
   let service: ChatService;
   let openAiProvider: OpenAiProvider;
   let dbClient: DrizzleInstanceType;
+  let mockEvogenomApiClient: EvogenomApiClient;
 
   const mockOpenAiClient = {
     chat: {
@@ -110,6 +116,36 @@ describe('ChatService', () => {
       toolDefinition: mockCancelFollowupToolDefinition as any,
     });
 
+    const mockOnboardingToolDefinition = {
+      type: 'function',
+      function: {
+        name: 'completeOnboarding',
+        description: 'Mark user onboarding as complete',
+        parameters: { type: 'object' },
+      },
+    };
+
+    const mockOnboardingTool: Tool = vi.mocked({
+      execute: vi.fn(),
+      canExecute: vi.fn(),
+      toolDefinition: mockOnboardingToolDefinition as any,
+    });
+
+    const mockProfileToolDefinition = {
+      type: 'function',
+      function: {
+        name: 'updateUserProfile',
+        description: 'Update user profile fields',
+        parameters: { type: 'object' },
+      },
+    };
+
+    const mockProfileTool: Tool = vi.mocked({
+      execute: vi.fn(),
+      canExecute: vi.fn(),
+      toolDefinition: mockProfileToolDefinition as any,
+    });
+
     const moduleBuilder = createTestingModuleWithDb({
       providers: [
         ChatService,
@@ -128,6 +164,14 @@ describe('ChatService', () => {
         { provide: MemoryTool, useValue: mockMemoryTool },
         { provide: FollowupTool, useValue: mockFollowupTool },
         { provide: CancelFollowupTool, useValue: mockCancelFollowupTool },
+        { provide: OnboardingTool, useValue: mockOnboardingTool },
+        { provide: ProfileTool, useValue: mockProfileTool },
+        {
+          provide: EvogenomApiClient,
+          useValue: {
+            getUserOrders: vi.fn(),
+          },
+        },
       ],
     });
 
@@ -135,6 +179,7 @@ describe('ChatService', () => {
 
     service = module.get<ChatService>(ChatService);
     dbClient = module.get<DrizzleInstanceType>(DRIZZLE_INSTANCE);
+    mockEvogenomApiClient = module.get<EvogenomApiClient>(EvogenomApiClient);
 
     // Clear test database tables before each test
     await dbClient.execute(sql`TRUNCATE TABLE chat_message CASCADE`);
@@ -1271,6 +1316,75 @@ describe('ChatService', () => {
       expect(updatedMessages.some((m) => m.id === message1Id)).toBeTruthy();
       expect(updatedMessages.some((m) => m.id === message2Id)).toBeTruthy();
       expect(updatedMessages.some((m) => m.id === message3Id)).toBeFalsy();
+    });
+  });
+
+  describe('getChatState', () => {
+    const mockApiToken = 'mock-evogenom-api-token';
+
+    it('should return NOT_ALLOWED if user has no purchases', async () => {
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId, isOnboarded: false });
+      (mockEvogenomApiClient.getUserOrders as any).mockResolvedValue([]);
+
+      const result = await service.getChatState(userId, mockApiToken);
+
+      expect(result.state).toEqual(ChatState.NOT_ALLOWED);
+      expect(mockEvogenomApiClient.getUserOrders).toHaveBeenCalledWith(
+        userId,
+        mockApiToken,
+      );
+    });
+
+    it('should return NEW_USER if user has purchases but is not onboarded', async () => {
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId, isOnboarded: false });
+      (mockEvogenomApiClient.getUserOrders as any).mockResolvedValue([
+        { id: 'order1' },
+      ]);
+
+      const result = await service.getChatState(userId, mockApiToken);
+
+      expect(result.state).toEqual(ChatState.NEW_USER);
+    });
+
+    it('should return ALLOWED if user has purchases and is onboarded', async () => {
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId, isOnboarded: true });
+      (mockEvogenomApiClient.getUserOrders as any).mockResolvedValue([
+        { id: 'order1' },
+      ]);
+
+      const result = await service.getChatState(userId, mockApiToken);
+
+      expect(result.state).toEqual(ChatState.ALLOWED);
+    });
+
+    it('should ensure user exists if not present and then return NOT_ALLOWED if no purchases', async () => {
+      const userId = randomUUID(); // New user, not in DB yet
+      (mockEvogenomApiClient.getUserOrders as any).mockResolvedValue([]);
+
+      const result = await service.getChatState(userId, mockApiToken);
+
+      expect(result.state).toEqual(ChatState.NOT_ALLOWED);
+      const userInDb = await dbClient.query.users.findFirst({
+        where: (u, { eq }) => eq(u.id, userId),
+      });
+      expect(userInDb).toBeDefined();
+      expect(userInDb?.isOnboarded).toBe(false); // Default value
+    });
+
+    it('should throw an error if EvogenomApiClient fails', async () => {
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId, isOnboarded: false });
+      const errorMessage = 'Evogenom API error';
+      (mockEvogenomApiClient.getUserOrders as any).mockRejectedValue(
+        new Error(errorMessage),
+      );
+
+      await expect(service.getChatState(userId, mockApiToken)).rejects.toThrow(
+        `Failed to get chat state: ${errorMessage}`,
+      );
     });
   });
 });

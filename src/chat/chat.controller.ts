@@ -28,6 +28,7 @@ import {
   ChatMessageResponse,
   ChatRequest,
 } from './dto/chat';
+import { ChatStateResponse } from './dto/chat-state.dto';
 
 class ChatMessagesResponse extends PagedResult<ChatMessageResponse> {
   @ApiProperty({ type: [ChatMessageResponse] })
@@ -129,5 +130,15 @@ export class ChatController {
       page: 0,
       pageSize: messages.length,
     };
+  }
+
+  @Get('/state')
+  @ApiResponse({
+    status: 200,
+    type: ChatStateResponse,
+    description: 'Get the chat state for the current user',
+  })
+  async getChatState(@User() user: UserPrincipal): Promise<ChatStateResponse> {
+    return this.chatService.getChatState(user.id, user.evogenomApiToken);
   }
 }

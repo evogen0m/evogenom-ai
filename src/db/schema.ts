@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   jsonb,
   pgEnum,
@@ -23,6 +24,8 @@ export const users = pgTable('users', {
   timeZone: text('time_zone').notNull().default('Europe/Helsinki'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  isOnboarded: boolean('is_onboarded').notNull().default(false),
+  profile: jsonb('profile'),
 });
 
 // Chat models

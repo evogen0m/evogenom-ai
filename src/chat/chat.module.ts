@@ -8,6 +8,9 @@ import { PromptService } from './chat/prompt.service';
 import { CancelFollowupTool } from './tool/cancel-followup.tool';
 import { FollowupTool } from './tool/followup.tool';
 import { MemoryTool } from './tool/memory-tool';
+import { OnboardingTool } from './tool/onboarding.tool';
+import { ProfileTool } from './tool/profile.tool';
+
 @Module({
   controllers: [ChatController],
   providers: [
@@ -16,6 +19,8 @@ import { MemoryTool } from './tool/memory-tool';
     MemoryTool,
     FollowupTool,
     CancelFollowupTool,
+    ProfileTool,
+    OnboardingTool,
   ],
   imports: [OpenAIModule, EvogenomApiClientModule, ContentfulModule],
   exports: [ChatService],
