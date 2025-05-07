@@ -108,6 +108,7 @@ describe('PromptService', () => {
     totalHistoryCount: 1,
     userTimeZone: 'UTC',
     scheduledFollowups: [],
+    userProfile: null,
   };
 
   beforeEach(async () => {
@@ -217,6 +218,7 @@ describe('PromptService', () => {
           totalHistoryCount: expect.any(Number),
           userTimeZone: expect.any(String),
           scheduledFollowups: expect.any(Array),
+          userProfile: null,
         }),
       );
     });
@@ -310,6 +312,7 @@ describe('PromptService', () => {
         totalHistoryCount: 10,
         userTimeZone: 'UTC',
         scheduledFollowups: [],
+        userProfile: null,
       };
 
       const prompt = service.formatSystemPrompt(results, products, metadata);
@@ -386,6 +389,94 @@ describe('PromptService', () => {
 
       expect(prompt).not.toContain('Product One');
       expect(prompt).not.toContain('Product Two');
+    });
+
+    it('should include user profile information when available', () => {
+      const results: Record<string, ResultRowFieldsFragment> = {};
+      const products: Record<string, ProductFieldsFragment> = {};
+      const metadata: ChatContextMetadata = {
+        currentMessageCount: 1,
+        totalHistoryCount: 1,
+        userTimeZone: 'UTC',
+        scheduledFollowups: [],
+        userProfile: {
+          name: 'Test User',
+          age: 30,
+          gender: 'Male',
+          height: 180,
+          weight: 75,
+          work: 'Engineer',
+          physicalActivity: 'Moderate',
+        },
+      };
+
+      const prompt = service.formatSystemPrompt(results, products, metadata);
+
+      expect(prompt).toContain('# User Profile');
+      expect(prompt).toContain('- Name: Test User');
+      expect(prompt).toContain('- Age: 30');
+      expect(prompt).toContain('- Gender: Male');
+      expect(prompt).toContain('- Height: 180');
+      expect(prompt).toContain('- Weight: 75');
+      expect(prompt).toContain('- Work: Engineer');
+      expect(prompt).toContain('- PhysicalActivity: Moderate');
+    });
+
+    it('should not include user profile section if profile is null', () => {
+      const results: Record<string, ResultRowFieldsFragment> = {};
+      const products: Record<string, ProductFieldsFragment> = {};
+      const metadata: ChatContextMetadata = {
+        currentMessageCount: 1,
+        totalHistoryCount: 1,
+        userTimeZone: 'UTC',
+        scheduledFollowups: [],
+        userProfile: null,
+      };
+
+      const prompt = service.formatSystemPrompt(results, products, metadata);
+      expect(prompt).not.toContain('# User Profile');
+    });
+
+    it('should not include user profile section if profile is empty object', () => {
+      const results: Record<string, ResultRowFieldsFragment> = {};
+      const products: Record<string, ProductFieldsFragment> = {};
+      const metadata: ChatContextMetadata = {
+        currentMessageCount: 1,
+        totalHistoryCount: 1,
+        userTimeZone: 'UTC',
+        scheduledFollowups: [],
+        userProfile: {},
+      };
+
+      const prompt = service.formatSystemPrompt(results, products, metadata);
+      expect(prompt).not.toContain('# User Profile');
+    });
+
+    it('should only include non-empty profile fields', () => {
+      const results: Record<string, ResultRowFieldsFragment> = {};
+      const products: Record<string, ProductFieldsFragment> = {};
+      const metadata: ChatContextMetadata = {
+        currentMessageCount: 1,
+        totalHistoryCount: 1,
+        userTimeZone: 'UTC',
+        scheduledFollowups: [],
+        userProfile: {
+          name: 'Test User',
+          age: undefined,
+          gender: '',
+          height: undefined,
+          weight: 75,
+        },
+      };
+
+      const prompt = service.formatSystemPrompt(results, products, metadata);
+
+      expect(prompt).toContain('# User Profile');
+      expect(prompt).toContain('- Name: Test User');
+      expect(prompt).toContain('- Weight: 75');
+      expect(prompt).not.toContain('- Age:');
+      expect(prompt).not.toContain('- Gender:');
+      expect(prompt).not.toContain('- Height:');
     });
   });
 });
