@@ -69,9 +69,9 @@ resource "local_file" "private_key" {
 resource "local_file" "ssh_script" {
   content         = <<-EOT
 #!/bin/bash
-ssh -i "${path.root}/../../generated/${var.prefix}-bastion-key.pem" ec2-user@${aws_instance.bastion.public_ip} "$@"
+ssh -i "${var.prefix}-bastion-key.pem" ec2-user@${aws_instance.bastion.public_ip} "$@"
 EOT
-  filename        = "${path.root}/../../generated/ssh_bastion.sh"
+  filename        = "${path.root}/../../generated/${var.prefix}-ssh_bastion.sh"
   file_permission = "0755"
 }
 
