@@ -1,3 +1,4 @@
+
 import { Transactional, TransactionHost } from '@nestjs-cls/transactional';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -16,15 +17,20 @@ import {
 import { AppConfigType } from 'src/config';
 import { chatMessages, chats, followUps, users } from 'src/db';
 import { DbTransactionAdapter } from 'src/db/drizzle.provider';
+import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { OpenAiProvider } from 'src/openai/openai';
 import {
   ChatEventResponse,
   ChatMessageResponse,
   ChatRequest,
 } from '../dto/chat';
+import { ChatStateResponse } from '../dto/chat-state.dto';
+import { ChatState } from '../enum/chat-state.enum';
 import { CancelFollowupTool } from '../tool/cancel-followup.tool';
 import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
+import { OnboardingTool } from '../tool/onboarding.tool';
+import { ProfileTool } from '../tool/profile.tool';
 import { Tool } from '../tool/tool';
 import { ChatContextMetadata, PromptService } from './prompt.service';
 
@@ -38,8 +44,17 @@ export class ChatService implements OnApplicationBootstrap {
     private readonly memoryTool: MemoryTool,
     private readonly followupTool: FollowupTool,
     private readonly cancelFollowupTool: CancelFollowupTool,
+    private readonly profileTool: ProfileTool,
+    private readonly onboardingTool: OnboardingTool,
+    private readonly evogenomApiClient: EvogenomApiClient,
   ) {
-    this.tools = [this.memoryTool, this.followupTool, this.cancelFollowupTool];
+    this.tools = [
+      this.memoryTool,
+      this.followupTool,
+      this.cancelFollowupTool,
+      this.profileTool,
+      this.onboardingTool,
+    ];
   }
 
   private readonly tools: Tool[];
@@ -673,5 +688,61 @@ export class ChatService implements OnApplicationBootstrap {
     void this.setChatMessageEmbedding(messageId, content);
 
     return savedMessage;
+  }
+
+  /**
+   * Get the chat state for a user
+   * @param userId The user ID
+   * @param evogenomApiToken The API token for Evogenom API
+   * @returns The chat state
+   */
+  @Transactional()
+  async getChatState(
+    userId: string,
+    evogenomApiToken: string,
+  ): Promise<ChatStateResponse> {
+    const tx = this.txHost.tx;
+
+    try {
+      // Ensure the user exists
+      await this.ensureUserExists(userId);
+
+      // Get the user to check if they're onboarded
+      const user = await tx.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: {
+          isOnboarded: true,
+        },
+      });
+
+      // Check if the user has made any purchases
+      const userOrders = await this.evogenomApiClient.getUserOrders(
+        userId,
+        evogenomApiToken,
+      );
+      const hasPurchase = userOrders.length > 0;
+
+      // Determine chat state based on purchase and onboarding status
+      let chatState: ChatState;
+
+      if (!hasPurchase) {
+        // User has not made a purchase
+        chatState = ChatState.NOT_ALLOWED;
+      } else if (!user?.isOnboarded) {
+        // User has made a purchase but not completed onboarding
+        chatState = ChatState.NEW_USER;
+      } else {
+        // User has made a purchase and completed onboarding
+        chatState = ChatState.ALLOWED;
+      }
+
+      return { state: chatState };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get chat state for user ${userId}: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(`Failed to get chat state: ${error.message}`);
+    }
   }
 }
