@@ -1,11 +1,15 @@
+import { Transactional, TransactionHost } from '@nestjs-cls/transactional';
 import { Injectable } from '@nestjs/common';
 import * as dateFnsTz from 'date-fns-tz';
+import { formatInTimeZone } from 'date-fns-tz';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import * as R from 'remeda';
 import { ContentfulApiClient } from 'src/contentful/contentful-api-client';
 import {
   ProductFieldsFragment,
   ResultRowFieldsFragment,
 } from 'src/contentful/generated/types';
+import { chatMessages, DbTransactionAdapter, followUps, users } from 'src/db';
 import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { ProductFragment } from 'src/evogenom-api-client/generated/request';
 
@@ -49,25 +53,117 @@ const getContentfulValue = <T>(value: T | ContentfulWrapper<T>): T => {
   return value;
 };
 
+// Added constant
+const MAX_HISTORY_MESSAGES_FOR_CONTEXT = 30;
+
 @Injectable()
 export class PromptService {
   constructor(
     private readonly evogenomApiClient: EvogenomApiClient,
     private readonly contentfulApiClient: ContentfulApiClient,
+    // Added TransactionHost
+    private readonly txHost: TransactionHost<DbTransactionAdapter>,
   ) {}
+
+  // New private methods to fetch context data
+  @Transactional()
+  private async getUserTimeZone(userId: string): Promise<string> {
+    const user = await this.txHost.tx.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { timeZone: true },
+    });
+    return user?.timeZone || 'UTC'; // Default to UTC if not set
+  }
+
+  @Transactional()
+  private async getTotalMessageCount(
+    userId: string,
+    chatId: string,
+  ): Promise<number> {
+    const result = await this.txHost.tx
+      .select({ count: sql`count(*)`.mapWith(Number) })
+      .from(chatMessages)
+      .where(
+        and(eq(chatMessages.userId, userId), eq(chatMessages.chatId, chatId)),
+      );
+    return result[0]?.count || 0;
+  }
+
+  @Transactional()
+  private async getCurrentMessageCount(
+    userId: string,
+    chatId: string,
+  ): Promise<number> {
+    const messages = await this.txHost.tx.query.chatMessages.findMany({
+      where: and(
+        eq(chatMessages.userId, userId),
+        eq(chatMessages.chatId, chatId),
+      ),
+      orderBy: [desc(chatMessages.createdAt)],
+      limit: MAX_HISTORY_MESSAGES_FOR_CONTEXT,
+      columns: { id: true },
+    });
+    return messages.length;
+  }
+
+  @Transactional()
+  private async getPendingFollowups(
+    userId: string,
+    userTimeZone: string,
+  ): Promise<ChatContextMetadata['scheduledFollowups']> {
+    const pendingFollowupsDb = await this.txHost.tx.query.followUps.findMany({
+      where: and(eq(followUps.userId, userId), eq(followUps.status, 'pending')),
+      orderBy: [asc(followUps.dueDate)],
+      columns: {
+        id: true,
+        dueDate: true,
+        content: true,
+      },
+    });
+
+    return pendingFollowupsDb.map((followup) => ({
+      id: followup.id,
+      dueDate: formatInTimeZone(
+        followup.dueDate,
+        userTimeZone,
+        'yyyy-MM-dd HH:mm',
+      ),
+      content: followup.content,
+    }));
+  }
 
   async getSystemPrompt(
     userId: string,
     evogenomApiToken: string,
-    contextMetadata: ChatContextMetadata,
+    chatId: string,
   ) {
-    const results = await this.evogenomApiClient.getUserResults(
-      userId,
-      evogenomApiToken,
-    );
+    // Fetch context data internally
+    const userTimeZone = await this.getUserTimeZone(userId);
+    const [
+      totalHistoryCount,
+      currentMessageCount,
+      scheduledFollowups,
+      resultsFromApi,
+      productByProductIdResponse,
+    ] = await Promise.all([
+      this.getTotalMessageCount(userId, chatId),
+      this.getCurrentMessageCount(userId, chatId),
+      this.getPendingFollowups(userId, userTimeZone),
+      this.evogenomApiClient.getUserResults(userId, evogenomApiToken),
+      this.evogenomApiClient.getAllProducts(evogenomApiToken),
+    ]);
+
+    const contextMetadata: ChatContextMetadata = {
+      currentMessageCount,
+      totalHistoryCount,
+      userTimeZone,
+      scheduledFollowups,
+    };
+
+    const results = resultsFromApi;
 
     const productByProductId = R.pipe(
-      await this.evogenomApiClient.getAllProducts(evogenomApiToken),
+      productByProductIdResponse,
       R.indexBy((product) => product.id),
     );
 
@@ -105,7 +201,6 @@ export class PromptService {
       R.map((resultRow) => ({
         productCode: resultRow.productCode,
         resultText: resultRow.resultText,
-        // Add other properties as needed
       })),
       R.indexBy((resultRow) => (resultRow.productCode as string) || ''),
     ) as Record<string, ResultRowFieldsFragment>;
@@ -114,15 +209,12 @@ export class PromptService {
   async getProductByProductCode(productCodes: string[]) {
     const products = await this.contentfulApiClient.getProducts(productCodes);
 
-    // Create an empty array of products if productsCollection is null
-
     return R.pipe(
       products,
       R.filter(
         (product): product is NonNullable<ProductFieldsFragment> =>
           product !== null,
       ),
-
       R.indexBy((product) => product.productCode?.toString() || ''),
     ) as Record<string, ProductFieldsFragment>;
   }
@@ -148,7 +240,6 @@ export class PromptService {
       .map((result) => `  - ${result}`)
       .join('\n');
 
-    // Format pending followups
     const followupsInfo =
       contextMetadata?.scheduledFollowups &&
       contextMetadata.scheduledFollowups.length > 0
@@ -157,7 +248,7 @@ export class PromptService {
 ${contextMetadata.scheduledFollowups
   .map(
     (followup) =>
-      `- Follow-up ID: ${followup.id}, Due: ${new Date(followup.dueDate).toLocaleString()} Content: ${followup.content}`,
+      `- Follow-up ID: ${followup.id}, Due: ${followup.dueDate} Content: ${followup.content}`,
   )
   .join('\n')}
 `

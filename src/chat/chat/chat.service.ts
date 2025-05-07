@@ -1,10 +1,8 @@
-
 import { Transactional, TransactionHost } from '@nestjs-cls/transactional';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { formatInTimeZone } from 'date-fns-tz';
-import { and, asc, desc, eq, not, sql } from 'drizzle-orm';
+import { and, desc, eq, not, sql } from 'drizzle-orm';
 import OpenAI from 'openai';
 import {
   ChatCompletionAssistantMessageParam,
@@ -15,7 +13,7 @@ import {
   ChatCompletionUserMessageParam,
 } from 'openai/resources/chat';
 import { AppConfigType } from 'src/config';
-import { chatMessages, chats, followUps, users } from 'src/db';
+import { chatMessages, chats, users } from 'src/db';
 import { DbTransactionAdapter } from 'src/db/drizzle.provider';
 import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { OpenAiProvider } from 'src/openai/openai';
@@ -32,7 +30,7 @@ import { MemoryTool } from '../tool/memory-tool';
 import { OnboardingTool } from '../tool/onboarding.tool';
 import { ProfileTool } from '../tool/profile.tool';
 import { Tool } from '../tool/tool';
-import { ChatContextMetadata, PromptService } from './prompt.service';
+import { PromptService } from './prompt.service';
 
 @Injectable()
 export class ChatService implements OnApplicationBootstrap {
@@ -72,10 +70,6 @@ export class ChatService implements OnApplicationBootstrap {
 
     await this.ensureUserExists(userId);
 
-    const user = await this.txHost.tx.query.users.findFirst({
-      where: eq(users.id, userId),
-    });
-
     const chat = await this.getOrCreateChat(userId);
 
     const client = this.openai.getOpenAiClient({
@@ -96,25 +90,11 @@ export class ChatService implements OnApplicationBootstrap {
     // 2. Prepare initial messages for OpenAI and count messages
     const messages = await this.getChatHistory(userId, chat.id);
 
-    // Get total count of messages in history
-    const totalMessageCount = await this.getTotalMessageCount(userId, chat.id);
-
-    // Get pending followups
-    const scheduledFollowups = await this.getPendingFollowups(userId);
-
-    // Create context metadata
-    const contextMetadata: ChatContextMetadata = {
-      currentMessageCount: messages.length,
-      totalHistoryCount: totalMessageCount,
-      scheduledFollowups,
-      userTimeZone: user!.timeZone || 'UTC',
-    };
-
     // Get system prompt with context metadata
     const systemPrompt = await this.promptService.getSystemPrompt(
       userId,
       evogenomApiToken,
-      contextMetadata,
+      chat.id,
     );
     this.logger.debug(systemPrompt);
 
@@ -459,54 +439,6 @@ export class ChatService implements OnApplicationBootstrap {
     if (!user) {
       await tx.insert(users).values({ id: userId }).returning();
     }
-  }
-
-  @Transactional()
-  private async getTotalMessageCount(
-    userId: string,
-    chatId: string,
-  ): Promise<number> {
-    const tx = this.txHost.tx;
-    const result = await tx
-      .select({ count: sql<number>`count(*)` })
-      .from(chatMessages)
-      .where(
-        and(eq(chatMessages.userId, userId), eq(chatMessages.chatId, chatId)),
-      );
-
-    return result[0]?.count || 0;
-  }
-
-  @Transactional()
-  private async getPendingFollowups(userId: string) {
-    const tx = this.txHost.tx;
-
-    const user = await tx.query.users.findFirst({
-      where: eq(users.id, userId),
-      columns: {
-        timeZone: true,
-      },
-    });
-
-    const pendingFollowups = await tx.query.followUps.findMany({
-      where: and(eq(followUps.userId, userId), eq(followUps.status, 'pending')),
-      orderBy: [asc(followUps.dueDate)],
-      columns: {
-        id: true,
-        dueDate: true,
-        content: true,
-      },
-    });
-
-    return pendingFollowups.map((followup) => ({
-      id: followup.id,
-      dueDate: formatInTimeZone(
-        followup.dueDate,
-        user!.timeZone || 'UTC',
-        'yyyy-MM-dd HH:mm',
-      ),
-      content: followup.content,
-    }));
   }
 
   @Transactional()

@@ -1,11 +1,15 @@
 /* eslint-disable @typescript-eslint/unbound-method */
-import { Test, TestingModule } from '@nestjs/testing';
+import { TestingModule } from '@nestjs/testing';
+import { randomUUID } from 'crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestingModuleWithDb } from '../../../test/utils';
 import { ContentfulApiClient } from '../../contentful/contentful-api-client';
 import {
   ProductFieldsFragment,
   ResultRowFieldsFragment,
 } from '../../contentful/generated/types';
+import { DrizzleInstanceType, users } from '../../db';
+import { DRIZZLE_INSTANCE } from '../../db/drizzle.provider';
 import { EvogenomApiClient } from '../../evogenom-api-client/evogenom-api.client';
 import {
   ProductFragment,
@@ -17,10 +21,12 @@ describe('PromptService', () => {
   let service: PromptService;
   let evogenomApiClient: EvogenomApiClient;
   let contentfulApiClient: ContentfulApiClient;
+  let dbClient: DrizzleInstanceType;
 
   // Mock data
-  const mockUserId = 'user-123';
+  const mockUserId = randomUUID();
   const mockEvogenomApiToken = 'token-123';
+  const mockChatId = randomUUID();
 
   const mockUserResults: UserResultFragment[] = [
     {
@@ -116,7 +122,7 @@ describe('PromptService', () => {
       getProducts: vi.fn().mockResolvedValue(mockProducts2),
     } as unknown as ContentfulApiClient;
 
-    const module: TestingModule = await Test.createTestingModule({
+    const module: TestingModule = await createTestingModuleWithDb({
       providers: [
         PromptService,
         {
@@ -131,6 +137,14 @@ describe('PromptService', () => {
     }).compile();
 
     service = module.get<PromptService>(PromptService);
+    dbClient = module.get<DrizzleInstanceType>(DRIZZLE_INSTANCE);
+
+    // Ensure a mock user exists in the database before each test
+    // Sticking to only fields known to be in the base `users` table for now
+    await dbClient
+      .insert(users)
+      .values({ id: mockUserId, timeZone: 'UTC' })
+      .onConflictDoNothing();
   });
 
   it('should be defined', () => {
@@ -142,7 +156,7 @@ describe('PromptService', () => {
       await service.getSystemPrompt(
         mockUserId,
         mockEvogenomApiToken,
-        defaultChatContextMetadata,
+        mockChatId,
       );
 
       expect(evogenomApiClient.getUserResults).toHaveBeenCalledWith(
@@ -158,7 +172,7 @@ describe('PromptService', () => {
       await service.getSystemPrompt(
         mockUserId,
         mockEvogenomApiToken,
-        defaultChatContextMetadata,
+        mockChatId,
       );
 
       expect(contentfulApiClient.getResults).toHaveBeenCalledWith([
@@ -177,28 +191,33 @@ describe('PromptService', () => {
       await service.getSystemPrompt(
         mockUserId,
         mockEvogenomApiToken,
-        defaultChatContextMetadata,
+        mockChatId,
       );
 
       expect(spy).toHaveBeenCalled();
     });
 
     it('should include chat context metadata when provided', async () => {
-      const metadata: ChatContextMetadata = {
-        currentMessageCount: 5,
-        totalHistoryCount: 10,
-        userTimeZone: 'UTC',
-        scheduledFollowups: [],
-      };
-
+      // This test might need to be re-thought as ChatContextMetadata is now internal
+      // For now, we'll check if formatSystemPrompt is called with internally generated metadata
       const spy = vi.spyOn(service, 'formatSystemPrompt');
 
-      await service.getSystemPrompt(mockUserId, mockEvogenomApiToken, metadata);
+      await service.getSystemPrompt(
+        mockUserId,
+        mockEvogenomApiToken,
+        mockChatId,
+      );
 
       expect(spy).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.any(Object),
-        metadata,
+        expect.any(Object), // results
+        expect.any(Object), // products
+        expect.objectContaining({
+          // Internally generated metadata
+          currentMessageCount: expect.any(Number),
+          totalHistoryCount: expect.any(Number),
+          userTimeZone: expect.any(String),
+          scheduledFollowups: expect.any(Array),
+        }),
       );
     });
   });
