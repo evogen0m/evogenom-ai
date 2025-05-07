@@ -53,7 +53,12 @@ describe('ChatService', () => {
     } as unknown as OpenAiProvider;
 
     const mockPromptService = {
-      getSystemPrompt: vi.fn().mockResolvedValue('mock system prompt'),
+      getSystemPrompt: vi.fn().mockImplementation(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        async (userId: string, token: string, chatId: string) => {
+          return 'mock system prompt';
+        },
+      ),
     };
 
     const mockConfigService = {
@@ -428,6 +433,8 @@ describe('ChatService', () => {
       // Create the chat request
       const request: ChatRequest = { content: 'Hi there' };
 
+      await service.getOrCreateChat(userId); // Ensures chat.id is available for getSystemPrompt
+
       // Execute the stream
       const streamGenerator = service.createChatStream(
         request,
@@ -500,6 +507,8 @@ describe('ChatService', () => {
 
       // Create the chat request
       const request: ChatRequest = { content: 'Hi there' };
+
+      await service.getOrCreateChat(userId); // Ensures chat.id is available for getSystemPrompt
 
       // Execute the stream
       const streamGenerator = service.createChatStream(
@@ -634,6 +643,12 @@ describe('ChatService', () => {
       // Create the chat request
       const request: ChatRequest = { content: 'Use memory to find info' };
 
+      // Note: service.getOrCreateChat(userId) is NOT called here because
+      // this test explicitly sets up a chat with `chatId` above,
+      // and we want to ensure the system prompt is fetched for *that* specific chat.
+      // The `createChatStream` will internally call `getOrCreateChat`,
+      // which will return the chat created above.
+
       // Execute the stream
       const streamGenerator = service.createChatStream(
         request,
@@ -765,6 +780,8 @@ describe('ChatService', () => {
       const request: ChatRequest = {
         content: 'This will recursively call tools',
       };
+
+      await service.getOrCreateChat(userId); // Ensures chat.id is available for getSystemPrompt
 
       // Execute the stream
       const streamGenerator = service.createChatStream(
@@ -919,6 +936,8 @@ describe('ChatService', () => {
       // Create chat request
       const request: ChatRequest = { content: 'Use memory tools' };
 
+      await service.getOrCreateChat(userId); // Ensures chat.id is available for getSystemPrompt
+
       // Execute the stream
       const streamGenerator = service.createChatStream(
         request,
@@ -1072,6 +1091,8 @@ describe('ChatService', () => {
         content: 'Use memory tool that will fail',
       };
 
+      await service.getOrCreateChat(userId); // Ensures chat.id is available for getSystemPrompt
+
       // Execute the stream
       const streamGenerator = service.createChatStream(
         request,
@@ -1176,6 +1197,12 @@ describe('ChatService', () => {
 
       // Create the chat request (this will add a third user message)
       const request: ChatRequest = { content: 'New message' };
+
+      // chatId is defined and used for inserting messages earlier in this test.
+      // We call getOrCreateChat here to ensure that the chat context (including the chatId)
+      // is correctly picked up by getSystemPrompt if it were to fetch it fresh,
+      // and to be consistent with other tests. It will return the existing chat.
+      await service.getOrCreateChat(userId);
 
       // Execute the chat stream (which internally calls getChatHistory)
       const streamGenerator = service.createChatStream(
