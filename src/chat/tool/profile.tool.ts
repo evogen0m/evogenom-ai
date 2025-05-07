@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Tool, ToolCall } from './tool';
 
-const PATCH_USER_PROFILE_TOOL_NAME = 'patchUserProfile';
+export const PATCH_USER_PROFILE_TOOL_NAME = 'patchUserProfile';
 
 export const profileSchema = z.object({
   name: z.string().optional().describe('User name'),

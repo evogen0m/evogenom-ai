@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Tool, ToolCall } from './tool';
 
-const COMPLETE_ONBOARDING_TOOL_NAME = 'completeOnboarding';
+export const COMPLETE_ONBOARDING_TOOL_NAME = 'completeOnboarding';
 
 const completeOnboardingSchema = z.object({
   // Empty object as this tool doesn't require any parameters
