@@ -2,11 +2,13 @@
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { sql } from 'drizzle-orm';
+import { CognitoService } from 'src/aws/cognito.service';
+import { ContentfulApiClient } from 'src/contentful/contentful-api-client';
 import { chatMessages, chats, users } from 'src/db';
 import { DRIZZLE_INSTANCE, DrizzleInstanceType } from 'src/db/drizzle.provider';
 import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { createTestingModuleWithDb } from 'test/utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpenAiProvider } from '../../openai/openai';
 import { ChatEventResponse, ChatRequest } from '../dto/chat';
 import { ChatState } from '../enum/chat-state.enum';
@@ -24,6 +26,8 @@ describe('ChatService', () => {
   let openAiProvider: OpenAiProvider;
   let dbClient: DrizzleInstanceType;
   let mockEvogenomApiClient: EvogenomApiClient;
+  let mockPromptService: PromptService;
+  let mockCognitoService: CognitoService;
 
   const mockOpenAiClient = {
     chat: {
@@ -52,7 +56,7 @@ describe('ChatService', () => {
       generateEmbedding: vi.fn().mockResolvedValue(mockEmbedding),
     } as unknown as OpenAiProvider;
 
-    const mockPromptService = {
+    mockPromptService = {
       getSystemPrompt: vi.fn().mockImplementation(
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         async (userId: string, token: string, chatId: string) => {
@@ -60,7 +64,25 @@ describe('ChatService', () => {
         },
       ),
       getIsUserOnboarded: vi.fn().mockResolvedValue(true),
-    };
+      getInitialWelcomeSystemPrompt: vi
+        .fn()
+        .mockResolvedValue('mock welcome prompt'),
+      evogenomApiClient: {} as EvogenomApiClient,
+      contentfulApiClient: {} as ContentfulApiClient,
+      txHost: {} as any,
+      cognitoService: {} as CognitoService,
+      getUserTimeZone: vi.fn().mockResolvedValue('UTC'),
+      getUserProfile: vi.fn().mockResolvedValue(null),
+      getTotalMessageCount: vi.fn().mockResolvedValue(0),
+      getCurrentMessageCount: vi.fn().mockResolvedValue(0),
+      getPendingFollowups: vi.fn().mockResolvedValue([]),
+      getResultRowsByProductCode: vi.fn().mockResolvedValue({}),
+      getProductByProductCode: vi.fn().mockResolvedValue({}),
+      formatSystemPrompt: vi
+        .fn()
+        .mockReturnValue('formatted mock system prompt'),
+      formatUserProfileInfo: vi.fn().mockReturnValue(''),
+    } as unknown as PromptService;
 
     const mockConfigService = {
       getOrThrow: vi.fn().mockImplementation((key) => {
@@ -152,6 +174,13 @@ describe('ChatService', () => {
       toolDefinition: mockProfileToolDefinition as any,
     });
 
+    // Added CognitoService mock
+    mockCognitoService = {
+      getUserLanguage: vi.fn().mockResolvedValue('en'),
+      getUserDeviceToken: vi.fn().mockResolvedValue('mock-device-token'),
+      getUserAttribute: vi.fn().mockResolvedValue(null), // generic mock for other attributes
+    } as unknown as CognitoService;
+
     const moduleBuilder = createTestingModuleWithDb({
       providers: [
         ChatService,
@@ -178,6 +207,10 @@ describe('ChatService', () => {
             getUserOrders: vi.fn(),
           },
         },
+        {
+          provide: CognitoService,
+          useValue: mockCognitoService,
+        },
       ],
     });
 
@@ -188,6 +221,13 @@ describe('ChatService', () => {
     mockEvogenomApiClient = module.get<EvogenomApiClient>(EvogenomApiClient);
 
     // Clear test database tables before each test
+    // await dbClient.execute(sql`TRUNCATE TABLE chat_messages CASCADE`);
+    // await dbClient.execute(sql`TRUNCATE TABLE chats CASCADE`);
+    // await dbClient.execute(sql`TRUNCATE TABLE users CASCADE`);
+  });
+
+  // Add afterEach to clean up the database
+  afterEach(async () => {
     await dbClient.execute(sql`TRUNCATE TABLE chat_message CASCADE`);
     await dbClient.execute(sql`TRUNCATE TABLE chat CASCADE`);
     await dbClient.execute(sql`TRUNCATE TABLE users CASCADE`);
@@ -316,11 +356,11 @@ describe('ChatService', () => {
 
       // Verify
       expect(result.length).toEqual(2);
-      // The result is ordered by createdAt DESC, so most recent first
-      expect(result[0].role).toEqual('assistant');
-      expect(result[0].content).toEqual('Hi there');
-      expect(result[1].role).toEqual('user');
-      expect(result[1].content).toEqual('Hello');
+      // The result is ordered by createdAt ASC (oldest first) due to .reverse()
+      expect(result[0].role).toEqual('user'); // Oldest message
+      expect(result[0].content).toEqual('Hello');
+      expect(result[1].role).toEqual('assistant'); // Newest message
+      expect(result[1].content).toEqual('Hi there');
 
       // All messages should be either 'user' or 'assistant' (no 'tool' messages)
       expect(
@@ -328,16 +368,44 @@ describe('ChatService', () => {
       ).toBe(true);
     });
 
-    it('should return empty array when no messages exist', async () => {
+    it('should return a generated welcome message when no messages exist', async () => {
       // Setup
       const userId = randomUUID();
       await dbClient.insert(users).values({ id: userId });
+
+      // Mock the OpenAI call for the welcome message
+      const mockWelcomeContent = 'Welcome to our service!';
+      mockOpenAiClient.chat.completions.create.mockResolvedValueOnce({
+        choices: [{ message: { content: mockWelcomeContent } }],
+      });
 
       // Execute
       const result = await service.getMessagesForUi(userId);
 
       // Verify
-      expect(result).toEqual([]);
+      expect(result.length).toEqual(1);
+      expect(result[0].role).toEqual('assistant');
+      expect(result[0].content).toEqual(mockWelcomeContent);
+
+      // Verify PromptService was called for the welcome prompt
+      expect(
+        mockPromptService.getInitialWelcomeSystemPrompt,
+      ).toHaveBeenCalledWith(userId);
+
+      // Verify OpenAI was called with the welcome prompt
+      expect(mockOpenAiClient.chat.completions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: [{ role: 'system', content: 'mock welcome prompt' }],
+        }),
+      );
+
+      // Verify the welcome message was saved to the database
+      const savedMessages = await dbClient.query.chatMessages.findMany({
+        where: (messages, { eq }) => eq(messages.userId, userId),
+      });
+      expect(savedMessages.length).toEqual(1);
+      expect(savedMessages[0].role).toEqual('assistant');
+      expect(savedMessages[0].content).toEqual(mockWelcomeContent);
     });
   });
 

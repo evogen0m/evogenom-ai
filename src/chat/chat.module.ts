@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ContentfulModule } from 'src/contentful/contentful.module';
 import { EvogenomApiClientModule } from 'src/evogenom-api-client/evogenom-api-client.module';
 import { OpenAIModule } from 'src/openai/openai.module';
+import { AwsModule } from '../aws/aws.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat/chat.service';
 import { PromptService } from './chat/prompt.service';
@@ -22,7 +23,7 @@ import { ProfileTool } from './tool/profile.tool';
     ProfileTool,
     OnboardingTool,
   ],
-  imports: [OpenAIModule, EvogenomApiClientModule, ContentfulModule],
+  imports: [OpenAIModule, EvogenomApiClientModule, ContentfulModule, AwsModule],
   exports: [ChatService],
 })
 export class ChatModule {}
