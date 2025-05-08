@@ -109,6 +109,7 @@ describe('PromptService', () => {
     userTimeZone: 'UTC',
     scheduledFollowups: [],
     userProfile: null,
+    isOnboarded: true,
   };
 
   beforeEach(async () => {
@@ -219,6 +220,7 @@ describe('PromptService', () => {
           userTimeZone: expect.any(String),
           scheduledFollowups: expect.any(Array),
           userProfile: null,
+          isOnboarded: false,
         }),
       );
     });
@@ -313,6 +315,7 @@ describe('PromptService', () => {
         userTimeZone: 'UTC',
         scheduledFollowups: [],
         userProfile: null,
+        isOnboarded: true,
       };
 
       const prompt = service.formatSystemPrompt(results, products, metadata);
@@ -408,6 +411,7 @@ describe('PromptService', () => {
           work: 'Engineer',
           physicalActivity: 'Moderate',
         },
+        isOnboarded: true,
       };
 
       const prompt = service.formatSystemPrompt(results, products, metadata);
@@ -431,6 +435,7 @@ describe('PromptService', () => {
         userTimeZone: 'UTC',
         scheduledFollowups: [],
         userProfile: null,
+        isOnboarded: true,
       };
 
       const prompt = service.formatSystemPrompt(results, products, metadata);
@@ -446,6 +451,7 @@ describe('PromptService', () => {
         userTimeZone: 'UTC',
         scheduledFollowups: [],
         userProfile: {},
+        isOnboarded: true,
       };
 
       const prompt = service.formatSystemPrompt(results, products, metadata);
@@ -467,6 +473,7 @@ describe('PromptService', () => {
           height: undefined,
           weight: 75,
         },
+        isOnboarded: true,
       };
 
       const prompt = service.formatSystemPrompt(results, products, metadata);

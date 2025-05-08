@@ -15,6 +15,7 @@ import {
 import { AppConfigType } from 'src/config';
 import { chatMessages, chats, users } from 'src/db';
 import { DbTransactionAdapter } from 'src/db/drizzle.provider';
+import { MessageScope } from 'src/db/schema';
 import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { OpenAiProvider } from 'src/openai/openai';
 import {
@@ -78,17 +79,26 @@ export class ChatService implements OnApplicationBootstrap {
 
     // 1. Save user message
     const userMessageId = randomUUID();
+
+    const userIsOnboarded = await this.promptService.getIsUserOnboarded(userId);
+    const currentAgentScope = userIsOnboarded ? 'COACH' : 'ONBOARDING';
+
     await this.saveMessage({
       id: userMessageId,
       content: request.content,
       role: 'user',
       userId,
       chatId: chat.id,
+      messageScope: currentAgentScope,
     });
     void this.setChatMessageEmbedding(userMessageId, request.content); // Background embedding for user message
 
     // 2. Prepare initial messages for OpenAI and count messages
-    const messages = await this.getChatHistory(userId, chat.id);
+    const messages = await this.getChatHistory(
+      userId,
+      chat.id,
+      currentAgentScope,
+    );
 
     // Get system prompt with context metadata
     const systemPrompt = await this.promptService.getSystemPrompt(
@@ -111,6 +121,7 @@ export class ChatService implements OnApplicationBootstrap {
       chat.id,
       client,
       0,
+      currentAgentScope,
     );
 
     this.logger.log(`Chat stream completed for user ${userId}`);
@@ -122,6 +133,7 @@ export class ChatService implements OnApplicationBootstrap {
     chatId: string,
     client: OpenAI, // Pass client to avoid fetching repeatedly
     toolCallDepth: number,
+    currentAgentScope: MessageScope,
   ): AsyncGenerator<ChatEventResponse> {
     this.logger.debug(
       `Processing chat turn for user ${userId}, depth ${toolCallDepth}`,
@@ -183,6 +195,7 @@ export class ChatService implements OnApplicationBootstrap {
           role: 'assistant',
           userId,
           chatId,
+          messageScope: currentAgentScope,
         });
         // Yield a final message event
         yield {
@@ -204,10 +217,16 @@ export class ChatService implements OnApplicationBootstrap {
         userId,
         chatId,
         toolData: { toolCalls },
+        messageScope: currentAgentScope,
       });
 
       // Execute tools and get tool result messages (executeTools saves tool messages internally)
-      const toolMessages = await this.executeTools(toolCalls, userId, chatId);
+      const toolMessages = await this.executeTools(
+        toolCalls,
+        userId,
+        chatId,
+        currentAgentScope,
+      );
 
       // Prepare messages for the *next* turn
       const nextMessages: ChatCompletionMessageParam[] = [
@@ -223,6 +242,7 @@ export class ChatService implements OnApplicationBootstrap {
         chatId,
         client,
         toolCallDepth + 1, // Increment depth
+        currentAgentScope,
       );
     } else {
       // Handle regular response (no tool calls)
@@ -237,6 +257,7 @@ export class ChatService implements OnApplicationBootstrap {
         role: 'assistant',
         userId,
         chatId,
+        messageScope: currentAgentScope,
       });
 
       // Yield the final message event
@@ -305,6 +326,7 @@ export class ChatService implements OnApplicationBootstrap {
     toolCalls: ChatCompletionMessageToolCall[],
     userId: string,
     chatId: string,
+    currentAgentScope: MessageScope,
   ): Promise<ChatCompletionToolMessageParam[]> {
     const toolMessages: ChatCompletionToolMessageParam[] = [];
 
@@ -348,6 +370,7 @@ export class ChatService implements OnApplicationBootstrap {
         userId,
         chatId,
         toolData: { toolCallId: toolCall.id, toolName: toolCall.function.name },
+        messageScope: currentAgentScope,
       });
 
       toolMessages.push({
@@ -369,6 +392,7 @@ export class ChatService implements OnApplicationBootstrap {
     chatId: string;
     toolData?: Record<string, any> | null; // Use the new jsonb column type
     name?: string | null; // Optionally store tool name
+    messageScope: MessageScope;
   }) {
     const tx = this.txHost.tx;
     // Adapt this insertion based on your actual chatMessages schema
@@ -382,6 +406,7 @@ export class ChatService implements OnApplicationBootstrap {
         userId: messageData.userId,
         chatId: messageData.chatId,
         toolData: messageData.toolData,
+        messageScope: messageData.messageScope,
         // name: messageData.name, // if storing tool name
       })
       .returning();
@@ -445,6 +470,7 @@ export class ChatService implements OnApplicationBootstrap {
   private async getChatHistory(
     userId: string,
     chatId: string,
+    agentScope: MessageScope,
   ): Promise<ChatCompletionMessageParam[]> {
     const tx = this.txHost.tx;
     // Fetch more messages if needed, potentially limited by token count later
@@ -452,6 +478,7 @@ export class ChatService implements OnApplicationBootstrap {
       where: and(
         eq(chatMessages.userId, userId),
         eq(chatMessages.chatId, chatId),
+        eq(chatMessages.messageScope, agentScope),
       ),
       orderBy: [desc(chatMessages.createdAt)],
       limit: this.MAX_HISTORY_MESSAGES,
@@ -608,12 +635,19 @@ export class ChatService implements OnApplicationBootstrap {
     const chat = await this.getOrCreateChat(userId);
     const messageId = randomUUID();
 
+    const user = await this.txHost.tx.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { isOnboarded: true },
+    });
+    const messageScopeForAssistant = user?.isOnboarded ? 'COACH' : 'ONBOARDING';
+
     const savedMessage = await this.saveMessage({
       id: messageId,
       content,
       role: 'assistant',
       userId,
       chatId: chat.id,
+      messageScope: messageScopeForAssistant,
     });
 
     // Trigger embedding generation in the background

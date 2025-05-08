@@ -64,6 +64,13 @@
       "when": 1746606110104,
       "tag": "0008_overconfident_wilson_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1746686303547,
+      "tag": "0009_lively_fixer",
+      "breakpoints": true
     }
   ]
 }

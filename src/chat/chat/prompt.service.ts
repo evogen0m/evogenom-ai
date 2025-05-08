@@ -92,7 +92,7 @@ export class PromptService {
   }
 
   @Transactional()
-  private async getIsUserOnboarded(userId: string): Promise<boolean> {
+  async getIsUserOnboarded(userId: string): Promise<boolean> {
     const user = await this.txHost.tx.query.users.findFirst({
       where: eq(users.id, userId),
       columns: { isOnboarded: true },
@@ -265,6 +265,43 @@ export class PromptService {
       return `${getContentfulValue(product.name)}: ${getContentfulValue(result.resultText)}`;
     };
 
+    // ONBOARDING PROMPT
+    if (!contextMetadata.isOnboarded) {
+      const onboardingSpecificInstructions = `
+# IMPORTANT! Your current task is as follows:
+1. Inform the user that their profile is incomplete and that you will guide them through setting it up.
+2. Ask for the following profile fields one by one or in small groups. For each piece of information the user provides, use the '${PATCH_USER_PROFILE_TOOL_NAME}' tool to save it immediately:
+    - Name
+    - Age
+    - Gender
+    - Height (in cm)
+    - Weight (in kg)
+    - Work/Occupation
+    - Physical Activity Level
+3. Acknowledge if the user chooses not to provide certain information.
+4. Once all fields have been prompted for, or the user indicates they do not wish to provide more information, use the '${COMPLETE_ONBOARDING_TOOL_NAME}' tool to mark their onboarding as complete.
+`;
+
+      return `
+# Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), contextMetadata.userTimeZone, 'yyyy-MM-dd HH:mm')}
+# Your Role & Purpose
+You are an AI Wellness Coach. Your primary goal right now is to help the user set up their profile. 
+Your role is to:
+- Guide the user through completing their profile information smoothly and efficiently.
+- Maintain a supportive and encouraging tone throughout the onboarding process.
+- Be consistent, compassionate, and constructive in all interactions
+- Instead of giving long answers, give short and concise answers and ask follow up questions if needed, remember that you are typing to a mobile chat app, reading long text is not practical for the user.
+
+- You may use ONLY the following markdown tags: bold, italic, underline, bullet points
+
+# Take on the following tone and feel in your responses:
+${toneAndFeel}
+
+${onboardingSpecificInstructions}
+`;
+    }
+
+    // COACH PROMPT (User is onboarded)
     const productResults = Object.keys(results)
       .map(formatResult)
       .filter(Boolean)
@@ -318,24 +355,6 @@ ${profileEntries.join('\n')}
       }
     }
 
-    let onboardingInstructions = '';
-    if (!contextMetadata.isOnboarded) {
-      onboardingInstructions = `
-# IMPORTANT! Your current task is as follows:
-1. Inform the user that their profile is incomplete and that you will guide them through setting it up.
-2. Ask for the following profile fields one by one or in small groups. For each piece of information the user provides, use the '${PATCH_USER_PROFILE_TOOL_NAME}' tool to save it immediately:
-    - Name
-    - Age
-    - Gender
-    - Height (in cm)
-    - Weight (in kg)
-    - Work/Occupation
-    - Physical Activity Level
-3. Acknowledge if the user chooses not to provide certain information.
-4. Once all fields have been prompted for, or the user indicates they do not wish to provide more information, use the '${COMPLETE_ONBOARDING_TOOL_NAME}' tool to mark their onboarding as complete.
-`;
-    }
-
     return `
 # Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), contextMetadata.userTimeZone, 'yyyy-MM-dd HH:mm')}
 # Your Role & Purpose
@@ -359,7 +378,6 @@ ${userProfileInfo}
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
 
-${onboardingInstructions}
   `;
   }
 }
