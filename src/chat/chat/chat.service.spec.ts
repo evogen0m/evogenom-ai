@@ -53,6 +53,7 @@ describe('ChatService', () => {
     // Set up OpenAI mock
     openAiProvider = {
       getOpenAiClient: vi.fn().mockReturnValue(mockOpenAiClient),
+      getMiniOpenAiClient: vi.fn().mockReturnValue(mockOpenAiClient),
       generateEmbedding: vi.fn().mockResolvedValue(mockEmbedding),
     } as unknown as OpenAiProvider;
 

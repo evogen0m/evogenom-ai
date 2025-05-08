@@ -75,15 +75,20 @@ export class ChatService implements OnApplicationBootstrap {
 
     const chat = await this.getOrCreateChat(userId);
 
-    const client = this.openai.getOpenAiClient({
-      sessionId: chat.id,
-    });
+    const userIsOnboarded = await this.promptService.getIsUserOnboarded(userId);
+    const currentAgentScope = userIsOnboarded ? 'COACH' : 'ONBOARDING';
+
+    const client =
+      currentAgentScope === 'ONBOARDING'
+        ? this.openai.getMiniOpenAiClient({
+            sessionId: chat.id,
+          })
+        : this.openai.getOpenAiClient({
+            sessionId: chat.id,
+          });
 
     // 1. Save user message
     const userMessageId = randomUUID();
-
-    const userIsOnboarded = await this.promptService.getIsUserOnboarded(userId);
-    const currentAgentScope = userIsOnboarded ? 'COACH' : 'ONBOARDING';
 
     await this.saveMessage({
       id: userMessageId,
@@ -465,7 +470,7 @@ export class ChatService implements OnApplicationBootstrap {
       );
 
       // Get OpenAI client for welcome message generation
-      const client = this.openai.getOpenAiClient({
+      const client = this.openai.getMiniOpenAiClient({
         sessionId: chat.id, // Use chat.id as sessionID
       });
       const welcomeMessage = await this._generateAndSaveWelcomeMessage(

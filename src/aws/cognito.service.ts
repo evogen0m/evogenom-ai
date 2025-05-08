@@ -6,7 +6,7 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import memoizee from 'memoizee';
+import * as memoizee from 'memoizee';
 import { AppConfigType } from 'src/config';
 
 @Injectable()
@@ -26,7 +26,7 @@ export class CognitoService {
       'COGNITO_USER_POOL_ID',
     );
 
-    this._fetchUserProfile = memoizee(
+    this._fetchUserProfile = memoizee.default(
       async (userId: string): Promise<AdminGetUserCommandOutput> => {
         this.logger.debug(
           `Fetching user profile directly from Cognito for userId: ${userId}`,
