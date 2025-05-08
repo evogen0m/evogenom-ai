@@ -1,24 +1,21 @@
-import {
-  AdminGetUserCommand,
-  CognitoIdentityProviderClient,
-} from '@aws-sdk/client-cognito-identity-provider';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { App, cert, initializeApp } from 'firebase-admin/app';
 import { Message, getMessaging } from 'firebase-admin/messaging';
+import { CognitoService } from 'src/aws/cognito.service';
 import { AppConfigType } from 'src/config';
 import { Notification } from './notification.types';
 
 @Injectable()
 export class NotificationService implements OnModuleInit {
   private readonly logger = new Logger(NotificationService.name);
-  private readonly cognitoClient: CognitoIdentityProviderClient;
   private firebaseApp: App;
 
-  constructor(private readonly configService: ConfigService<AppConfigType>) {
-    this.cognitoClient = new CognitoIdentityProviderClient({
-      region: this.configService.get<string>('AWS_REGION') || 'eu-west-1',
-    });
+  constructor(
+    private readonly configService: ConfigService<AppConfigType>,
+    private readonly cognitoService: CognitoService,
+  ) {
+    // Removed Cognito client initialization
   }
 
   /**
@@ -63,8 +60,8 @@ export class NotificationService implements OnModuleInit {
     notification: Notification,
   ): Promise<void> {
     try {
-      // Get the user's device token from Cognito
-      const deviceToken = await this.getUserDeviceToken(userId);
+      // Get the user's device token using CognitoService
+      const deviceToken = await this.cognitoService.getUserDeviceToken(userId);
 
       if (!deviceToken) {
         this.logger.warn(`No device token found for user ${userId}`);
@@ -77,36 +74,6 @@ export class NotificationService implements OnModuleInit {
     } catch (error) {
       this.logger.error(`Failed to send notification to user ${userId}`, error);
       throw error;
-    }
-  }
-
-  /**
-   * Gets the user's device token from Cognito
-   * @param userId The Cognito user ID
-   * @returns The device token or null if not found
-   */
-  private async getUserDeviceToken(userId: string): Promise<string | null> {
-    try {
-      const userPoolId = this.configService.getOrThrow<string>(
-        'COGNITO_USER_POOL_ID',
-      );
-
-      const command = new AdminGetUserCommand({
-        UserPoolId: userPoolId,
-        Username: userId,
-      });
-
-      const response = await this.cognitoClient.send(command);
-
-      // Find the custom:devicetoken attribute
-      const deviceTokenAttribute = response.UserAttributes?.find(
-        (attr) => attr.Name === 'custom:devicetoken',
-      );
-
-      return deviceTokenAttribute?.Value || null;
-    } catch (error) {
-      this.logger.error(`Failed to get device token for user ${userId}`, error);
-      return null;
     }
   }
 

@@ -4,6 +4,7 @@ import * as dateFnsTz from 'date-fns-tz';
 import { formatInTimeZone } from 'date-fns-tz';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import * as R from 'remeda';
+import { CognitoService } from 'src/aws/cognito.service';
 import {
   PATCH_USER_PROFILE_TOOL_NAME,
   ProfileField,
@@ -70,6 +71,7 @@ export class PromptService {
     private readonly contentfulApiClient: ContentfulApiClient,
     // Added TransactionHost
     private readonly txHost: TransactionHost<DbTransactionAdapter>,
+    private readonly cognitoService: CognitoService,
   ) {}
 
   // New private methods to fetch context data
@@ -164,6 +166,8 @@ export class PromptService {
   ) {
     // Fetch context data internally
     const userTimeZone = await this.getUserTimeZone(userId);
+    const languageCode = await this.cognitoService.getUserLanguage(userId);
+
     const [
       totalHistoryCount,
       currentMessageCount,
@@ -216,6 +220,7 @@ export class PromptService {
       resultsByProductCode,
       productsByProductCode,
       contextMetadata,
+      languageCode,
     );
   }
 
@@ -250,10 +255,35 @@ export class PromptService {
     ) as Record<string, ProductFieldsFragment>;
   }
 
+  private formatUserProfileInfo(userProfile: ProfileField | null): string {
+    if (!userProfile) {
+      return '';
+    }
+
+    const profileEntries = Object.entries(userProfile)
+      .filter(
+        ([, value]) => value !== undefined && value !== null && value !== '',
+      )
+      .map(
+        ([key, value]) =>
+          `  - ${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`,
+      );
+
+    if (profileEntries.length === 0) {
+      return '';
+    }
+
+    return `
+# User Profile
+${profileEntries.join('\n')}
+`;
+  }
+
   formatSystemPrompt(
     results: Record<string, ResultRowFieldsFragment>,
     products: Record<string, ProductFieldsFragment>,
     contextMetadata: ChatContextMetadata,
+    languageCode: string,
   ) {
     const formatResult = (productCode: string) => {
       const result = results[productCode];
@@ -282,10 +312,14 @@ export class PromptService {
 4. Once all fields have been prompted for, or the user indicates they do not wish to provide more information, use the '${COMPLETE_ONBOARDING_TOOL_NAME}' tool to mark their onboarding as complete.
 `;
 
+      const userProfileInfo = this.formatUserProfileInfo(
+        contextMetadata.userProfile,
+      );
+
       return `
 # Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), contextMetadata.userTimeZone, 'yyyy-MM-dd HH:mm')}
 # Your Role & Purpose
-You are an AI Wellness Coach. Your primary goal right now is to help the user set up their profile. 
+You are an AI Wellness Coach. Your primary goal right now is to help the user set up their profile.
 Your role is to:
 - Guide the user through completing their profile information smoothly and efficiently.
 - Maintain a supportive and encouraging tone throughout the onboarding process.
@@ -293,11 +327,12 @@ Your role is to:
 - Instead of giving long answers, give short and concise answers and ask follow up questions if needed, remember that you are typing to a mobile chat app, reading long text is not practical for the user.
 
 - You may use ONLY the following markdown tags: bold, italic, underline, bullet points
-
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
 
 ${onboardingSpecificInstructions}
+${userProfileInfo}
+# Language: You MUST respond in ${languageCode}.
 `;
     }
 
@@ -336,24 +371,9 @@ ${followupsInfo}
 `
       : '';
 
-    let userProfileInfo = '';
-    if (contextMetadata.userProfile) {
-      const profile = contextMetadata.userProfile;
-      const profileEntries = Object.entries(profile)
-        .filter(
-          ([, value]) => value !== undefined && value !== null && value !== '',
-        )
-        .map(
-          ([key, value]) =>
-            `  - ${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`,
-        );
-      if (profileEntries.length > 0) {
-        userProfileInfo = `
-# User Profile
-${profileEntries.join('\n')}
-`;
-      }
-    }
+    const userProfileInfo = this.formatUserProfileInfo(
+      contextMetadata.userProfile,
+    );
 
     return `
 # Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), contextMetadata.userTimeZone, 'yyyy-MM-dd HH:mm')}
@@ -377,7 +397,33 @@ ${productResults}
 ${userProfileInfo}
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
+# Language: You MUST respond in ${languageCode}.
 
   `;
+  }
+
+  async getInitialWelcomeSystemPrompt(userId: string): Promise<string> {
+    const languageCode = await this.cognitoService.getUserLanguage(userId);
+    const userTimeZone = await this.getUserTimeZone(userId);
+
+    return `
+# Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), userTimeZone, 'yyyy-MM-dd HH:mm')}
+# Your Role & Purpose
+You are an AI Wellness Coach from Evogenom.
+Your primary goal is to warmly welcome the user and briefly introduce your capabilities.
+
+# Instructions
+- Introduce yourself as their personal AI Wellness Coach.
+- Briefly explain that you can help with topics like: everyday wellbeing choices, recovery, rest, energy management, and self-leadership.
+- Mention that you can provide personalized nudges and insights.
+- Maintain a supportive, friendly, and encouraging tone.
+- You may use ONLY the following markdown tags: bold, italic, underline, bullet points
+
+# Language: You MUST respond in ${languageCode}.
+
+# Take on the following tone and feel in your responses:
+${toneAndFeel}
+
+You will next ask details about the user's profile, start by asking for the user's name.`;
   }
 }

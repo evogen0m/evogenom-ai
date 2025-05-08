@@ -12,6 +12,7 @@ import {
   ChatCompletionToolMessageParam,
   ChatCompletionUserMessageParam,
 } from 'openai/resources/chat';
+import { CognitoService } from 'src/aws/cognito.service';
 import { AppConfigType } from 'src/config';
 import { chatMessages, chats, users } from 'src/db';
 import { DbTransactionAdapter } from 'src/db/drizzle.provider';
@@ -46,6 +47,7 @@ export class ChatService implements OnApplicationBootstrap {
     private readonly profileTool: ProfileTool,
     private readonly onboardingTool: OnboardingTool,
     private readonly evogenomApiClient: EvogenomApiClient,
+    private readonly cognitoService: CognitoService,
   ) {
     this.tools = [
       this.memoryTool,
@@ -442,16 +444,45 @@ export class ChatService implements OnApplicationBootstrap {
   async getMessagesForUi(userId: string): Promise<ChatMessageResponse[]> {
     const tx = this.txHost.tx;
 
-    const messages = await tx.query.chatMessages.findMany({
+    // Ensure user and chat exist for initial message generation if needed
+    await this.ensureUserExists(userId);
+    const chat = await this.getOrCreateChat(userId);
+
+    let messages = await tx.query.chatMessages.findMany({
       where: and(
         eq(chatMessages.userId, userId),
+        eq(chatMessages.chatId, chat.id), // Ensure messages are for the user's current chat
         not(eq(chatMessages.role, 'tool')),
         sql`${chatMessages.toolData} IS NULL`,
       ),
-      orderBy: [desc(chatMessages.createdAt)],
+      orderBy: [desc(chatMessages.createdAt)], // Fetching in descending order for UI
+      // No limit here initially, as we need to check if it's empty
     });
 
-    return messages.map((message) => ChatMessageResponse.fromDb(message));
+    if (messages.length === 0) {
+      this.logger.log(
+        `No messages found for user ${userId} in chat ${chat.id}. Generating initial welcome message.`,
+      );
+
+      // Get OpenAI client for welcome message generation
+      const client = this.openai.getOpenAiClient({
+        sessionId: chat.id, // Use chat.id as sessionID
+      });
+      const welcomeMessage = await this._generateAndSaveWelcomeMessage(
+        userId,
+        chat.id,
+        client,
+      );
+      if (welcomeMessage) {
+        messages = [welcomeMessage];
+      }
+    }
+
+    // Map all messages (original or the newly created welcome message) to response DTO
+    // Messages are already sorted by createdAt desc from the initial query or are a single new message.
+    return messages
+      .map((message) => ChatMessageResponse.fromDb(message))
+      .reverse(); // Reverse for UI (oldest first)
   }
 
   @Transactional()
@@ -709,6 +740,65 @@ export class ChatService implements OnApplicationBootstrap {
         error.stack,
       );
       throw new Error(`Failed to get chat state: ${error.message}`);
+    }
+  }
+
+  // New private helper method for generating welcome message
+  private async _generateAndSaveWelcomeMessage(
+    userId: string,
+    chatId: string,
+    client: OpenAI, // Pass the client to reuse it
+  ): Promise<typeof chatMessages.$inferSelect | null> {
+    this.logger.log(
+      `Generating initial welcome message for user ${userId}, chat ${chatId}.`,
+    );
+
+    // 1. Get the system prompt for the welcome message
+    const welcomeSystemPrompt =
+      await this.promptService.getInitialWelcomeSystemPrompt(userId);
+    this.logger.debug(`Welcome system prompt: ${welcomeSystemPrompt}`);
+
+    try {
+      // 2. Make a non-streaming call to OpenAI to generate the welcome message
+      const completion = await client.chat.completions.create({
+        model: this.configService.getOrThrow('AZURE_OPENAI_MODEL'),
+        messages: [{ role: 'system', content: welcomeSystemPrompt }],
+        temperature: 0.7,
+      });
+
+      const assistantResponse = completion.choices[0]?.message?.content;
+
+      if (assistantResponse) {
+        const messageId = randomUUID();
+        const userIsOnboarded =
+          await this.promptService.getIsUserOnboarded(userId);
+        const messageScopeForWelcome = userIsOnboarded ? 'COACH' : 'ONBOARDING';
+
+        const savedWelcomeMessage = await this.saveMessage({
+          id: messageId,
+          content: assistantResponse,
+          role: 'assistant',
+          userId,
+          chatId: chatId,
+          messageScope: messageScopeForWelcome,
+        });
+        this.logger.log(
+          `Saved initial welcome message ${messageId} for user ${userId}`,
+        );
+        void this.setChatMessageEmbedding(messageId, assistantResponse); // Background embedding
+        return savedWelcomeMessage;
+      } else {
+        this.logger.error(
+          `LLM failed to generate content for initial welcome message for user ${userId}.`,
+        );
+        return null;
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error generating initial welcome message for user ${userId}: ${error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return null;
     }
   }
 }

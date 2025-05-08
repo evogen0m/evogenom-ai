@@ -3,6 +3,7 @@ import { TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestingModuleWithDb } from '../../../test/utils';
+import { CognitoService } from '../../aws/cognito.service';
 import { ContentfulApiClient } from '../../contentful/contentful-api-client';
 import {
   ProductFieldsFragment,
@@ -21,12 +22,14 @@ describe('PromptService', () => {
   let service: PromptService;
   let evogenomApiClient: EvogenomApiClient;
   let contentfulApiClient: ContentfulApiClient;
+  let cognitoService: CognitoService;
   let dbClient: DrizzleInstanceType;
 
   // Mock data
   const mockUserId = randomUUID();
   const mockEvogenomApiToken = 'token-123';
   const mockChatId = randomUUID();
+  const mockLanguageCode = 'en';
 
   const mockUserResults: UserResultFragment[] = [
     {
@@ -124,6 +127,11 @@ describe('PromptService', () => {
       getProducts: vi.fn().mockResolvedValue(mockProducts2),
     } as unknown as ContentfulApiClient;
 
+    // Mock CognitoService
+    cognitoService = {
+      getUserLanguage: vi.fn().mockResolvedValue(mockLanguageCode),
+    } as unknown as CognitoService;
+
     const module: TestingModule = await createTestingModuleWithDb({
       providers: [
         PromptService,
@@ -134,6 +142,10 @@ describe('PromptService', () => {
         {
           provide: ContentfulApiClient,
           useValue: contentfulApiClient,
+        },
+        {
+          provide: CognitoService,
+          useValue: cognitoService,
         },
       ],
     }).compile();
@@ -168,6 +180,15 @@ describe('PromptService', () => {
       expect(evogenomApiClient.getAllProducts).toHaveBeenCalledWith(
         mockEvogenomApiToken,
       );
+    });
+
+    it('should fetch user language from CognitoService', async () => {
+      await service.getSystemPrompt(
+        mockUserId,
+        mockEvogenomApiToken,
+        mockChatId,
+      );
+      expect(cognitoService.getUserLanguage).toHaveBeenCalledWith(mockUserId);
     });
 
     it('should fetch result rows and products from Contentful', async () => {
@@ -222,6 +243,7 @@ describe('PromptService', () => {
           userProfile: null,
           isOnboarded: false,
         }),
+        mockLanguageCode,
       );
     });
   });
@@ -279,6 +301,7 @@ describe('PromptService', () => {
         results,
         products,
         defaultChatContextMetadata,
+        mockLanguageCode,
       );
 
       expect(prompt).toContain('Product One: Result for Product One');
@@ -318,7 +341,12 @@ describe('PromptService', () => {
         isOnboarded: true,
       };
 
-      const prompt = service.formatSystemPrompt(results, products, metadata);
+      const prompt = service.formatSystemPrompt(
+        results,
+        products,
+        metadata,
+        mockLanguageCode,
+      );
 
       expect(prompt).toContain('Current conversation: 5 messages');
       expect(prompt).toContain('Total history: 10 messages');
@@ -355,6 +383,7 @@ describe('PromptService', () => {
         results,
         products,
         defaultChatContextMetadata,
+        mockLanguageCode,
       );
 
       expect(prompt).toContain('Product One Wrapped');
@@ -388,6 +417,7 @@ describe('PromptService', () => {
         results,
         products,
         defaultChatContextMetadata,
+        mockLanguageCode,
       );
 
       expect(prompt).not.toContain('Product One');
@@ -414,7 +444,12 @@ describe('PromptService', () => {
         isOnboarded: true,
       };
 
-      const prompt = service.formatSystemPrompt(results, products, metadata);
+      const prompt = service.formatSystemPrompt(
+        results,
+        products,
+        metadata,
+        mockLanguageCode,
+      );
 
       expect(prompt).toContain('# User Profile');
       expect(prompt).toContain('- Name: Test User');
@@ -438,7 +473,12 @@ describe('PromptService', () => {
         isOnboarded: true,
       };
 
-      const prompt = service.formatSystemPrompt(results, products, metadata);
+      const prompt = service.formatSystemPrompt(
+        results,
+        products,
+        metadata,
+        mockLanguageCode,
+      );
       expect(prompt).not.toContain('# User Profile');
     });
 
@@ -454,7 +494,12 @@ describe('PromptService', () => {
         isOnboarded: true,
       };
 
-      const prompt = service.formatSystemPrompt(results, products, metadata);
+      const prompt = service.formatSystemPrompt(
+        results,
+        products,
+        metadata,
+        mockLanguageCode,
+      );
       expect(prompt).not.toContain('# User Profile');
     });
 
@@ -476,7 +521,12 @@ describe('PromptService', () => {
         isOnboarded: true,
       };
 
-      const prompt = service.formatSystemPrompt(results, products, metadata);
+      const prompt = service.formatSystemPrompt(
+        results,
+        products,
+        metadata,
+        mockLanguageCode,
+      );
 
       expect(prompt).toContain('# User Profile');
       expect(prompt).toContain('- Name: Test User');
