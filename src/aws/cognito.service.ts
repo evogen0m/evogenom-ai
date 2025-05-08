@@ -9,6 +9,9 @@ import { ConfigService } from '@nestjs/config';
 import * as memoizee from 'memoizee';
 import { AppConfigType } from 'src/config';
 
+// JS life
+const memoizeFn = memoizee.default || memoizee;
+
 @Injectable()
 export class CognitoService {
   private readonly logger = new Logger(CognitoService.name);
@@ -26,7 +29,7 @@ export class CognitoService {
       'COGNITO_USER_POOL_ID',
     );
 
-    this._fetchUserProfile = memoizee.default(
+    this._fetchUserProfile = memoizeFn(
       async (userId: string): Promise<AdminGetUserCommandOutput> => {
         this.logger.debug(
           `Fetching user profile directly from Cognito for userId: ${userId}`,
