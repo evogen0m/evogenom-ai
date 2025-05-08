@@ -117,6 +117,8 @@ describe('MemoryTool', () => {
           role: 'user',
           createdAt: new Date(Date.now() - 3000),
           embedding: mockEmbedding,
+          messageScope: 'COACH',
+          toolData: null,
         },
         {
           id: randomUUID(),
@@ -126,6 +128,8 @@ describe('MemoryTool', () => {
           role: 'assistant',
           createdAt: new Date(Date.now() - 2000),
           embedding: mockEmbedding,
+          messageScope: 'COACH',
+          toolData: null,
         },
         {
           id: randomUUID(),
@@ -135,6 +139,8 @@ describe('MemoryTool', () => {
           role: 'user',
           createdAt: new Date(Date.now() - 1000),
           embedding: mockEmbedding,
+          messageScope: 'COACH',
+          toolData: null,
         },
       ]);
     });
@@ -304,6 +310,8 @@ describe('MemoryTool', () => {
           role: i % 2 === 0 ? 'user' : 'assistant',
           createdAt: new Date(now - (15 - i) * 1000), // Older to newer
           embedding: mockEmbedding,
+          messageScope: 'COACH',
+          toolData: null,
         });
       }
     });

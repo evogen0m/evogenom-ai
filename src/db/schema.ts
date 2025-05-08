@@ -18,6 +18,13 @@ export const followUpStatusEnum = pgEnum('follow_up_status', [
   'cancelled',
 ]);
 
+// New enum for message scope
+export const messageScopeEnum = pgEnum('message_scope', [
+  'ONBOARDING',
+  'COACH',
+]);
+
+export type MessageScope = (typeof messageScopeEnum.enumValues)[number];
 // Base tables with common fields
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -64,6 +71,7 @@ export const chatMessages = pgTable(
     embedding: vector('embedding', {
       dimensions: 1536,
     }),
+    messageScope: messageScopeEnum('message_scope').notNull(),
   },
   (t) => [
     index('chat_message_chat_id_index').on(t.chatId),

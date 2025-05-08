@@ -59,6 +59,7 @@ describe('ChatService', () => {
           return 'mock system prompt';
         },
       ),
+      getIsUserOnboarded: vi.fn().mockResolvedValue(true),
     };
 
     const mockConfigService = {
@@ -276,33 +277,39 @@ describe('ChatService', () => {
       await dbClient.insert(chats).values({ id: chatId, userId });
 
       // Insert messages including a tool message that should be filtered out
-      await dbClient.insert(chatMessages).values([
-        {
-          id: randomUUID(),
-          role: 'assistant',
-          content: 'Hi there',
-          createdAt: new Date(),
-          userId,
-          chatId,
-        },
-        {
-          id: randomUUID(),
-          role: 'user',
-          content: 'Hello',
-          createdAt: new Date(Date.now() - 1000),
-          userId,
-          chatId,
-        },
-        {
-          id: randomUUID(),
-          role: 'tool',
-          content: 'Tool response',
-          createdAt: new Date(Date.now() - 500),
-          userId,
-          chatId,
-          toolData: { toolCallId: 'test-id' },
-        },
-      ]);
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'assistant',
+        content: 'Hi there',
+        createdAt: new Date(),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'user',
+        content: 'Hello',
+        createdAt: new Date(Date.now() - 1000),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'tool',
+        content: 'Tool response',
+        createdAt: new Date(Date.now() - 500),
+        userId,
+        chatId,
+        toolData: { toolCallId: 'test-id' },
+        messageScope: 'COACH',
+        embedding: null,
+      });
 
       // Execute
       const result = await service.getMessagesForUi(userId);
@@ -1161,32 +1168,39 @@ describe('ChatService', () => {
       await dbClient.insert(chats).values({ id: chatId, userId });
 
       // Insert multiple messages with specific timestamps
-      await dbClient.insert(chatMessages).values([
-        {
-          id: randomUUID(),
-          role: 'user',
-          content: 'First user message',
-          createdAt: fiveMinutesAgo,
-          userId,
-          chatId,
-        },
-        {
-          id: randomUUID(),
-          role: 'assistant',
-          content: 'First assistant reply',
-          createdAt: new Date(fiveMinutesAgo.getTime() + 1000),
-          userId,
-          chatId,
-        },
-        {
-          id: randomUUID(),
-          role: 'user',
-          content: 'Second user message',
-          createdAt: now,
-          userId,
-          chatId,
-        },
-      ]);
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'user',
+        content: 'First user message',
+        createdAt: fiveMinutesAgo,
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'assistant',
+        content: 'First assistant reply',
+        createdAt: new Date(fiveMinutesAgo.getTime() + 1000),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'user',
+        content: 'Second user message',
+        createdAt: now,
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
 
       // Mock streaming behavior for the test
       mockOpenAiClient.chat.completions.create.mockResolvedValue({
@@ -1276,32 +1290,36 @@ describe('ChatService', () => {
       const message2Id = randomUUID();
       const message3Id = randomUUID(); // This one will be empty and should be skipped
 
-      await dbClient.insert(chatMessages).values([
-        {
-          id: message1Id,
-          role: 'user',
-          content: 'Message without embedding 1',
-          userId,
-          chatId,
-          embedding: null, // Explicit null embedding
-        },
-        {
-          id: message2Id,
-          role: 'assistant',
-          content: 'Message without embedding 2',
-          userId,
-          chatId,
-          embedding: null,
-        },
-        {
-          id: message3Id,
-          role: 'user',
-          content: '', // Empty content should be skipped
-          userId,
-          chatId,
-          embedding: null,
-        },
-      ]);
+      await dbClient.insert(chatMessages).values({
+        id: message1Id,
+        role: 'user',
+        content: 'Message without embedding 1',
+        userId,
+        chatId,
+        embedding: null, // Explicit null embedding
+        messageScope: 'COACH',
+        toolData: null,
+      });
+      await dbClient.insert(chatMessages).values({
+        id: message2Id,
+        role: 'assistant',
+        content: 'Message without embedding 2',
+        userId,
+        chatId,
+        embedding: null,
+        messageScope: 'COACH',
+        toolData: null,
+      });
+      await dbClient.insert(chatMessages).values({
+        id: message3Id,
+        role: 'user',
+        content: '', // Empty content should be skipped
+        userId,
+        chatId,
+        embedding: null,
+        messageScope: 'COACH',
+        toolData: null,
+      });
 
       // Spy on setChatMessageEmbedding
       const setChatMessageEmbeddingSpy = vi.spyOn(
