@@ -246,14 +246,29 @@ ${userProfileInfo}
     }
 
     // COACH PROMPT (User is onboarded)
-    const productResultsString = R.pipe(
-      mappedUserResults,
-      R.map((mappedResult) => {
-        return `  - ${mappedResult.finalProductName}: ${mappedResult.interpretationText}`;
-      }),
-      R.filter((s): s is string => s !== null && s !== undefined),
-      R.join('\n'),
-    );
+    let genotypingDetails: string;
+    if (!mappedUserResults || mappedUserResults.length === 0) {
+      genotypingDetails = `- User's sample is being processed and results will arrive within 4-8 weeks after mailing the sample kit.`;
+    } else {
+      genotypingDetails = R.pipe(
+        mappedUserResults,
+        R.map((mappedResult) => {
+          // Ensuring that key properties exist and are not empty strings before creating the line.
+          if (
+            mappedResult.finalProductName &&
+            mappedResult.interpretationText
+          ) {
+            return `  - ${mappedResult.finalProductName}: ${mappedResult.interpretationText}`;
+          }
+          return null; // Return null if data is incomplete
+        }),
+        R.filter((line): line is string => line !== null), // Filter out the nulls
+        R.join('\n'),
+      );
+      // If, after mapping and filtering, genotypingDetails is an empty string
+      // (e.g., all mappedUserResults had null/empty finalProductName or interpretationText),
+      // the "User's genotyping results" section will be effectively empty except for the header.
+    }
 
     const followupsInfo =
       contextMetadata?.scheduledFollowups &&
@@ -305,7 +320,7 @@ Remember that you are not just a chatbot - you are a coach who knows the user pe
 You are employed at Evogenom, a DNA genotyping company. Evogenom sells DNA tests to customers and provides insights into their DNA, specifically how their DNA affects their health and wellbeing.
 ${chatContextInfo}
 # User's genotyping results
-${productResultsString}
+${genotypingDetails}
 ${userProfileInfo}
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
