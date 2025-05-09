@@ -485,9 +485,7 @@ export class ChatService implements OnApplicationBootstrap {
 
     // Map all messages (original or the newly created welcome message) to response DTO
     // Messages are already sorted by createdAt desc from the initial query or are a single new message.
-    return messages
-      .map((message) => ChatMessageResponse.fromDb(message))
-      .reverse(); // Reverse for UI (oldest first)
+    return messages.map((message) => ChatMessageResponse.fromDb(message));
   }
 
   @Transactional()

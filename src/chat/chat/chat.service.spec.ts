@@ -357,11 +357,11 @@ describe('ChatService', () => {
 
       // Verify
       expect(result.length).toEqual(2);
-      // The result is ordered by createdAt ASC (oldest first) due to .reverse()
-      expect(result[0].role).toEqual('user'); // Oldest message
-      expect(result[0].content).toEqual('Hello');
-      expect(result[1].role).toEqual('assistant'); // Newest message
-      expect(result[1].content).toEqual('Hi there');
+      // The result is ordered by createdAt DESC (newest first)
+      expect(result[0].role).toEqual('assistant'); // Newest message
+      expect(result[0].content).toEqual('Hi there');
+      expect(result[1].role).toEqual('user'); // Oldest message
+      expect(result[1].content).toEqual('Hello');
 
       // All messages should be either 'user' or 'assistant' (no 'tool' messages)
       expect(
