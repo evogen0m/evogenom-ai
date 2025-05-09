@@ -2679,7 +2679,7 @@ export type GetUserOrdersAndPackagesQueryVariables = Exact<{
 
 export type GetUserOrdersAndPackagesQuery = { __typename?: 'Query', orderByOwner: { __typename?: 'ModelOrderConnection', nextToken: string | null, items: Array<{ __typename?: 'Order', id: string, packages: { __typename?: 'ModelOrderPackageConnection', items: Array<{ __typename?: 'OrderPackage', id: string, package: { __typename?: 'Package', id: string, name: string | null, productCode: number | null, productType: ProductType | null, createdAt: any } } | null> } | null } | null> } | null };
 
-export type UserResultFragment = { __typename?: 'Result', id: string, name: string, description: string | null, createdAt: any, sampleResultsId: string | null, productResultsId: string | null };
+export type UserResultFragment = { __typename?: 'Result', id: string, name: string, description: string | null, createdAt: any, sampleResultsId: string | null, productResultsId: string | null, value: number };
 
 export type ListUserResultsQueryVariables = Exact<{
   userId: Scalars['ID']['input'];
@@ -2687,7 +2687,7 @@ export type ListUserResultsQueryVariables = Exact<{
 }>;
 
 
-export type ListUserResultsQuery = { __typename?: 'Query', resultByOwner: { __typename?: 'ModelResultConnection', nextToken: string | null, items: Array<{ __typename?: 'Result', id: string, name: string, description: string | null, createdAt: any, sampleResultsId: string | null, productResultsId: string | null } | null> } | null };
+export type ListUserResultsQuery = { __typename?: 'Query', resultByOwner: { __typename?: 'ModelResultConnection', nextToken: string | null, items: Array<{ __typename?: 'Result', id: string, name: string, description: string | null, createdAt: any, sampleResultsId: string | null, productResultsId: string | null, value: number } | null> } | null };
 
 export type ListProductsQueryVariables = Exact<{
   nextToken: InputMaybe<Scalars['String']['input']>;
@@ -2723,13 +2723,14 @@ export const UserResultFragmentDoc = gql`
   createdAt
   sampleResultsId
   productResultsId
+  value
 }
     `;
 export const GetUserOrdersAndPackagesDocument = gql`
     query GetUserOrdersAndPackages($userId: ID!, $nextToken: String) {
   orderByOwner(
     owner: $userId
-    limit: 100
+    limit: 1000
     nextToken: $nextToken
     sortDirection: DESC
   ) {

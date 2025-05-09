@@ -56,6 +56,7 @@ export const UserResultFragment = gql`
     createdAt
     sampleResultsId
     productResultsId
+    value
   }
 `;
 

@@ -6,6 +6,7 @@ import { AwsModule } from '../aws/aws.module';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat/chat.service';
 import { PromptService } from './chat/prompt.service';
+import { ResultService } from './chat/result.service';
 import { CancelFollowupTool } from './tool/cancel-followup.tool';
 import { FollowupTool } from './tool/followup.tool';
 import { MemoryTool } from './tool/memory-tool';
@@ -17,6 +18,7 @@ import { ProfileTool } from './tool/profile.tool';
   providers: [
     ChatService,
     PromptService,
+    ResultService,
     MemoryTool,
     FollowupTool,
     CancelFollowupTool,
