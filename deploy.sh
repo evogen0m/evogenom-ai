@@ -163,4 +163,8 @@ if [ "$CREATE_SENTRY_RELEASE" = true ]; then
   pnpm sentry:deploy
 fi
 
+echo "Tagging commit with $ENVIRONMENT and pushing to origin..."
+git tag -f "$ENVIRONMENT" "$GIT_COMMIT_HASH"
+git push origin "$ENVIRONMENT" --force
+
 echo "Deployment to $ENVIRONMENT environment completed successfully!" 

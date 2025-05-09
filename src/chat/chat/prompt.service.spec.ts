@@ -1,111 +1,47 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestingModuleWithDb } from '../../../test/utils';
 import { CognitoService } from '../../aws/cognito.service';
-import { ContentfulApiClient } from '../../contentful/contentful-api-client';
-import {
-  ProductFieldsFragment,
-  ResultRowFieldsFragment,
-} from '../../contentful/generated/types';
 import { DrizzleInstanceType, users } from '../../db';
 import { DRIZZLE_INSTANCE } from '../../db/drizzle.provider';
-import { EvogenomApiClient } from '../../evogenom-api-client/evogenom-api.client';
-import {
-  ProductFragment,
-  UserResultFragment,
-} from '../../evogenom-api-client/generated/request';
 import { ChatContextMetadata, PromptService } from './prompt.service';
+import { MappedUserResult, ResultService } from './result.service';
 
 describe('PromptService', () => {
   let service: PromptService;
-  let evogenomApiClient: EvogenomApiClient;
-  let contentfulApiClient: ContentfulApiClient;
+  let resultService: ResultService;
   let cognitoService: CognitoService;
   let dbClient: DrizzleInstanceType;
 
-  // Mock data
   const mockUserId = randomUUID();
   const mockEvogenomApiToken = 'token-123';
   const mockChatId = randomUUID();
   const mockLanguageCode = 'en';
 
-  const mockUserResults: UserResultFragment[] = [
+  const mockMappedUserResults: MappedUserResult[] = [
     {
-      id: 'result-1',
-      name: 'Test Result 1',
-      description: 'Test Description 1',
-      createdAt: '2023-01-01',
-      sampleResultsId: 'sample-1',
-      productResultsId: 'product-1',
+      finalProductName: 'Contentful Product 101 Name',
+      interpretationText: 'CF Text for P-101, Value 1',
     },
     {
-      id: 'result-2',
-      name: 'Test Result 2',
-      description: 'Test Description 2',
-      createdAt: '2023-01-02',
-      sampleResultsId: 'sample-2',
-      productResultsId: 'product-2',
-    },
-  ];
-
-  const mockProducts: ProductFragment[] = [
-    {
-      id: 'product-1',
-      name: 'Product One',
-      productCode: '101',
+      finalProductName: 'Contentful Product 102 Name',
+      interpretationText: 'CF Text for P-102, Value 2',
     },
     {
-      id: 'product-2',
-      name: 'Product Two',
-      productCode: '102',
+      finalProductName: 'Evogenom Product Three (No Contentful Product)',
+      interpretationText:
+        'Your result value is 1, but detailed interpretation is currently unavailable.',
+    },
+    {
+      finalProductName: 'Evogenom Product One',
+      interpretationText:
+        'Your result value is 99, but detailed interpretation is currently unavailable.',
     },
   ];
 
-  // Update mock results to match GraphQL response format
-  const mockResultRows: ResultRowFieldsFragment[] = [
-    {
-      productCode: '101',
-      resultText: 'Result for Product One',
-      tip: null,
-      result: null,
-      classification: null,
-      fact: null,
-      science: null,
-      sys: { id: 'result-sys-1', __typename: 'Sys' },
-      __typename: 'ResultRow',
-    } as ResultRowFieldsFragment,
-    {
-      productCode: '102',
-      resultText: 'Result for Product Two',
-      tip: null,
-      result: null,
-      classification: null,
-      fact: null,
-      science: null,
-      sys: { id: 'result-sys-2', __typename: 'Sys' },
-      __typename: 'ResultRow',
-    } as ResultRowFieldsFragment,
-  ];
-
-  // Update mock products to match GraphQL response format
-  const mockProducts2: ProductFieldsFragment[] = [
-    {
-      productCode: 101,
-      name: 'Product One',
-      sys: { id: 'product-sys-1', __typename: 'Sys' },
-      __typename: 'Product',
-    } as ProductFieldsFragment,
-    {
-      productCode: 102,
-      name: 'Product Two',
-      sys: { id: 'product-sys-2', __typename: 'Sys' },
-      __typename: 'Product',
-    } as ProductFieldsFragment,
-  ];
-
-  // Default mock ChatContextMetadata for tests
   const defaultChatContextMetadata: ChatContextMetadata = {
     currentMessageCount: 1,
     totalHistoryCount: 1,
@@ -116,18 +52,10 @@ describe('PromptService', () => {
   };
 
   beforeEach(async () => {
-    // Create mocks
-    evogenomApiClient = {
-      getUserResults: vi.fn().mockResolvedValue(mockUserResults),
-      getAllProducts: vi.fn().mockResolvedValue(mockProducts),
-    } as unknown as EvogenomApiClient;
+    resultService = {
+      getMappedUserResults: vi.fn().mockResolvedValue(mockMappedUserResults),
+    } as unknown as ResultService;
 
-    contentfulApiClient = {
-      getResults: vi.fn().mockResolvedValue(mockResultRows),
-      getProducts: vi.fn().mockResolvedValue(mockProducts2),
-    } as unknown as ContentfulApiClient;
-
-    // Mock CognitoService
     cognitoService = {
       getUserLanguage: vi.fn().mockResolvedValue(mockLanguageCode),
     } as unknown as CognitoService;
@@ -136,12 +64,8 @@ describe('PromptService', () => {
       providers: [
         PromptService,
         {
-          provide: EvogenomApiClient,
-          useValue: evogenomApiClient,
-        },
-        {
-          provide: ContentfulApiClient,
-          useValue: contentfulApiClient,
+          provide: ResultService,
+          useValue: resultService,
         },
         {
           provide: CognitoService,
@@ -153,12 +77,13 @@ describe('PromptService', () => {
     service = module.get<PromptService>(PromptService);
     dbClient = module.get<DrizzleInstanceType>(DRIZZLE_INSTANCE);
 
-    // Ensure a mock user exists in the database before each test
-    // Sticking to only fields known to be in the base `users` table for now
     await dbClient
       .insert(users)
-      .values({ id: mockUserId, timeZone: 'UTC' })
-      .onConflictDoNothing();
+      .values({ id: mockUserId, timeZone: 'UTC', isOnboarded: false })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: { timeZone: 'UTC', isOnboarded: false },
+      });
   });
 
   it('should be defined', () => {
@@ -166,18 +91,14 @@ describe('PromptService', () => {
   });
 
   describe('getSystemPrompt', () => {
-    it('should fetch user results and products from Evogenom API', async () => {
+    it('should fetch mapped user results from ResultService', async () => {
       await service.getSystemPrompt(
         mockUserId,
         mockEvogenomApiToken,
         mockChatId,
       );
-
-      expect(evogenomApiClient.getUserResults).toHaveBeenCalledWith(
+      expect(resultService.getMappedUserResults).toHaveBeenCalledWith(
         mockUserId,
-        mockEvogenomApiToken,
-      );
-      expect(evogenomApiClient.getAllProducts).toHaveBeenCalledWith(
         mockEvogenomApiToken,
       );
     });
@@ -191,38 +112,7 @@ describe('PromptService', () => {
       expect(cognitoService.getUserLanguage).toHaveBeenCalledWith(mockUserId);
     });
 
-    it('should fetch result rows and products from Contentful', async () => {
-      await service.getSystemPrompt(
-        mockUserId,
-        mockEvogenomApiToken,
-        mockChatId,
-      );
-
-      expect(contentfulApiClient.getResults).toHaveBeenCalledWith([
-        '101',
-        '102',
-      ]);
-      expect(contentfulApiClient.getProducts).toHaveBeenCalledWith([
-        '101',
-        '102',
-      ]);
-    });
-
-    it('should return formatted system prompt', async () => {
-      const spy = vi.spyOn(service, 'formatSystemPrompt');
-
-      await service.getSystemPrompt(
-        mockUserId,
-        mockEvogenomApiToken,
-        mockChatId,
-      );
-
-      expect(spy).toHaveBeenCalled();
-    });
-
-    it('should include chat context metadata when provided', async () => {
-      // This test might need to be re-thought as ChatContextMetadata is now internal
-      // For now, we'll check if formatSystemPrompt is called with internally generated metadata
+    it('should return formatted system prompt by calling formatSystemPrompt with correct data', async () => {
       const spy = vi.spyOn(service, 'formatSystemPrompt');
 
       await service.getSystemPrompt(
@@ -232,13 +122,11 @@ describe('PromptService', () => {
       );
 
       expect(spy).toHaveBeenCalledWith(
-        expect.any(Object), // results
-        expect.any(Object), // products
+        mockMappedUserResults,
         expect.objectContaining({
-          // Internally generated metadata
           currentMessageCount: expect.any(Number),
           totalHistoryCount: expect.any(Number),
-          userTimeZone: expect.any(String),
+          userTimeZone: 'UTC',
           scheduledFollowups: expect.any(Array),
           userProfile: null,
           isOnboarded: false,
@@ -246,192 +134,98 @@ describe('PromptService', () => {
         mockLanguageCode,
       );
     });
-  });
 
-  describe('getResultRowsByProductCode', () => {
-    it('should fetch and format result rows by product code', async () => {
-      const productCodes = ['101', '102'];
-      const result = await service.getResultRowsByProductCode(productCodes);
+    it('should correctly reflect isOnboarded status from DB', async () => {
+      const spy = vi.spyOn(service, 'formatSystemPrompt');
+      await dbClient
+        .update(users)
+        .set({ isOnboarded: true })
+        .where(eq(users.id, mockUserId));
 
-      expect(contentfulApiClient.getResults).toHaveBeenCalledWith(productCodes);
-      expect(result).toHaveProperty('101');
-      expect(result).toHaveProperty('102');
-    });
-  });
-
-  describe('getProductByProductCode', () => {
-    it('should fetch and format products by product code', async () => {
-      const productCodes = ['101', '102'];
-      const result = await service.getProductByProductCode(productCodes);
-
-      expect(contentfulApiClient.getProducts).toHaveBeenCalledWith(
-        productCodes,
+      await service.getSystemPrompt(
+        mockUserId,
+        mockEvogenomApiToken,
+        mockChatId,
       );
-      expect(result).toHaveProperty('101');
-      expect(result).toHaveProperty('102');
+
+      expect(spy).toHaveBeenCalledWith(
+        mockMappedUserResults,
+        expect.objectContaining({
+          isOnboarded: true,
+        }),
+        mockLanguageCode,
+      );
+      await dbClient
+        .update(users)
+        .set({ isOnboarded: false })
+        .where(eq(users.id, mockUserId));
     });
   });
 
   describe('formatSystemPrompt', () => {
-    it('should format the system prompt with product results', () => {
-      const results: Record<string, ResultRowFieldsFragment> = {
-        '101': {
-          productCode: '101',
-          resultText: 'Result for Product One',
-          tip: null,
-          result: null,
-          classification: null,
-          fact: null,
-          science: null,
-          sys: { id: 'sys-id-1', __typename: 'Sys' },
-          __typename: 'ResultRow',
-        } as ResultRowFieldsFragment,
-      };
-
-      const products: Record<string, ProductFieldsFragment> = {
-        '101': {
-          productCode: 101,
-          name: 'Product One',
-          sys: { id: 'sys-id-1', __typename: 'Sys' },
-          __typename: 'Product',
-        } as ProductFieldsFragment,
-      };
-
-      const prompt = service.formatSystemPrompt(
-        results,
-        products,
-        defaultChatContextMetadata,
-        mockLanguageCode,
-      );
-
-      expect(prompt).toContain('Product One: Result for Product One');
-      expect(prompt).toContain('# Your Role & Purpose');
-    });
-
-    it('should include chat context metadata when provided', () => {
-      const results: Record<string, ResultRowFieldsFragment> = {
-        '101': {
-          productCode: '101',
-          resultText: 'Result for Product One',
-          tip: null,
-          result: null,
-          classification: null,
-          fact: null,
-          science: null,
-          sys: { id: 'sys-id-1', __typename: 'Sys' },
-          __typename: 'ResultRow',
-        } as ResultRowFieldsFragment,
-      };
-
-      const products: Record<string, ProductFieldsFragment> = {
-        '101': {
-          productCode: 101,
-          name: 'Product One',
-          sys: { id: 'sys-id-1', __typename: 'Sys' },
-          __typename: 'Product',
-        } as ProductFieldsFragment,
-      };
-
+    it('should format basic prompt when onboarded', () => {
+      const mappedResults: MappedUserResult[] = [];
       const metadata: ChatContextMetadata = {
-        currentMessageCount: 5,
-        totalHistoryCount: 10,
-        userTimeZone: 'UTC',
-        scheduledFollowups: [],
-        userProfile: null,
+        ...defaultChatContextMetadata,
         isOnboarded: true,
       };
 
       const prompt = service.formatSystemPrompt(
-        results,
-        products,
+        mappedResults,
         metadata,
         mockLanguageCode,
       );
-
-      expect(prompt).toContain('Current conversation: 5 messages');
-      expect(prompt).toContain('Total history: 10 messages');
-      expect(prompt).toContain(
-        'Note: There are previous conversations not included in this context',
+      expect(prompt).toContain('# Your Role & Purpose');
+      expect(prompt).not.toContain(
+        '# IMPORTANT! Your current task is as follows:',
       );
+      expect(prompt).toContain("# User's genotyping results");
+      expect(prompt).toContain('Language: You MUST respond in en');
     });
 
-    it('should handle content wrapped in ContentfulWrapper', () => {
-      const results: Record<string, ResultRowFieldsFragment> = {
-        '101': {
-          productCode: '101',
-          resultText: 'Result for Product One',
-          tip: null,
-          result: null,
-          classification: null,
-          fact: null,
-          science: null,
-          sys: { id: 'sys-id-1', __typename: 'Sys' },
-          __typename: 'ResultRow',
-        } as ResultRowFieldsFragment,
-      };
-
-      const products: Record<string, ProductFieldsFragment> = {
-        '101': {
-          productCode: 101,
-          name: { values: 'Product One Wrapped' },
-          sys: { id: 'sys-id-1', __typename: 'Sys' },
-          __typename: 'Product',
-        } as unknown as ProductFieldsFragment,
+    it('should format onboarding prompt when not onboarded', () => {
+      const mappedResults: MappedUserResult[] = [];
+      const metadata: ChatContextMetadata = {
+        ...defaultChatContextMetadata,
+        isOnboarded: false,
+        userProfile: null,
       };
 
       const prompt = service.formatSystemPrompt(
-        results,
-        products,
+        mappedResults,
+        metadata,
+        mockLanguageCode,
+      );
+      expect(prompt).toContain('# IMPORTANT! Your current task is as follows:');
+      expect(prompt).not.toContain("# User's genotyping results");
+    });
+
+    it('should correctly use MappedUserResult for prompt content', () => {
+      const specificMappedResults: MappedUserResult[] = [
+        {
+          finalProductName: 'CF Product 101',
+          interpretationText: 'Text for 101 Value 1',
+        },
+        {
+          finalProductName: 'CF Product 102',
+          interpretationText: 'Text for 102 Value 2',
+        },
+      ];
+
+      const prompt = service.formatSystemPrompt(
+        specificMappedResults,
         defaultChatContextMetadata,
         mockLanguageCode,
       );
 
-      expect(prompt).toContain('Product One Wrapped');
-    });
-
-    it('should skip products or results that are not found', () => {
-      const results: Record<string, ResultRowFieldsFragment> = {
-        '101': {
-          productCode: '101',
-          resultText: 'Result for Product One',
-          tip: null,
-          result: null,
-          classification: null,
-          fact: null,
-          science: null,
-          sys: { id: 'sys-id-1', __typename: 'Sys' },
-          __typename: 'ResultRow',
-        } as ResultRowFieldsFragment,
-      };
-
-      const products: Record<string, ProductFieldsFragment> = {
-        '102': {
-          productCode: 102,
-          name: 'Product Two',
-          sys: { id: 'sys-id-2', __typename: 'Sys' },
-          __typename: 'Product',
-        } as ProductFieldsFragment,
-      };
-
-      const prompt = service.formatSystemPrompt(
-        results,
-        products,
-        defaultChatContextMetadata,
-        mockLanguageCode,
-      );
-
-      expect(prompt).not.toContain('Product One');
-      expect(prompt).not.toContain('Product Two');
+      expect(prompt).toContain('CF Product 101: Text for 101 Value 1');
+      expect(prompt).toContain('CF Product 102: Text for 102 Value 2');
+      expect(prompt).toContain("# User's genotyping results");
     });
 
     it('should include user profile information when available', () => {
-      const results: Record<string, ResultRowFieldsFragment> = {};
-      const products: Record<string, ProductFieldsFragment> = {};
       const metadata: ChatContextMetadata = {
-        currentMessageCount: 1,
-        totalHistoryCount: 1,
-        userTimeZone: 'UTC',
-        scheduledFollowups: [],
+        ...defaultChatContextMetadata,
         userProfile: {
           name: 'Test User',
           age: 30,
@@ -441,99 +235,28 @@ describe('PromptService', () => {
           work: 'Engineer',
           physicalActivity: 'Moderate',
         },
-        isOnboarded: true,
       };
-
-      const prompt = service.formatSystemPrompt(
-        results,
-        products,
-        metadata,
-        mockLanguageCode,
-      );
-
+      const prompt = service.formatSystemPrompt([], metadata, mockLanguageCode);
       expect(prompt).toContain('# User Profile');
       expect(prompt).toContain('- Name: Test User');
-      expect(prompt).toContain('- Age: 30');
-      expect(prompt).toContain('- Gender: Male');
-      expect(prompt).toContain('- Height: 180');
-      expect(prompt).toContain('- Weight: 75');
-      expect(prompt).toContain('- Work: Engineer');
-      expect(prompt).toContain('- PhysicalActivity: Moderate');
     });
 
-    it('should not include user profile section if profile is null', () => {
-      const results: Record<string, ResultRowFieldsFragment> = {};
-      const products: Record<string, ProductFieldsFragment> = {};
+    it('should include scheduled follow-ups when available', () => {
       const metadata: ChatContextMetadata = {
-        currentMessageCount: 1,
-        totalHistoryCount: 1,
-        userTimeZone: 'UTC',
-        scheduledFollowups: [],
-        userProfile: null,
-        isOnboarded: true,
+        ...defaultChatContextMetadata,
+        scheduledFollowups: [
+          {
+            id: 'fu1',
+            dueDate: '2023-10-27 10:00',
+            content: 'Check in on hydration',
+          },
+        ],
       };
-
-      const prompt = service.formatSystemPrompt(
-        results,
-        products,
-        metadata,
-        mockLanguageCode,
+      const prompt = service.formatSystemPrompt([], metadata, mockLanguageCode);
+      expect(prompt).toContain('# Scheduled Follow-ups');
+      expect(prompt).toContain(
+        '- Follow-up ID: fu1, Due: 2023-10-27 10:00 Content: Check in on hydration',
       );
-      expect(prompt).not.toContain('# User Profile');
-    });
-
-    it('should not include user profile section if profile is empty object', () => {
-      const results: Record<string, ResultRowFieldsFragment> = {};
-      const products: Record<string, ProductFieldsFragment> = {};
-      const metadata: ChatContextMetadata = {
-        currentMessageCount: 1,
-        totalHistoryCount: 1,
-        userTimeZone: 'UTC',
-        scheduledFollowups: [],
-        userProfile: {},
-        isOnboarded: true,
-      };
-
-      const prompt = service.formatSystemPrompt(
-        results,
-        products,
-        metadata,
-        mockLanguageCode,
-      );
-      expect(prompt).not.toContain('# User Profile');
-    });
-
-    it('should only include non-empty profile fields', () => {
-      const results: Record<string, ResultRowFieldsFragment> = {};
-      const products: Record<string, ProductFieldsFragment> = {};
-      const metadata: ChatContextMetadata = {
-        currentMessageCount: 1,
-        totalHistoryCount: 1,
-        userTimeZone: 'UTC',
-        scheduledFollowups: [],
-        userProfile: {
-          name: 'Test User',
-          age: undefined,
-          gender: '',
-          height: undefined,
-          weight: 75,
-        },
-        isOnboarded: true,
-      };
-
-      const prompt = service.formatSystemPrompt(
-        results,
-        products,
-        metadata,
-        mockLanguageCode,
-      );
-
-      expect(prompt).toContain('# User Profile');
-      expect(prompt).toContain('- Name: Test User');
-      expect(prompt).toContain('- Weight: 75');
-      expect(prompt).not.toContain('- Age:');
-      expect(prompt).not.toContain('- Gender:');
-      expect(prompt).not.toContain('- Height:');
     });
   });
 });

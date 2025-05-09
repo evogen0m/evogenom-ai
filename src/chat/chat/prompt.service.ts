@@ -9,15 +9,9 @@ import {
   PATCH_USER_PROFILE_TOOL_NAME,
   ProfileField,
 } from 'src/chat/tool/profile.tool';
-import { ContentfulApiClient } from 'src/contentful/contentful-api-client';
-import {
-  ProductFieldsFragment,
-  ResultRowFieldsFragment,
-} from 'src/contentful/generated/types';
 import { chatMessages, DbTransactionAdapter, followUps, users } from 'src/db';
-import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
-import { ProductFragment } from 'src/evogenom-api-client/generated/request';
 import { COMPLETE_ONBOARDING_TOOL_NAME } from '../tool/onboarding.tool';
+import { MappedUserResult, ResultService } from './result.service';
 
 // Add ChatContextMetadata interface
 export interface ChatContextMetadata {
@@ -44,32 +38,13 @@ const toneAndFeel = `
 	•	Gentle & Friendly: Keep communication casual, conversational, and approachable, incorporating appropriate warmth (e.g., emojis, gentle humor) to foster a sense of comfort and connection.
 	•	Mindful & Holistic: Consider both physical and emotional dimensions of health, guiding the user toward mindful practices that support overall balance and well-being.`;
 
-interface ContentfulWrapper<T> {
-  values: T;
-}
-
-function isContentfulWrapper<T>(
-  value: T | ContentfulWrapper<T>,
-): value is ContentfulWrapper<T> {
-  return typeof value === 'object' && value !== null && 'values' in value;
-}
-
-const getContentfulValue = <T>(value: T | ContentfulWrapper<T>): T => {
-  if (isContentfulWrapper(value)) {
-    return value.values;
-  }
-  return value;
-};
-
 // Added constant
 const MAX_HISTORY_MESSAGES_FOR_CONTEXT = 30;
 
 @Injectable()
 export class PromptService {
   constructor(
-    private readonly evogenomApiClient: EvogenomApiClient,
-    private readonly contentfulApiClient: ContentfulApiClient,
-    // Added TransactionHost
+    private readonly resultService: ResultService,
     private readonly txHost: TransactionHost<DbTransactionAdapter>,
     private readonly cognitoService: CognitoService,
   ) {}
@@ -174,16 +149,14 @@ export class PromptService {
       scheduledFollowups,
       userProfile,
       isOnboarded,
-      resultsFromApi,
-      productByProductIdResponse,
+      mappedUserResults,
     ] = await Promise.all([
       this.getTotalMessageCount(userId, chatId),
       this.getCurrentMessageCount(userId, chatId),
       this.getPendingFollowups(userId, userTimeZone),
       this.getUserProfile(userId),
       this.getIsUserOnboarded(userId),
-      this.evogenomApiClient.getUserResults(userId, evogenomApiToken),
-      this.evogenomApiClient.getAllProducts(evogenomApiToken),
+      this.resultService.getMappedUserResults(userId, evogenomApiToken),
     ]);
 
     const contextMetadata: ChatContextMetadata = {
@@ -195,64 +168,11 @@ export class PromptService {
       isOnboarded,
     };
 
-    const results = resultsFromApi;
-
-    const productByProductId = R.pipe(
-      productByProductIdResponse,
-      R.indexBy((product) => product.id),
-    );
-
-    const productCodes = R.pipe(
-      results,
-      R.filter((result) => result.productResultsId != null),
-      R.map((result) => productByProductId[result.productResultsId as string]),
-      R.filter(Boolean),
-      R.map((product: ProductFragment) => product.productCode),
-      R.unique(),
-    );
-
-    const resultsByProductCode =
-      await this.getResultRowsByProductCode(productCodes);
-    const productsByProductCode =
-      await this.getProductByProductCode(productCodes);
-
     return this.formatSystemPrompt(
-      resultsByProductCode,
-      productsByProductCode,
+      mappedUserResults,
       contextMetadata,
       languageCode,
     );
-  }
-
-  async getResultRowsByProductCode(productCodes: string[]) {
-    const resultRowsCollection =
-      await this.contentfulApiClient.getResults(productCodes);
-
-    return R.pipe(
-      resultRowsCollection,
-      R.filter(
-        (resultRow): resultRow is NonNullable<ResultRowFieldsFragment> =>
-          resultRow?.productCode != null,
-      ),
-      R.map((resultRow) => ({
-        productCode: resultRow.productCode,
-        resultText: resultRow.resultText,
-      })),
-      R.indexBy((resultRow) => (resultRow.productCode as string) || ''),
-    ) as Record<string, ResultRowFieldsFragment>;
-  }
-
-  async getProductByProductCode(productCodes: string[]) {
-    const products = await this.contentfulApiClient.getProducts(productCodes);
-
-    return R.pipe(
-      products,
-      R.filter(
-        (product): product is NonNullable<ProductFieldsFragment> =>
-          product !== null,
-      ),
-      R.indexBy((product) => product.productCode?.toString() || ''),
-    ) as Record<string, ProductFieldsFragment>;
   }
 
   private formatUserProfileInfo(userProfile: ProfileField | null): string {
@@ -280,21 +200,10 @@ ${profileEntries.join('\n')}
   }
 
   formatSystemPrompt(
-    results: Record<string, ResultRowFieldsFragment>,
-    products: Record<string, ProductFieldsFragment>,
+    mappedUserResults: MappedUserResult[],
     contextMetadata: ChatContextMetadata,
     languageCode: string,
   ) {
-    const formatResult = (productCode: string) => {
-      const result = results[productCode];
-      const product = products[productCode];
-      if (!result || !product) {
-        return undefined;
-      }
-
-      return `${getContentfulValue(product.name)}: ${getContentfulValue(result.resultText)}`;
-    };
-
     // ONBOARDING PROMPT
     if (!contextMetadata.isOnboarded) {
       const onboardingSpecificInstructions = `
@@ -337,11 +246,14 @@ ${userProfileInfo}
     }
 
     // COACH PROMPT (User is onboarded)
-    const productResults = Object.keys(results)
-      .map(formatResult)
-      .filter(Boolean)
-      .map((result) => `  - ${result}`)
-      .join('\n');
+    const productResultsString = R.pipe(
+      mappedUserResults,
+      R.map((mappedResult) => {
+        return `  - ${mappedResult.finalProductName}: ${mappedResult.interpretationText}`;
+      }),
+      R.filter((s): s is string => s !== null && s !== undefined),
+      R.join('\n'),
+    );
 
     const followupsInfo =
       contextMetadata?.scheduledFollowups &&
@@ -393,7 +305,7 @@ Remember that you are not just a chatbot - you are a coach who knows the user pe
 You are employed at Evogenom, a DNA genotyping company. Evogenom sells DNA tests to customers and provides insights into their DNA, specifically how their DNA affects their health and wellbeing.
 ${chatContextInfo}
 # User's genotyping results
-${productResults}
+${productResultsString}
 ${userProfileInfo}
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
