@@ -141,7 +141,6 @@ export class PromptService {
   ) {
     // Fetch context data internally
     const userTimeZone = await this.getUserTimeZone(userId);
-    const languageCode = await this.cognitoService.getUserLanguage(userId);
 
     const [
       totalHistoryCount,
@@ -168,11 +167,7 @@ export class PromptService {
       isOnboarded,
     };
 
-    return this.formatSystemPrompt(
-      mappedUserResults,
-      contextMetadata,
-      languageCode,
-    );
+    return this.formatSystemPrompt(mappedUserResults, contextMetadata);
   }
 
   private formatUserProfileInfo(userProfile: ProfileField | null): string {
@@ -202,7 +197,6 @@ ${profileEntries.join('\n')}
   formatSystemPrompt(
     mappedUserResults: MappedUserResult[],
     contextMetadata: ChatContextMetadata,
-    languageCode: string,
   ) {
     // ONBOARDING PROMPT
     if (!contextMetadata.isOnboarded) {
@@ -241,7 +235,6 @@ ${toneAndFeel}
 
 ${onboardingSpecificInstructions}
 ${userProfileInfo}
-# Language: You MUST respond in ${languageCode}.
 `;
     }
 
@@ -324,14 +317,12 @@ ${genotypingDetails}
 ${userProfileInfo}
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
-# Language: You MUST respond in ${languageCode}.
-
   `;
   }
 
   async getInitialWelcomeSystemPrompt(userId: string): Promise<string> {
-    const languageCode = await this.cognitoService.getUserLanguage(userId);
     const userTimeZone = await this.getUserTimeZone(userId);
+    const userLanguage = await this.cognitoService.getUserLanguage(userId);
 
     return `
 # Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), userTimeZone, 'yyyy-MM-dd HH:mm')}
@@ -346,10 +337,10 @@ Your primary goal is to warmly welcome the user and briefly introduce your capab
 - Maintain a supportive, friendly, and encouraging tone.
 - You may use ONLY the following markdown tags: bold, italic, underline, bullet points
 
-# Language: You MUST respond in ${languageCode}.
-
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
+
+# Language: You MUST respond in ${userLanguage}.
 
 You will next ask details about the user's profile, start by asking for the user's name.`;
   }

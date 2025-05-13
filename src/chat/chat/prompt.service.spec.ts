@@ -103,15 +103,6 @@ describe('PromptService', () => {
       );
     });
 
-    it('should fetch user language from CognitoService', async () => {
-      await service.getSystemPrompt(
-        mockUserId,
-        mockEvogenomApiToken,
-        mockChatId,
-      );
-      expect(cognitoService.getUserLanguage).toHaveBeenCalledWith(mockUserId);
-    });
-
     it('should return formatted system prompt by calling formatSystemPrompt with correct data', async () => {
       const spy = vi.spyOn(service, 'formatSystemPrompt');
 
@@ -131,7 +122,6 @@ describe('PromptService', () => {
           userProfile: null,
           isOnboarded: false,
         }),
-        mockLanguageCode,
       );
     });
 
@@ -153,7 +143,6 @@ describe('PromptService', () => {
         expect.objectContaining({
           isOnboarded: true,
         }),
-        mockLanguageCode,
       );
       await dbClient
         .update(users)
@@ -170,17 +159,12 @@ describe('PromptService', () => {
         isOnboarded: true,
       };
 
-      const prompt = service.formatSystemPrompt(
-        mappedResults,
-        metadata,
-        mockLanguageCode,
-      );
+      const prompt = service.formatSystemPrompt(mappedResults, metadata);
       expect(prompt).toContain('# Your Role & Purpose');
       expect(prompt).not.toContain(
         '# IMPORTANT! Your current task is as follows:',
       );
       expect(prompt).toContain("# User's genotyping results");
-      expect(prompt).toContain('Language: You MUST respond in en');
     });
 
     it('should format onboarding prompt when not onboarded', () => {
@@ -191,11 +175,7 @@ describe('PromptService', () => {
         userProfile: null,
       };
 
-      const prompt = service.formatSystemPrompt(
-        mappedResults,
-        metadata,
-        mockLanguageCode,
-      );
+      const prompt = service.formatSystemPrompt(mappedResults, metadata);
       expect(prompt).toContain('# IMPORTANT! Your current task is as follows:');
       expect(prompt).not.toContain("# User's genotyping results");
     });
@@ -215,7 +195,6 @@ describe('PromptService', () => {
       const prompt = service.formatSystemPrompt(
         specificMappedResults,
         defaultChatContextMetadata,
-        mockLanguageCode,
       );
 
       expect(prompt).toContain('CF Product 101: Text for 101 Value 1');
@@ -236,7 +215,7 @@ describe('PromptService', () => {
           physicalActivity: 'Moderate',
         },
       };
-      const prompt = service.formatSystemPrompt([], metadata, mockLanguageCode);
+      const prompt = service.formatSystemPrompt([], metadata);
       expect(prompt).toContain('# User Profile');
       expect(prompt).toContain('- Name: Test User');
     });
@@ -252,7 +231,7 @@ describe('PromptService', () => {
           },
         ],
       };
-      const prompt = service.formatSystemPrompt([], metadata, mockLanguageCode);
+      const prompt = service.formatSystemPrompt([], metadata);
       expect(prompt).toContain('# Scheduled Follow-ups');
       expect(prompt).toContain(
         '- Follow-up ID: fu1, Due: 2023-10-27 10:00 Content: Check in on hydration',
