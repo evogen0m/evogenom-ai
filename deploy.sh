@@ -29,6 +29,8 @@ DOCKER_TAG="$GIT_COMMIT_HASH"
 SENTRY_RELEASE=""
 BUILD_DOCKER=false
 CREATE_SENTRY_RELEASE=false
+AWS_REGION="eu-west-1"
+AWS_PROFILE="evogenom-dev"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -151,6 +153,12 @@ case $ACTION in
   apply)
     echo "Applying Terraform changes for $ENVIRONMENT environment..."
     terraform apply -var="commit_hash=$DOCKER_TAG"
+
+    echo "Waiting for ECS service deployment to stabilize..."
+    CLUSTER_NAME="evogenom-${ENVIRONMENT}-cluster"
+    SERVICE_NAME="evogenom-${ENVIRONMENT}-service"
+    aws ecs wait services-stable --cluster "$CLUSTER_NAME" --service "$SERVICE_NAME"
+    echo "ECS service deployment stable."
     ;;
 esac
 
