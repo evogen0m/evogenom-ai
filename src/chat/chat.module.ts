@@ -8,6 +8,7 @@ import { ChatService } from './chat/chat.service';
 import { PromptService } from './chat/prompt.service';
 import { ResultService } from './chat/result.service';
 import { CancelFollowupTool } from './tool/cancel-followup.tool';
+import { EditWellnessPlanTool } from './tool/edit-wellness-plan.tool';
 import { FollowupTool } from './tool/followup.tool';
 import { MemoryTool } from './tool/memory-tool';
 import { OnboardingTool } from './tool/onboarding.tool';
@@ -24,6 +25,7 @@ import { ProfileTool } from './tool/profile.tool';
     CancelFollowupTool,
     ProfileTool,
     OnboardingTool,
+    EditWellnessPlanTool,
   ],
   imports: [OpenAIModule, EvogenomApiClientModule, ContentfulModule, AwsModule],
   exports: [ChatService],

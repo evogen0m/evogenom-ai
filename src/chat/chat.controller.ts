@@ -29,6 +29,7 @@ import {
   ChatRequest,
 } from './dto/chat';
 import { ChatStateResponse } from './dto/chat-state.dto';
+import { WellnessPlanResponse } from './dto/wellness-plan.dto';
 
 class ChatMessagesResponse extends PagedResult<ChatMessageResponse> {
   @ApiProperty({ type: [ChatMessageResponse] })
@@ -140,5 +141,18 @@ export class ChatController {
   })
   async getChatState(@User() user: UserPrincipal): Promise<ChatStateResponse> {
     return this.chatService.getChatState(user.id, user.evogenomApiToken);
+  }
+
+  @Get('/wellness-plan')
+  @ApiResponse({
+    status: 200,
+    type: WellnessPlanResponse,
+    description: "Get the current user's wellness plan for their latest chat.",
+  })
+  async getWellnessPlan(
+    @User() user: UserPrincipal,
+  ): Promise<WellnessPlanResponse> {
+    const wellnessPlan = await this.chatService.getCurrentWellnessPlan(user.id);
+    return { wellnessPlan };
   }
 }

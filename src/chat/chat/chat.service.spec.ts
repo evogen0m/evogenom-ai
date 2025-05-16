@@ -13,6 +13,7 @@ import { OpenAiProvider } from '../../openai/openai';
 import { ChatEventResponse, ChatRequest } from '../dto/chat';
 import { ChatState } from '../enum/chat-state.enum';
 import { CancelFollowupTool } from '../tool/cancel-followup.tool';
+import { EditWellnessPlanTool } from '../tool/edit-wellness-plan.tool';
 import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
 import { OnboardingTool } from '../tool/onboarding.tool';
@@ -175,6 +176,21 @@ describe('ChatService', () => {
       toolDefinition: mockProfileToolDefinition as any,
     });
 
+    const mockEditWellnessPlanToolDefinition = {
+      type: 'function',
+      function: {
+        name: 'edit_wellness_plan',
+        description: "Edits the user's wellness plan",
+        parameters: { type: 'object' },
+      },
+    };
+
+    const mockEditWellnessPlanTool: Tool = vi.mocked({
+      execute: vi.fn(),
+      canExecute: vi.fn(),
+      toolDefinition: mockEditWellnessPlanToolDefinition as any,
+    });
+
     // Added CognitoService mock
     mockCognitoService = {
       getUserLanguage: vi.fn().mockResolvedValue('en'),
@@ -202,6 +218,10 @@ describe('ChatService', () => {
         { provide: CancelFollowupTool, useValue: mockCancelFollowupTool },
         { provide: OnboardingTool, useValue: mockOnboardingTool },
         { provide: ProfileTool, useValue: mockProfileTool },
+        {
+          provide: EditWellnessPlanTool,
+          useValue: mockEditWellnessPlanTool,
+        },
         {
           provide: EvogenomApiClient,
           useValue: {
@@ -1937,6 +1957,88 @@ describe('ChatService', () => {
       await expect(service.getChatState(userId, mockApiToken)).rejects.toThrow(
         `Failed to get chat state: ${errorMessage}`,
       );
+    });
+  });
+
+  describe('getCurrentWellnessPlan', () => {
+    it('should return the wellness plan if a chat with a wellness plan exists', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      const wellnessPlanContent = '## My Wellness Plan\n- Eat healthy';
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient
+        .insert(chats)
+        .values({ id: chatId, userId, wellnessPlan: wellnessPlanContent });
+
+      const result = await service.getCurrentWellnessPlan(userId);
+      expect(result).toEqual(wellnessPlanContent);
+    });
+
+    it('should return null if the latest chat has no wellness plan', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId }); // wellnessPlan is omitted
+
+      const result = await service.getCurrentWellnessPlan(userId);
+      expect(result).toBeNull();
+    });
+
+    it('should return null if the user has no chats', async () => {
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+
+      const result = await service.getCurrentWellnessPlan(userId);
+      expect(result).toBeNull();
+    });
+
+    it('should return the wellness plan from the most recent chat if multiple chats exist', async () => {
+      const userId = randomUUID();
+      const olderChatId = randomUUID();
+      const newerChatId = randomUUID();
+      const olderWellnessPlan = '## Old Plan';
+      const newerWellnessPlan = '## Newer Plan';
+
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({
+        id: olderChatId,
+        userId,
+        wellnessPlan: olderWellnessPlan,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
+      });
+      await dbClient.insert(chats).values({
+        id: newerChatId,
+        userId,
+        wellnessPlan: newerWellnessPlan,
+        createdAt: new Date(), // now
+      });
+
+      const result = await service.getCurrentWellnessPlan(userId);
+      expect(result).toEqual(newerWellnessPlan);
+    });
+
+    it('should return null if the most recent chat has a null wellness plan even if older ones have content', async () => {
+      const userId = randomUUID();
+      const olderChatId = randomUUID();
+      const newerChatId = randomUUID();
+      const olderWellnessPlan = '## Old Plan';
+
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({
+        id: olderChatId,
+        userId,
+        wellnessPlan: olderWellnessPlan,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
+      });
+      await dbClient.insert(chats).values({
+        id: newerChatId,
+        userId,
+        // wellnessPlan is omitted for the newer chat
+        createdAt: new Date(), // now
+      });
+
+      const result = await service.getCurrentWellnessPlan(userId);
+      expect(result).toBeNull();
     });
   });
 });

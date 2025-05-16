@@ -9,7 +9,13 @@ import {
   PATCH_USER_PROFILE_TOOL_NAME,
   ProfileField,
 } from 'src/chat/tool/profile.tool';
-import { chatMessages, DbTransactionAdapter, followUps, users } from 'src/db';
+import {
+  chatMessages,
+  chats,
+  DbTransactionAdapter,
+  followUps,
+  users,
+} from 'src/db';
 import { COMPLETE_ONBOARDING_TOOL_NAME } from '../tool/onboarding.tool';
 import { MappedUserResult, ResultService } from './result.service';
 
@@ -26,6 +32,7 @@ export interface ChatContextMetadata {
   }[];
   userProfile: ProfileField | null;
   isOnboarded: boolean;
+  wellnessPlan?: string;
 }
 
 const toneAndFeel = `
@@ -134,6 +141,17 @@ export class PromptService {
     }));
   }
 
+  @Transactional()
+  private async getWellnessPlanForChat(
+    chatId: string,
+  ): Promise<string | undefined> {
+    const chat = await this.txHost.tx.query.chats.findFirst({
+      where: eq(chats.id, chatId),
+      columns: { wellnessPlan: true },
+    });
+    return chat?.wellnessPlan || undefined;
+  }
+
   async getSystemPrompt(
     userId: string,
     evogenomApiToken: string,
@@ -149,6 +167,7 @@ export class PromptService {
       userProfile,
       isOnboarded,
       mappedUserResults,
+      wellnessPlan,
     ] = await Promise.all([
       this.getTotalMessageCount(userId, chatId),
       this.getCurrentMessageCount(userId, chatId),
@@ -156,6 +175,7 @@ export class PromptService {
       this.getUserProfile(userId),
       this.getIsUserOnboarded(userId),
       this.resultService.getMappedUserResults(userId, evogenomApiToken),
+      this.getWellnessPlanForChat(chatId),
     ]);
 
     const contextMetadata: ChatContextMetadata = {
@@ -165,6 +185,7 @@ export class PromptService {
       scheduledFollowups,
       userProfile,
       isOnboarded,
+      wellnessPlan,
     };
 
     return this.formatSystemPrompt(mappedUserResults, contextMetadata);
@@ -295,8 +316,16 @@ ${followupsInfo}
       contextMetadata.userProfile,
     );
 
+    const wellnessPlanInfo = contextMetadata.wellnessPlan
+      ? `
+# User Wellness Plan
+\`\`\`markdown
+${contextMetadata.wellnessPlan}
+\`\`\`
+`
+      : '';
+
     return `
-# Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), contextMetadata.userTimeZone, 'yyyy-MM-dd HH:mm')}
 # Your Role & Purpose
 You are an AI Wellness Coach. Your role is to:
 - Act as a smart, supportive companion for the user
@@ -315,9 +344,12 @@ ${chatContextInfo}
 # User's genotyping results
 ${genotypingDetails}
 ${userProfileInfo}
+${wellnessPlanInfo}
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
-  `;
+  
+# Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), contextMetadata.userTimeZone, 'yyyy-MM-dd HH:mm')}
+`;
   }
 
   async getInitialWelcomeSystemPrompt(userId: string): Promise<string> {

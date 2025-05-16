@@ -27,6 +27,7 @@ import {
 import { ChatStateResponse } from '../dto/chat-state.dto';
 import { ChatState } from '../enum/chat-state.enum';
 import { CancelFollowupTool } from '../tool/cancel-followup.tool';
+import { EditWellnessPlanTool } from '../tool/edit-wellness-plan.tool';
 import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
 import { OnboardingTool } from '../tool/onboarding.tool';
@@ -46,6 +47,7 @@ export class ChatService implements OnApplicationBootstrap {
     private readonly cancelFollowupTool: CancelFollowupTool,
     private readonly profileTool: ProfileTool,
     private readonly onboardingTool: OnboardingTool,
+    private readonly editWellnessPlanTool: EditWellnessPlanTool,
     private readonly evogenomApiClient: EvogenomApiClient,
     private readonly cognitoService: CognitoService,
   ) {
@@ -55,6 +57,7 @@ export class ChatService implements OnApplicationBootstrap {
       this.cancelFollowupTool,
       this.profileTool,
       this.onboardingTool,
+      this.editWellnessPlanTool,
     ];
   }
 
@@ -822,5 +825,20 @@ export class ChatService implements OnApplicationBootstrap {
       );
       return null;
     }
+  }
+
+  @Transactional()
+  async getCurrentWellnessPlan(userId: string): Promise<string | null> {
+    this.logger.debug(`Fetching wellness plan for user ${userId}`);
+    const latestChat = await this.txHost.tx.query.chats.findFirst({
+      where: eq(chats.userId, userId),
+      orderBy: [desc(chats.createdAt)],
+      columns: { wellnessPlan: true },
+    });
+
+    if (latestChat && latestChat.wellnessPlan) {
+      return latestChat.wellnessPlan;
+    }
+    return null;
   }
 }
