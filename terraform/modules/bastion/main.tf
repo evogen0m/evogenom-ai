@@ -103,6 +103,6 @@ resource "aws_instance" "bastion" {
   )
 
   lifecycle {
-    ignore_changes = [key_name]
+    ignore_changes = [key_name, ami]
   }
 }
