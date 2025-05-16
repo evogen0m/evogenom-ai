@@ -45,6 +45,7 @@ export const chats = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    wellnessPlan: text('wellness_plan').notNull().default(''),
   },
   (t) => [index('chat_user_id_index').on(t.userId)],
 );

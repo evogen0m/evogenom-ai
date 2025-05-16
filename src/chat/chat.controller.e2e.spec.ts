@@ -72,6 +72,11 @@ describe('ChatController (e2e)', () => {
     ];
     chatService.getMessagesForUi.mockResolvedValue(mockMessages);
 
+    // Setup the mock for getCurrentWellnessPlan
+    const mockWellnessPlan =
+      '## Wellness Plan\n\n- Drink more water\n- Exercise daily';
+    chatService.getCurrentWellnessPlan.mockResolvedValue(mockWellnessPlan);
+
     const moduleFixture: TestingModule = await createTestingModuleWithDb({
       imports: [ChatModule],
     })
@@ -204,6 +209,27 @@ describe('ChatController (e2e)', () => {
           total: 2,
         }),
       );
+    });
+  });
+
+  describe('when getting the wellness plan', () => {
+    it('should return the wellness plan for the user', async () => {
+      // Make the request
+      const response = await request(app.getHttpServer())
+        .get('/api/chat/wellness-plan')
+        .expect(200);
+
+      // Verify the service was called correctly
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(chatService.getCurrentWellnessPlan).toHaveBeenCalledWith(
+        mockUser.id,
+      );
+
+      // Verify the response body
+      expect(response.body).toEqual({
+        wellnessPlan:
+          '## Wellness Plan\n\n- Drink more water\n- Exercise daily',
+      });
     });
   });
 });
