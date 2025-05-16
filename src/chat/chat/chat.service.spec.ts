@@ -1344,6 +1344,444 @@ describe('ChatService', () => {
     });
   });
 
+  describe('getChatHistory', () => {
+    const userId = randomUUID();
+    const chatId = randomUUID();
+    const agentScope = 'COACH';
+    let originalMaxHistoryMessages: number;
+
+    beforeEach(async () => {
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+      // Store original MAX_HISTORY_MESSAGES and allow modification for tests
+      originalMaxHistoryMessages = (service as any)['MAX_HISTORY_MESSAGES'];
+    });
+
+    afterEach(() => {
+      // Restore original MAX_HISTORY_MESSAGES after each test
+      (service as any)['MAX_HISTORY_MESSAGES'] = originalMaxHistoryMessages;
+    });
+
+    const insertMessage = async (message: {
+      id?: string;
+      role: 'user' | 'assistant' | 'tool' | 'system';
+      content: string | null;
+      toolData?: any;
+      messageScope?: 'COACH' | 'ONBOARDING';
+      createdAt?: Date;
+      userId?: string;
+      chatId?: string;
+    }) => {
+      return dbClient
+        .insert(chatMessages)
+        .values({
+          id: message.id ?? randomUUID(),
+          role: message.role,
+          content: message.content ?? '',
+          userId: message.userId ?? userId,
+          chatId: message.chatId ?? chatId,
+          toolData: message.toolData,
+          messageScope: message.messageScope ?? agentScope,
+          createdAt: message.createdAt ?? new Date(),
+          embedding: null, // Not relevant for these tests
+        })
+        .returning();
+    };
+
+    it('should include tool message if its parent assistant message is present', async () => {
+      const assistantMsgId = randomUUID();
+      const toolCallId = `tc-${randomUUID()}`;
+      await insertMessage({
+        id: assistantMsgId,
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId,
+              type: 'function',
+              function: { name: 'testTool', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 2000),
+      });
+      await insertMessage({
+        role: 'tool',
+        content: 'Tool result',
+        toolData: { toolCallId },
+        createdAt: new Date(Date.now() - 1000),
+      });
+
+      const history = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+      expect(history.length).toBe(2); // Assistant msg + Tool msg
+      expect(history[0].role).toBe('assistant');
+      expect(history[1].role).toBe('tool');
+      expect((history[1] as any).tool_call_id).toBe(toolCallId);
+    });
+
+    it('should skip orphaned tool message if its parent assistant message is truncated', async () => {
+      (service as any)['MAX_HISTORY_MESSAGES'] = 2; // Truncate to 2 most recent messages
+      const toolCallId = `tc-${randomUUID()}`;
+
+      // This assistant message will be truncated
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId,
+              type: 'function',
+              function: { name: 'testTool', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 3000),
+      });
+      // This tool message should be orphaned and skipped
+      await insertMessage({
+        role: 'tool',
+        content: 'Orphaned tool result',
+        toolData: { toolCallId },
+        createdAt: new Date(Date.now() - 2000),
+      });
+      // This user message will be kept
+      await insertMessage({
+        role: 'user',
+        content: 'Recent user message',
+        createdAt: new Date(Date.now() - 1000),
+      });
+      // This system message (for the user message) will be kept
+
+      const history = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+
+      // Expected: system message for user + user message
+      expect(history.length).toBe(2);
+      expect(history.find((msg) => msg.role === 'tool')).toBeUndefined();
+      expect(history[0].role).toBe('system');
+      expect(history[1].role).toBe('user');
+    });
+
+    it('should skip tool message with missing toolCallId in toolData', async () => {
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: 'some-id',
+              type: 'function',
+              function: { name: 'testTool', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 2000),
+      });
+      await insertMessage({
+        role: 'tool',
+        content: 'Malformed tool result',
+        toolData: { toolName: 'testTool' }, // Missing toolCallId
+        createdAt: new Date(Date.now() - 1000),
+      });
+
+      const history = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+      expect(history.length).toBe(1); // Only the assistant message
+      expect(history[0].role).toBe('assistant');
+      expect(history.find((msg) => msg.role === 'tool')).toBeUndefined();
+    });
+
+    it('should correctly include all messages if history is within MAX_HISTORY_MESSAGES limit', async () => {
+      (service as any)['MAX_HISTORY_MESSAGES'] = 10;
+      const toolCallId1 = `tc1-${randomUUID()}`;
+      const toolCallId2 = `tc2-${randomUUID()}`;
+
+      await insertMessage({
+        role: 'user',
+        content: 'User message 1',
+        createdAt: new Date(Date.now() - 5000),
+      });
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId1,
+              type: 'function',
+              function: { name: 'toolA', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 4000),
+      });
+      await insertMessage({
+        role: 'tool',
+        content: 'ToolA result',
+        toolData: { toolCallId: toolCallId1 },
+        createdAt: new Date(Date.now() - 3500),
+      });
+      await insertMessage({
+        role: 'assistant',
+        content: 'Assistant reply after toolA',
+        createdAt: new Date(Date.now() - 3000),
+      });
+      await insertMessage({
+        role: 'user',
+        content: 'User message 2',
+        createdAt: new Date(Date.now() - 2000),
+      });
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId2,
+              type: 'function',
+              function: { name: 'toolB', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 1000),
+      });
+      await insertMessage({
+        role: 'tool',
+        content: 'ToolB result',
+        toolData: { toolCallId: toolCallId2 },
+        createdAt: new Date(Date.now() - 500),
+      });
+
+      // User messages (2) + System for user (2) + Assistant (2) + Tool (2) + Assistant (1) = 9 messages
+      const history = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+      expect(history.length).toBe(9);
+      expect(history.filter((m) => m.role === 'user').length).toBe(2);
+      expect(
+        history.filter(
+          (m) =>
+            m.role === 'system' &&
+            typeof m.content === 'string' &&
+            m.content.startsWith('Timestamp:'),
+        ).length,
+      ).toBe(2);
+      expect(history.filter((m) => m.role === 'assistant').length).toBe(3);
+      expect(history.filter((m) => m.role === 'tool').length).toBe(2);
+      expect(
+        history.find(
+          (m) => m.role === 'tool' && (m as any).tool_call_id === toolCallId1,
+        ),
+      ).toBeDefined();
+      expect(
+        history.find(
+          (m) => m.role === 'tool' && (m as any).tool_call_id === toolCallId2,
+        ),
+      ).toBeDefined();
+    });
+
+    it('should skip tool message if its parent assistant message and the tool message itself are truncated', async () => {
+      (service as any)['MAX_HISTORY_MESSAGES'] = 1; // Only most recent message (and its system prompt if user)
+      const toolCallId = `tc-${randomUUID()}`;
+
+      // These will be truncated
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId,
+              type: 'function',
+              function: { name: 'oldTool', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 5000),
+      });
+      await insertMessage({
+        role: 'tool',
+        content: 'Old tool result',
+        toolData: { toolCallId },
+        createdAt: new Date(Date.now() - 4000),
+      });
+
+      // This will be the only one kept (plus its system message)
+      await insertMessage({
+        role: 'user',
+        content: 'Most recent user message',
+        createdAt: new Date(Date.now() - 1000),
+      });
+
+      const history = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+      expect(history.length).toBe(2); // system for user + user
+      expect(history.find((msg) => msg.role === 'tool')).toBeUndefined();
+      expect(history.find((msg) => msg.role === 'assistant')).toBeUndefined();
+    });
+
+    it('should skip a tool message if MAX_HISTORY_MESSAGES is 1 and the tool message is the most recent', async () => {
+      (service as any)['MAX_HISTORY_MESSAGES'] = 1;
+      const toolCallId = `tc-${randomUUID()}`;
+
+      // Assistant message (older, will be truncated)
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId,
+              type: 'function',
+              function: { name: 'someTool', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 2000),
+      });
+      // Tool message (most recent, but parent will be truncated)
+      await insertMessage({
+        role: 'tool',
+        content: 'Tool result',
+        toolData: { toolCallId },
+        createdAt: new Date(Date.now() - 1000),
+      });
+
+      const history = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+      expect(history.length).toBe(0); // Tool message skipped as parent is not in the single message window
+    });
+
+    it('should include tool message if its parent assistant (with multiple tool_calls) is truncated', async () => {
+      (service as any)['MAX_HISTORY_MESSAGES'] = 2; // Enough for the 2 tool messages, but not the parent assistant + other msgs
+      const toolCallId1 = `m_tc1_trunc-${randomUUID()}`;
+      const toolCallId2 = `m_tc2_trunc-${randomUUID()}`;
+
+      // This assistant message will be truncated
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId1,
+              type: 'function',
+              function: { name: 'toolX', arguments: '{}' },
+            },
+            {
+              id: toolCallId2,
+              type: 'function',
+              function: { name: 'toolY', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 5000),
+      });
+      // These tool messages should be skipped as their parent is truncated
+      await insertMessage({
+        role: 'tool',
+        content: 'ToolX result - orphaned',
+        toolData: { toolCallId: toolCallId1 },
+        createdAt: new Date(Date.now() - 4000),
+      });
+      await insertMessage({
+        role: 'tool',
+        content: 'ToolY result - orphaned',
+        toolData: { toolCallId: toolCallId2 },
+        createdAt: new Date(Date.now() - 3000),
+      });
+      // This user message and its system message will be kept
+      await insertMessage({
+        role: 'user',
+        content: 'Recent user message',
+        createdAt: new Date(Date.now() - 1000),
+      });
+
+      const history = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+      expect(history.length).toBe(2); // system for user + user
+      expect(history.find((msg) => msg.role === 'tool')).toBeUndefined();
+      expect(history.find((msg) => msg.role === 'assistant')).toBeUndefined();
+    });
+
+    it('should handle history correctly when messages are fetched by DESC createdAt and then reversed', async () => {
+      // This test ensures the parent check logic works correctly after dbMessages.reverse()
+      (service as any)['MAX_HISTORY_MESSAGES'] = 3;
+      const toolCallId = `rev_tc-${randomUUID()}`;
+
+      // Order of insertion (and thus default createdAt): user1, assistant1 (parent), tool1
+      // DB fetch: tool1, assistant1, user1 (due to DESC order)
+      // Reversed in code: user1, assistant1, tool1 (chronological)
+
+      await insertMessage({
+        role: 'user',
+        content: 'User 1',
+        createdAt: new Date(Date.now() - 3000),
+      }); // Will be kept (with system)
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId,
+              type: 'function',
+              function: { name: 'revTool', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 2000), // Will be kept
+      });
+      await insertMessage({
+        role: 'tool',
+        content: 'Reversed Tool Result',
+        toolData: { toolCallId },
+        createdAt: new Date(Date.now() - 1000),
+      }); // Will be kept
+
+      const history = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+
+      const historyCorrect = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+      expect(historyCorrect.length).toBe(4);
+      expect(
+        history.find(
+          (m) => m.role === 'tool' && (m as any).tool_call_id === toolCallId,
+        ),
+      ).toBeDefined();
+    });
+  });
+
   describe('onApplicationBootstrap', () => {
     it('should add embeddings to messages without them', async () => {
       // Setup - create messages without embeddings

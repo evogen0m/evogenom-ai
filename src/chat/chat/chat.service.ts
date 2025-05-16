@@ -519,7 +519,7 @@ export class ChatService implements OnApplicationBootstrap {
     });
 
     // Reverse the order of messages to get the most recent messages first
-    dbMessages.reverse();
+    dbMessages.reverse(); // Now messages are in chronological order (oldest to newest)
 
     // Map DB messages to OpenAI format
     const history: ChatCompletionMessageParam[] = [];
@@ -559,17 +559,36 @@ export class ChatService implements OnApplicationBootstrap {
           const toolData = message.toolData as { toolCallId?: string } | null;
           const toolCallId = toolData?.toolCallId;
           if (!toolCallId) {
-            const errorMessage = `Tool message ${message.id} is missing toolCallId in toolData`;
+            const errorMessage = `Tool message ${message.id} is missing toolCallId in toolData for chat ${chatId}, user ${userId}.`;
             this.logger.error(errorMessage);
-            // Handle error case appropriately, maybe skip or throw
-            throw new Error(errorMessage);
+            // Skip this malformed tool message
+            continue;
           }
-          history.push({
-            role: 'tool',
-            content: message.content ?? '', // Ensure content is string
-            tool_call_id: toolCallId,
-          } as ChatCompletionToolMessageParam);
-          break; // Add break statement
+
+          // Check if the parent assistant message (with tool_calls) is present in the currently constructed history.
+          // This ensures that the tool message is not orphaned by truncation.
+          let parentAssistantPresent = false;
+          for (let i = history.length - 1; i >= 0; i--) {
+            const prevMsg = history[i];
+            if (prevMsg.role === 'assistant' && prevMsg.tool_calls) {
+              if (prevMsg.tool_calls.some((tc) => tc.id === toolCallId)) {
+                parentAssistantPresent = true;
+                break;
+              }
+            }
+          }
+
+          if (parentAssistantPresent) {
+            history.push({
+              role: 'tool',
+              content: message.content ?? '', // Ensure content is string
+              tool_call_id: toolCallId,
+            } as ChatCompletionToolMessageParam);
+          } else {
+            // The parent assistant message was truncated from the history.
+            // Skip this orphaned tool message.
+          }
+          break;
         }
         default: {
           // Handle unrecognized roles if necessary
