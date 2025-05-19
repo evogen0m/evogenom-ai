@@ -82,6 +82,7 @@ export class EditWellnessPlanTool implements Tool {
         role: 'system',
         content: `You are an AI assistant helping to edit a wellness plan. The user wants to make specific changes. Output only the updated wellness plan in Markdown format. 
           Ensure the entire plan is returned, not just the changed parts. If no plan exists and instructions are to create one, generate it. If a plan exists, modify it according to the instructions. You will keep the plan structured and readable. Do not add any content outside of the instructions provided.
+          Use three levels of headings (if needed):
           `,
       },
       {

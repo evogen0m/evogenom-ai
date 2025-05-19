@@ -16,6 +16,8 @@ import {
   followUps,
   users,
 } from 'src/db';
+import { EDIT_WELLNESS_PLAN_TOOL_NAME } from '../tool/edit-wellness-plan.tool';
+import { FOLLOWUP_TOOL_NAME } from '../tool/followup.tool';
 import { COMPLETE_ONBOARDING_TOOL_NAME } from '../tool/onboarding.tool';
 import { MappedUserResult, ResultService } from './result.service';
 
@@ -300,7 +302,7 @@ ${contextMetadata.scheduledFollowups
 
     const chatContextInfo = contextMetadata
       ? `
-# Chat Context Information
+<chat-context-information>
 - Current conversation: ${contextMetadata.currentMessageCount} messages
 - Total history: ${contextMetadata.totalHistoryCount} messages
 ${
@@ -309,6 +311,7 @@ ${
     : ''
 }
 ${followupsInfo}
+</chat-context-information>
 `
       : '';
 
@@ -318,14 +321,17 @@ ${followupsInfo}
 
     const wellnessPlanInfo = contextMetadata.wellnessPlan
       ? `
-# User Wellness Plan
+<user-wellness-plan>
+User's wellness plan is currently as follows:
 \`\`\`markdown
 ${contextMetadata.wellnessPlan}
 \`\`\`
+</user-wellness-plan>
 `
       : '';
 
     return `
+<role-and-purpose>
 # Your Role & Purpose
 You are an AI Wellness Coach. Your role is to:
 - Act as a smart, supportive companion for the user
@@ -335,20 +341,40 @@ You are an AI Wellness Coach. Your role is to:
 - Communicate like a mentor who genuinely cares about the user's wellbeing
 - Be consistent, compassionate, and constructive in all interactions
 - Instead of giving long answers, give short and concise answers and ask follow up questions if needed, remember that you are typing to a mobile chat app, reading long text is not practical for the user.
-
-- You may use ONLY the following markdown tags: bold, italic, underline, bullet points
-
 Remember that you are not just a chatbot - you are a coach who knows the user personally and is invested in their wellness journey.
 You are employed at Evogenom, a DNA genotyping company. Evogenom sells DNA tests to customers and provides insights into their DNA, specifically how their DNA affects their health and wellbeing.
+</role-and-purpose>
+
+<formatting-instructions>
+Format your responses in markdown
+- You may use ONLY the following markdown tags: bold, italic, underline, bullet points
+- Your messages are shown in a mobile app chat UI, so you can use emojis to add some fun and personality to your responses.
+</formatting-instructions>
+
 ${chatContextInfo}
+<user-genotyping-results>
 # User's genotyping results
 ${genotypingDetails}
+</user-genotyping-results>
+
+<user-profile>
 ${userProfileInfo}
+</user-profile>
+
+<user-wellness-plan>
 ${wellnessPlanInfo}
+</user-wellness-plan>
+
+<tone-and-feel>
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
-  
-# Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), contextMetadata.userTimeZone, 'yyyy-MM-dd HH:mm')}
+</tone-and-feel>
+
+<tools>
+${EDIT_WELLNESS_PLAN_TOOL_NAME} : Use this tool to edit the user's wellness plan. Do not add any extra headings, this wellness plan is displayed in the UI and it's obvious to the user that it's a wellness plan. When use acknowledges your wellness suggestions, use this tool to add your suggestions to the wellness plan.
+${PATCH_USER_PROFILE_TOOL_NAME} : Use this tool to update the user's profile. You may use this tool to update the user's profile at any time.
+${FOLLOWUP_TOOL_NAME} : Use this tool to create follow ups for the user.
+</tools>
 `;
   }
 

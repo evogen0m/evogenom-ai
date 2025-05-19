@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Tool, ToolCall } from './tool';
 
-const FOLLOWUP_TOOL_NAME = 'create_followup';
+export const FOLLOWUP_TOOL_NAME = 'create_followup';
 
 const followupSchema = z.object({
   content: z
