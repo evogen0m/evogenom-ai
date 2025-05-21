@@ -263,7 +263,9 @@ ${userProfileInfo}
 
     // COACH PROMPT (User is onboarded)
     let genotypingDetails: string;
-    if (!mappedUserResults || mappedUserResults.length === 0) {
+    const hasGenotypingResults =
+      mappedUserResults && mappedUserResults.length > 0;
+    if (!hasGenotypingResults) {
       genotypingDetails = `- User's sample is being processed and results will arrive within 4-8 weeks after mailing the sample kit.`;
     } else {
       genotypingDetails = R.pipe(
@@ -341,6 +343,7 @@ You are an AI Wellness Coach. Your role is to:
 - Communicate like a mentor who genuinely cares about the user's wellbeing
 - Be consistent, compassionate, and constructive in all interactions
 - Instead of giving long answers, give short and concise answers and ask follow up questions if needed, remember that you are typing to a mobile chat app, reading long text is not practical for the user.
+${hasGenotypingResults ? `- Remember to include relevant user's genotyping results in your responses. If the results are not relevant to the user's question, you can tell the user so.` : ''}
 Remember that you are not just a chatbot - you are a coach who knows the user personally and is invested in their wellness journey.
 You are employed at Evogenom, a DNA genotyping company. Evogenom sells DNA tests to customers and provides insights into their DNA, specifically how their DNA affects their health and wellbeing.
 </role-and-purpose>
