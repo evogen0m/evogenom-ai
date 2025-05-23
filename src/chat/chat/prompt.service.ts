@@ -11,14 +11,17 @@ import {
 } from 'src/chat/tool/profile.tool';
 import {
   chatMessages,
+  chatNotes,
   chats,
   DbTransactionAdapter,
   followUps,
   users,
 } from 'src/db';
+import { DELETE_NOTES_TOOL_NAME } from '../tool/delete-note.tool';
 import { EDIT_WELLNESS_PLAN_TOOL_NAME } from '../tool/edit-wellness-plan.tool';
 import { FOLLOWUP_TOOL_NAME } from '../tool/followup.tool';
 import { COMPLETE_ONBOARDING_TOOL_NAME } from '../tool/onboarding.tool';
+import { UPSERT_NOTES_TOOL_NAME } from '../tool/upsert-note.tool';
 import { MappedUserResult, ResultService } from './result.service';
 
 // Add ChatContextMetadata interface
@@ -35,6 +38,11 @@ export interface ChatContextMetadata {
   userProfile: ProfileField | null;
   isOnboarded: boolean;
   wellnessPlan?: string;
+  notes: {
+    id: string;
+    content: string;
+    createdAt: string;
+  }[];
 }
 
 const toneAndFeel = `
@@ -154,6 +162,34 @@ export class PromptService {
     return chat?.wellnessPlan || undefined;
   }
 
+  @Transactional()
+  private async getChatNotes(
+    chatId: string,
+    userTimeZone: string,
+  ): Promise<ChatContextMetadata['notes']> {
+    const notes = await this.txHost.tx.query.chatNotes.findMany({
+      where: eq(chatNotes.chatId, chatId),
+      orderBy: [desc(chatNotes.createdAt)],
+      columns: {
+        id: true,
+        content: true,
+        createdAt: true,
+      },
+    });
+
+    return notes
+      .filter((note) => note.id !== null)
+      .map((note) => ({
+        id: note.id!,
+        content: note.content,
+        createdAt: formatInTimeZone(
+          note.createdAt,
+          userTimeZone,
+          'yyyy-MM-dd HH:mm',
+        ),
+      }));
+  }
+
   async getSystemPrompt(
     userId: string,
     evogenomApiToken: string,
@@ -170,6 +206,7 @@ export class PromptService {
       isOnboarded,
       mappedUserResults,
       wellnessPlan,
+      notes,
     ] = await Promise.all([
       this.getTotalMessageCount(userId, chatId),
       this.getCurrentMessageCount(userId, chatId),
@@ -178,6 +215,7 @@ export class PromptService {
       this.getIsUserOnboarded(userId),
       this.resultService.getMappedUserResults(userId, evogenomApiToken),
       this.getWellnessPlanForChat(chatId),
+      this.getChatNotes(chatId, userTimeZone),
     ]);
 
     const contextMetadata: ChatContextMetadata = {
@@ -188,6 +226,7 @@ export class PromptService {
       userProfile,
       isOnboarded,
       wellnessPlan,
+      notes,
     };
 
     return this.formatSystemPrompt(mappedUserResults, contextMetadata);
@@ -332,6 +371,18 @@ ${contextMetadata.wellnessPlan}
 `
       : '';
 
+    const notesInfo =
+      contextMetadata.notes && contextMetadata.notes.length > 0
+        ? `
+<private-notes>
+# Private Notes (only visible to you, not the user)
+${contextMetadata.notes
+  .map((note) => `- ${note.createdAt}: ${note.content}`)
+  .join('\n')}
+</private-notes>
+`
+        : '';
+
     return `
 <role-and-purpose>
 # Your Role & Purpose
@@ -369,6 +420,8 @@ ${userProfileInfo}
 ${wellnessPlanInfo}
 </user-wellness-plan>
 
+${notesInfo}
+
 <tone-and-feel>
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
@@ -378,6 +431,8 @@ ${toneAndFeel}
 ${EDIT_WELLNESS_PLAN_TOOL_NAME} : Use this tool to edit the user's wellness plan. Do not add any extra headings, this wellness plan is displayed in the UI and it's obvious to the user that it's a wellness plan. When use acknowledges your wellness suggestions, use this tool to add your suggestions to the wellness plan.
 ${PATCH_USER_PROFILE_TOOL_NAME} : Use this tool to update the user's profile. You may use this tool to update the user's profile at any time.
 ${FOLLOWUP_TOOL_NAME} : Use this tool to create follow ups for the user.
+${UPSERT_NOTES_TOOL_NAME} : Use this tool to create or update a note for the user. Remember that the notes are private to you, user cannot see them. Try to keep notes short and concise as possible.
+${DELETE_NOTES_TOOL_NAME} : Use this tool to delete a note for the user. Use this tool to delete notes that are you think are no longer relevant.
 </tools>
 `;
   }

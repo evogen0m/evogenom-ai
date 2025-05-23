@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Tool, ToolCall } from './tool';
 
-export const UPSERT_NOTE_TOOL_NAME = 'upsertNote';
+export const UPSERT_NOTES_TOOL_NAME = 'upsertNotes';
 
 const individualNoteSchema = z.object({
   id: z
@@ -38,7 +38,7 @@ export class UpsertNoteTool implements Tool {
   toolDefinition: ChatCompletionTool = {
     type: 'function' as const,
     function: {
-      name: UPSERT_NOTE_TOOL_NAME,
+      name: UPSERT_NOTES_TOOL_NAME,
       description:
         'Create or update one or more notes for the current chat. For each note, if an ID is provided and it exists, it will be updated. Otherwise, a new note will be created (with the provided ID if supplied, or a new one if not).',
       parameters: zodToJsonSchema(upsertNotesSchema),
@@ -46,7 +46,7 @@ export class UpsertNoteTool implements Tool {
   } as const;
 
   canExecute(toolCall: ToolCall): boolean {
-    return toolCall.name === UPSERT_NOTE_TOOL_NAME;
+    return toolCall.name === UPSERT_NOTES_TOOL_NAME;
   }
 
   @Transactional()

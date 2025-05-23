@@ -5,7 +5,7 @@ import { DRIZZLE_INSTANCE, DrizzleInstanceType } from 'src/db/drizzle.provider';
 import { createTestingModuleWithDb } from 'test/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ToolCall } from './tool';
-import { UPSERT_NOTE_TOOL_NAME, UpsertNoteTool } from './upsert-note.tool';
+import { UPSERT_NOTES_TOOL_NAME, UpsertNoteTool } from './upsert-note.tool';
 
 describe('UpsertNoteTool', () => {
   let upsertNoteTool: UpsertNoteTool;
@@ -50,7 +50,7 @@ describe('UpsertNoteTool', () => {
   it('should create a new note when no ID is provided', async () => {
     const noteContent = 'This is a new note.';
     const toolCall: ToolCall = {
-      name: UPSERT_NOTE_TOOL_NAME,
+      name: UPSERT_NOTES_TOOL_NAME,
       arguments: JSON.stringify({
         notes: [{ content: noteContent }],
       }),
@@ -77,7 +77,7 @@ describe('UpsertNoteTool', () => {
     const noteId = randomUUID();
     const noteContent = 'This is a new note with a specific ID.';
     const toolCall: ToolCall = {
-      name: UPSERT_NOTE_TOOL_NAME,
+      name: UPSERT_NOTES_TOOL_NAME,
       arguments: JSON.stringify({
         notes: [{ id: noteId, content: noteContent }],
       }),
@@ -111,7 +111,7 @@ describe('UpsertNoteTool', () => {
 
     const updatedContent = 'Updated note content.';
     const toolCall: ToolCall = {
-      name: UPSERT_NOTE_TOOL_NAME,
+      name: UPSERT_NOTES_TOOL_NAME,
       arguments: JSON.stringify({
         notes: [{ id: noteId, content: updatedContent }],
       }),
@@ -147,7 +147,7 @@ describe('UpsertNoteTool', () => {
     const newNoteContent = 'Content for new note.';
 
     const toolCall: ToolCall = {
-      name: UPSERT_NOTE_TOOL_NAME,
+      name: UPSERT_NOTES_TOOL_NAME,
       arguments: JSON.stringify({
         notes: [
           { id: existingNoteId, content: 'Updated content.' },
@@ -182,7 +182,7 @@ describe('UpsertNoteTool', () => {
 
   it('should return an error for invalid input (e.g. missing content)', async () => {
     const toolCall: ToolCall = {
-      name: UPSERT_NOTE_TOOL_NAME,
+      name: UPSERT_NOTES_TOOL_NAME,
       arguments: JSON.stringify({
         notes: [{ id: randomUUID() }], // Missing content
       }),
@@ -198,7 +198,7 @@ describe('UpsertNoteTool', () => {
   it('should validate the tool call correctly', () => {
     expect(
       upsertNoteTool.canExecute({
-        name: UPSERT_NOTE_TOOL_NAME,
+        name: UPSERT_NOTES_TOOL_NAME,
         arguments: '{}',
       }),
     ).toBe(true);

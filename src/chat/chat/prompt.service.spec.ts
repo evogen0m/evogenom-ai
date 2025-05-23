@@ -49,6 +49,7 @@ describe('PromptService', () => {
     scheduledFollowups: [],
     userProfile: null,
     isOnboarded: true,
+    notes: [],
   };
 
   beforeEach(async () => {
@@ -121,6 +122,7 @@ describe('PromptService', () => {
           scheduledFollowups: expect.any(Array),
           userProfile: null,
           isOnboarded: false,
+          notes: expect.any(Array),
         }),
       );
     });
@@ -142,6 +144,7 @@ describe('PromptService', () => {
         mockMappedUserResults,
         expect.objectContaining({
           isOnboarded: true,
+          notes: expect.any(Array),
         }),
       );
       await dbClient
@@ -236,6 +239,32 @@ describe('PromptService', () => {
       expect(prompt).toContain(
         '- Follow-up ID: fu1, Due: 2023-10-27 10:00 Content: Check in on hydration',
       );
+    });
+
+    it('should include private notes when available', () => {
+      const metadata: ChatContextMetadata = {
+        ...defaultChatContextMetadata,
+        notes: [
+          {
+            id: 'note1',
+            content: 'User prefers morning workouts',
+            createdAt: '2023-10-27 09:00',
+          },
+          {
+            id: 'note2',
+            content: 'Struggles with hydration',
+            createdAt: '2023-10-27 10:30',
+          },
+        ],
+      };
+      const prompt = service.formatSystemPrompt([], metadata);
+      expect(prompt).toContain(
+        '# Private Notes (only visible to you, not the user)',
+      );
+      expect(prompt).toContain(
+        '- 2023-10-27 09:00: User prefers morning workouts',
+      );
+      expect(prompt).toContain('- 2023-10-27 10:30: Struggles with hydration');
     });
   });
 });
