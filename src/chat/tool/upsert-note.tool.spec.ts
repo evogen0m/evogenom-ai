@@ -5,7 +5,7 @@ import { DRIZZLE_INSTANCE, DrizzleInstanceType } from 'src/db/drizzle.provider';
 import { createTestingModuleWithDb } from 'test/utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ToolCall } from './tool';
-import { UPSERT_NOTES_TOOL_NAME, UpsertNoteTool } from './upsert-note.tool';
+import { UPSERT_NOTE_TOOL_NAME, UpsertNoteTool } from './upsert-note.tool';
 
 describe('UpsertNoteTool', () => {
   let upsertNoteTool: UpsertNoteTool;
@@ -50,9 +50,9 @@ describe('UpsertNoteTool', () => {
   it('should create a new note when no ID is provided', async () => {
     const noteContent = 'This is a new note.';
     const toolCall: ToolCall = {
-      name: UPSERT_NOTES_TOOL_NAME,
+      name: UPSERT_NOTE_TOOL_NAME,
       arguments: JSON.stringify({
-        notes: [{ content: noteContent }],
+        content: noteContent,
       }),
     };
 
@@ -60,9 +60,9 @@ describe('UpsertNoteTool', () => {
     const result = JSON.parse(resultString);
 
     expect(result.success).toBe(true);
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0].status).toBe('created');
-    const newNoteId = result.results[0].id;
+    expect(result.note.status).toBe('created');
+    expect(result.message).toBe('Note created successfully.');
+    const newNoteId = result.note.id;
 
     const savedNote = await dbClient.query.chatNotes.findFirst({
       where: (notes, { eq }) => eq(notes.id, newNoteId),
@@ -77,9 +77,10 @@ describe('UpsertNoteTool', () => {
     const noteId = randomUUID();
     const noteContent = 'This is a new note with a specific ID.';
     const toolCall: ToolCall = {
-      name: UPSERT_NOTES_TOOL_NAME,
+      name: UPSERT_NOTE_TOOL_NAME,
       arguments: JSON.stringify({
-        notes: [{ id: noteId, content: noteContent }],
+        id: noteId,
+        content: noteContent,
       }),
     };
 
@@ -87,9 +88,9 @@ describe('UpsertNoteTool', () => {
     const result = JSON.parse(resultString);
 
     expect(result.success).toBe(true);
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0].id).toBe(noteId);
-    expect(result.results[0].status).toBe('created');
+    expect(result.note.id).toBe(noteId);
+    expect(result.note.status).toBe('created');
+    expect(result.message).toBe('Note created successfully.');
 
     const savedNote = await dbClient.query.chatNotes.findFirst({
       where: (notes, { eq }) => eq(notes.id, noteId),
@@ -111,9 +112,10 @@ describe('UpsertNoteTool', () => {
 
     const updatedContent = 'Updated note content.';
     const toolCall: ToolCall = {
-      name: UPSERT_NOTES_TOOL_NAME,
+      name: UPSERT_NOTE_TOOL_NAME,
       arguments: JSON.stringify({
-        notes: [{ id: noteId, content: updatedContent }],
+        id: noteId,
+        content: updatedContent,
       }),
     };
 
@@ -121,9 +123,9 @@ describe('UpsertNoteTool', () => {
     const result = JSON.parse(resultString);
 
     expect(result.success).toBe(true);
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0].id).toBe(noteId);
-    expect(result.results[0].status).toBe('updated');
+    expect(result.note.id).toBe(noteId);
+    expect(result.note.status).toBe('updated');
+    expect(result.message).toBe('Note updated successfully.');
 
     const savedNote = await dbClient.query.chatNotes.findFirst({
       where: (notes, { eq }) => eq(notes.id, noteId),
@@ -133,58 +135,11 @@ describe('UpsertNoteTool', () => {
     expect(savedNote?.content).toBe(updatedContent);
   });
 
-  it('should handle multiple note operations in one call (create and update)', async () => {
-    // Existing note to be updated
-    const existingNoteId = randomUUID();
-    const initialContent = 'Initial content for update.';
-    await dbClient.insert(chatNotes).values({
-      id: existingNoteId,
-      chatId: chatId,
-      content: initialContent,
-    });
-
-    // New note to be created
-    const newNoteContent = 'Content for new note.';
-
-    const toolCall: ToolCall = {
-      name: UPSERT_NOTES_TOOL_NAME,
-      arguments: JSON.stringify({
-        notes: [
-          { id: existingNoteId, content: 'Updated content.' },
-          { content: newNoteContent },
-        ],
-      }),
-    };
-
-    const resultString = await upsertNoteTool.execute(userId, toolCall, chatId);
-    const result = JSON.parse(resultString);
-
-    expect(result.success).toBe(true);
-    expect(result.results).toHaveLength(2);
-
-    const updatedResult = result.results.find((r) => r.id === existingNoteId);
-    const createdResult = result.results.find((r) => r.id !== existingNoteId);
-
-    expect(updatedResult?.status).toBe('updated');
-    expect(createdResult?.status).toBe('created');
-    const newNoteId = createdResult?.id;
-
-    const updatedDbNote = await dbClient.query.chatNotes.findFirst({
-      where: (notes, { eq }) => eq(notes.id, existingNoteId),
-    });
-    expect(updatedDbNote?.content).toBe('Updated content.');
-
-    const createdDbNote = await dbClient.query.chatNotes.findFirst({
-      where: (notes, { eq }) => eq(notes.id, newNoteId!),
-    });
-    expect(createdDbNote?.content).toBe(newNoteContent);
-  });
-
   it('should return an error for invalid input (e.g. missing content)', async () => {
     const toolCall: ToolCall = {
-      name: UPSERT_NOTES_TOOL_NAME,
+      name: UPSERT_NOTE_TOOL_NAME,
       arguments: JSON.stringify({
-        notes: [{ id: randomUUID() }], // Missing content
+        id: randomUUID(), // Missing content
       }),
     };
 
@@ -192,13 +147,26 @@ describe('UpsertNoteTool', () => {
     const result = JSON.parse(resultString);
 
     expect(result.success).toBe(false);
-    expect(result.message).toContain('Failed to process notes');
+    expect(result.message).toContain('Failed to process note');
+  });
+
+  it('should return an error for malformed arguments', async () => {
+    const toolCall: ToolCall = {
+      name: UPSERT_NOTE_TOOL_NAME,
+      arguments: 'invalid json',
+    };
+
+    const resultString = await upsertNoteTool.execute(userId, toolCall, chatId);
+    const result = JSON.parse(resultString);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Failed to process note');
   });
 
   it('should validate the tool call correctly', () => {
     expect(
       upsertNoteTool.canExecute({
-        name: UPSERT_NOTES_TOOL_NAME,
+        name: UPSERT_NOTE_TOOL_NAME,
         arguments: '{}',
       }),
     ).toBe(true);

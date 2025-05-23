@@ -9,9 +9,9 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Tool, ToolCall } from './tool';
 
-export const UPSERT_NOTES_TOOL_NAME = 'upsertNotes';
+export const UPSERT_NOTE_TOOL_NAME = 'upsertNote';
 
-const individualNoteSchema = z.object({
+export const upsertNoteSchema = z.object({
   id: z
     .string()
     .uuid()
@@ -22,14 +22,7 @@ const individualNoteSchema = z.object({
   content: z.string().min(1).describe('The content of the note.'),
 });
 
-export const upsertNotesSchema = z.object({
-  notes: z
-    .array(individualNoteSchema)
-    .min(1)
-    .describe('An array of notes to create or update.'),
-});
-
-export type UpsertNotesField = z.infer<typeof upsertNotesSchema>;
+export type UpsertNoteField = z.infer<typeof upsertNoteSchema>;
 
 @Injectable()
 export class UpsertNoteTool implements Tool {
@@ -38,15 +31,15 @@ export class UpsertNoteTool implements Tool {
   toolDefinition: ChatCompletionTool = {
     type: 'function' as const,
     function: {
-      name: UPSERT_NOTES_TOOL_NAME,
+      name: UPSERT_NOTE_TOOL_NAME,
       description:
-        'Create or update one or more notes for the current chat. For each note, if an ID is provided and it exists, it will be updated. Otherwise, a new note will be created (with the provided ID if supplied, or a new one if not).',
-      parameters: zodToJsonSchema(upsertNotesSchema),
+        'Create or update a note for the current chat. If an ID is provided and it exists, it will be updated. Otherwise, a new note will be created (with the provided ID if supplied, or a new one if not). Use this tool to keep notes about the user when he reveals relevant information related to his wellbeing or habits. Remember that the notes are private to you, user cannot see them. Try to keep notes short and concise as possible.',
+      parameters: zodToJsonSchema(upsertNoteSchema),
     },
   } as const;
 
   canExecute(toolCall: ToolCall): boolean {
-    return toolCall.name === UPSERT_NOTES_TOOL_NAME;
+    return toolCall.name === UPSERT_NOTE_TOOL_NAME;
   }
 
   @Transactional()
@@ -56,61 +49,48 @@ export class UpsertNoteTool implements Tool {
     chatId: string,
   ): Promise<string> {
     const tx = this.txHost.tx;
-    const results: Array<{ id: string; status: string; message?: string }> = [];
 
     try {
-      const args = upsertNotesSchema.parse(JSON.parse(toolCall.arguments));
+      const args = upsertNoteSchema.parse(JSON.parse(toolCall.arguments));
+      const noteId = args.id || randomUUID();
 
-      for (const noteItem of args.notes) {
-        const noteId = noteItem.id || randomUUID();
-        try {
-          const existingNote = await tx.query.chatNotes.findFirst({
-            where: and(eq(chatNotes.id, noteId), eq(chatNotes.chatId, chatId)),
-          });
-
-          if (existingNote) {
-            await tx
-              .update(chatNotes)
-              .set({
-                content: noteItem.content,
-                updatedAt: new Date(),
-              })
-              .where(
-                and(eq(chatNotes.id, noteId), eq(chatNotes.chatId, chatId)),
-              );
-            results.push({ id: noteId, status: 'updated' });
-          } else {
-            await tx.insert(chatNotes).values({
-              id: noteId,
-              chatId: chatId,
-              content: noteItem.content,
-              createdAt: new Date(), // Explicitly set createdAt for new notes
-              updatedAt: new Date(),
-            });
-            results.push({ id: noteId, status: 'created' });
-          }
-        } catch (itemError) {
-          results.push({
-            id: noteItem.id || 'unknown_id_on_error',
-            status: 'error',
-            message:
-              itemError instanceof Error
-                ? itemError.message
-                : String(itemError),
-          });
-        }
-      }
-
-      return JSON.stringify({
-        success: true,
-        message: 'Note operations attempted.',
-        results,
+      const existingNote = await tx.query.chatNotes.findFirst({
+        where: and(eq(chatNotes.id, noteId), eq(chatNotes.chatId, chatId)),
       });
+
+      if (existingNote) {
+        await tx
+          .update(chatNotes)
+          .set({
+            content: args.content,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(chatNotes.id, noteId), eq(chatNotes.chatId, chatId)));
+
+        return JSON.stringify({
+          success: true,
+          message: 'Note updated successfully.',
+          note: { id: noteId, status: 'updated' },
+        });
+      } else {
+        await tx.insert(chatNotes).values({
+          id: noteId,
+          chatId: chatId,
+          content: args.content,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        return JSON.stringify({
+          success: true,
+          message: 'Note created successfully.',
+          note: { id: noteId, status: 'created' },
+        });
+      }
     } catch (error) {
       return JSON.stringify({
         success: false,
-        message: `Failed to process notes: ${error.message}`,
-        results,
+        message: `Failed to process note: ${error.message}`,
       });
     }
   }

@@ -17,11 +17,11 @@ import {
   followUps,
   users,
 } from 'src/db';
-import { DELETE_NOTES_TOOL_NAME } from '../tool/delete-note.tool';
+import { DELETE_NOTE_TOOL_NAME } from '../tool/delete-note.tool';
 import { EDIT_WELLNESS_PLAN_TOOL_NAME } from '../tool/edit-wellness-plan.tool';
 import { FOLLOWUP_TOOL_NAME } from '../tool/followup.tool';
 import { COMPLETE_ONBOARDING_TOOL_NAME } from '../tool/onboarding.tool';
-import { UPSERT_NOTES_TOOL_NAME } from '../tool/upsert-note.tool';
+import { UPSERT_NOTE_TOOL_NAME } from '../tool/upsert-note.tool';
 import { MappedUserResult, ResultService } from './result.service';
 
 // Add ChatContextMetadata interface
@@ -374,12 +374,12 @@ ${contextMetadata.wellnessPlan}
     const notesInfo =
       contextMetadata.notes && contextMetadata.notes.length > 0
         ? `
-<private-notes>
+<notes>
 # Private Notes (only visible to you, not the user)
 ${contextMetadata.notes
   .map((note) => `- ${note.createdAt}: ${note.content}`)
   .join('\n')}
-</private-notes>
+</notes>
 `
         : '';
 
@@ -416,12 +416,6 @@ ${genotypingDetails}
 ${userProfileInfo}
 </user-profile>
 
-<user-wellness-plan>
-${wellnessPlanInfo}
-</user-wellness-plan>
-
-${notesInfo}
-
 <tone-and-feel>
 # Take on the following tone and feel in your responses:
 ${toneAndFeel}
@@ -429,11 +423,29 @@ ${toneAndFeel}
 
 <tools>
 ${EDIT_WELLNESS_PLAN_TOOL_NAME} : Use this tool to edit the user's wellness plan. Do not add any extra headings, this wellness plan is displayed in the UI and it's obvious to the user that it's a wellness plan. When use acknowledges your wellness suggestions, use this tool to add your suggestions to the wellness plan.
+---
 ${PATCH_USER_PROFILE_TOOL_NAME} : Use this tool to update the user's profile. You may use this tool to update the user's profile at any time.
+---
 ${FOLLOWUP_TOOL_NAME} : Use this tool to create follow ups for the user.
-${UPSERT_NOTES_TOOL_NAME} : Use this tool to create or update a note for the user. Remember that the notes are private to you, user cannot see them. Try to keep notes short and concise as possible.
-${DELETE_NOTES_TOOL_NAME} : Use this tool to delete a note for the user. Use this tool to delete notes that are you think are no longer relevant.
+---
+${UPSERT_NOTE_TOOL_NAME} : Use this tool to create or update notes for the user, you will keep notes about the user when he reveals relevant information related to his wellbeing or habits. Try to keep notes short and concise as possible. It's important that you will remember important information about the user, so you can use it later to help the user. You may use this tool to update notes at any time. 
+Examples when to use this tool:
+User: I'm allergic to gluten.
+User: I did a workout today, my new personal bench press record is 100kg.
+User: I wake up at 6am every day.
+User: I go to sleep at 10pm every day.
+User: My goal is to deadlift 200kg. I'm currently at 150kg. -> {id: deadlift-goal, content: User is currently at 150kg, his goal is to deadlift 200kg.}
+---
+${DELETE_NOTE_TOOL_NAME} : Use this tool to delete a note for the user. Use this tool to delete notes that are you think are no longer relevant.
 </tools>
+
+<user-wellness-plan>
+${wellnessPlanInfo}
+</user-wellness-plan>
+
+
+${notesInfo}
+
 `;
   }
 
