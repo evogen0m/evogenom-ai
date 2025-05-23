@@ -6,7 +6,7 @@ export interface ToolCall {
 }
 
 export interface Tool {
-  execute: (userId: string, input: ToolCall) => Promise<string>;
+  execute: (userId: string, input: ToolCall, chatId: string) => Promise<string>;
   toolDefinition: ChatCompletionTool;
   canExecute: (toolCall: ToolCall) => boolean;
 }

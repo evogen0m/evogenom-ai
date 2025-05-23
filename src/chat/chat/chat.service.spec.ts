@@ -784,6 +784,7 @@ describe('ChatService', () => {
           name: 'memory',
           arguments: '{"query":"test query"}',
         }),
+        chatId,
       );
 
       // Verify messages in the database - should have user, assistant (with tool calls), tool, and final assistant
@@ -1055,6 +1056,7 @@ describe('ChatService', () => {
           name: 'memory',
           arguments: '{"query":"first query"}',
         }),
+        expect.any(String),
       );
       expect(mockMemoryTool.execute).toHaveBeenCalledWith(
         userId,
@@ -1062,6 +1064,7 @@ describe('ChatService', () => {
           name: 'memory',
           arguments: '{"query":"second query"}',
         }),
+        expect.any(String),
       );
 
       // Verify messages in database
@@ -1210,6 +1213,7 @@ describe('ChatService', () => {
           name: 'memory',
           arguments: '{"query":"failing query"}',
         }),
+        expect.any(String),
       );
 
       // Verify the final message contains error information

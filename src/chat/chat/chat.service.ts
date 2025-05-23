@@ -354,10 +354,14 @@ export class ChatService implements OnApplicationBootstrap {
       let result: string;
       if (tool) {
         try {
-          result = await tool.execute(userId, {
-            name: toolCall.function.name,
-            arguments: toolCall.function.arguments,
-          });
+          result = await tool.execute(
+            userId,
+            {
+              name: toolCall.function.name,
+              arguments: toolCall.function.arguments,
+            },
+            chatId,
+          );
           this.logger.debug(
             `Tool ${toolCall.function.name} executed successfully.`,
           );
