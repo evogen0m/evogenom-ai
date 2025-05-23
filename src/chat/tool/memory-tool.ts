@@ -13,9 +13,9 @@ import { Tool, ToolCall } from './tool';
 
 const SEARCH_MEMORY_TOOL_NAME = 'search_memory';
 const SIMILARITY_THRESHOLD = 0.7;
-const MAX_RESULTS = 3;
-const MESSAGES_BEFORE_COUNT = 5;
-const MESSAGES_AFTER_COUNT = 5;
+const MAX_RESULTS = 50;
+const MESSAGES_BEFORE_COUNT = 2;
+const MESSAGES_AFTER_COUNT = 2;
 
 const searchMemorySchema = z.object({
   searchString: z.string().describe('The string to search for in the memory'),
