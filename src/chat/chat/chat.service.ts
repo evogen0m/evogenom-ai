@@ -27,12 +27,14 @@ import {
 import { ChatStateResponse } from '../dto/chat-state.dto';
 import { ChatState } from '../enum/chat-state.enum';
 import { CancelFollowupTool } from '../tool/cancel-followup.tool';
+import { DeleteNoteTool } from '../tool/delete-note.tool';
 import { EditWellnessPlanTool } from '../tool/edit-wellness-plan.tool';
 import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
 import { OnboardingTool } from '../tool/onboarding.tool';
 import { ProfileTool } from '../tool/profile.tool';
 import { Tool } from '../tool/tool';
+import { UpsertNoteTool } from '../tool/upsert-note.tool';
 import { PromptService } from './prompt.service';
 
 @Injectable()
@@ -50,6 +52,8 @@ export class ChatService implements OnApplicationBootstrap {
     private readonly editWellnessPlanTool: EditWellnessPlanTool,
     private readonly evogenomApiClient: EvogenomApiClient,
     private readonly cognitoService: CognitoService,
+    private readonly upsertNoteTool: UpsertNoteTool,
+    private readonly deleteNoteTool: DeleteNoteTool,
   ) {
     this.tools = [
       this.memoryTool,
@@ -58,6 +62,8 @@ export class ChatService implements OnApplicationBootstrap {
       this.profileTool,
       this.onboardingTool,
       this.editWellnessPlanTool,
+      this.upsertNoteTool,
+      this.deleteNoteTool,
     ];
   }
 

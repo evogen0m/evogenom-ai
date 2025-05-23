@@ -4,6 +4,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -104,4 +105,21 @@ export const followUps = pgTable(
     index('follow_up_due_date_index').on(t.dueDate),
     index('follow_up_status_index').on(t.status),
   ],
+);
+
+export const chatNotes = pgTable(
+  'chat_note',
+  {
+    id: uuid('id').defaultRandom(), // This is the note_id
+    chatId: uuid('chat_id')
+      .notNull()
+      .references(() => chats.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.id, t.chatId] }),
+    chatIdIndex: index('chat_note_chat_id_index').on(t.chatId),
+  }),
 );

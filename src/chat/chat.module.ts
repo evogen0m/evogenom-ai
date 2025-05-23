@@ -8,11 +8,13 @@ import { ChatService } from './chat/chat.service';
 import { PromptService } from './chat/prompt.service';
 import { ResultService } from './chat/result.service';
 import { CancelFollowupTool } from './tool/cancel-followup.tool';
+import { DeleteNoteTool } from './tool/delete-note.tool';
 import { EditWellnessPlanTool } from './tool/edit-wellness-plan.tool';
 import { FollowupTool } from './tool/followup.tool';
 import { MemoryTool } from './tool/memory-tool';
 import { OnboardingTool } from './tool/onboarding.tool';
 import { ProfileTool } from './tool/profile.tool';
+import { UpsertNoteTool } from './tool/upsert-note.tool';
 
 @Module({
   controllers: [ChatController],
@@ -26,6 +28,8 @@ import { ProfileTool } from './tool/profile.tool';
     ProfileTool,
     OnboardingTool,
     EditWellnessPlanTool,
+    UpsertNoteTool,
+    DeleteNoteTool,
   ],
   imports: [OpenAIModule, EvogenomApiClientModule, ContentfulModule, AwsModule],
   exports: [ChatService],

@@ -13,12 +13,14 @@ import { OpenAiProvider } from '../../openai/openai';
 import { ChatEventResponse, ChatRequest } from '../dto/chat';
 import { ChatState } from '../enum/chat-state.enum';
 import { CancelFollowupTool } from '../tool/cancel-followup.tool';
+import { DeleteNoteTool } from '../tool/delete-note.tool';
 import { EditWellnessPlanTool } from '../tool/edit-wellness-plan.tool';
 import { FollowupTool } from '../tool/followup.tool';
 import { MemoryTool } from '../tool/memory-tool';
 import { OnboardingTool } from '../tool/onboarding.tool';
 import { ProfileTool } from '../tool/profile.tool';
 import { Tool } from '../tool/tool';
+import { UpsertNoteTool } from '../tool/upsert-note.tool';
 import { ChatService } from './chat.service';
 import { PromptService } from './prompt.service';
 
@@ -191,6 +193,36 @@ describe('ChatService', () => {
       toolDefinition: mockEditWellnessPlanToolDefinition as any,
     });
 
+    const mockUpsertNoteToolDefinition = {
+      type: 'function',
+      function: {
+        name: 'upsert_note',
+        description: 'Create or update a note',
+        parameters: { type: 'object' },
+      },
+    };
+
+    const mockUpsertNoteTool: Tool = vi.mocked({
+      execute: vi.fn(),
+      canExecute: vi.fn(),
+      toolDefinition: mockUpsertNoteToolDefinition as any,
+    });
+
+    const mockDeleteNoteToolDefinition = {
+      type: 'function',
+      function: {
+        name: 'delete_note',
+        description: 'Delete a note',
+        parameters: { type: 'object' },
+      },
+    };
+
+    const mockDeleteNoteTool: Tool = vi.mocked({
+      execute: vi.fn(),
+      canExecute: vi.fn(),
+      toolDefinition: mockDeleteNoteToolDefinition as any,
+    });
+
     // Added CognitoService mock
     mockCognitoService = {
       getUserLanguage: vi.fn().mockResolvedValue('en'),
@@ -221,6 +253,14 @@ describe('ChatService', () => {
         {
           provide: EditWellnessPlanTool,
           useValue: mockEditWellnessPlanTool,
+        },
+        {
+          provide: UpsertNoteTool,
+          useValue: mockUpsertNoteTool,
+        },
+        {
+          provide: DeleteNoteTool,
+          useValue: mockDeleteNoteTool,
         },
         {
           provide: EvogenomApiClient,
