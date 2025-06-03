@@ -25,6 +25,7 @@ import {
   ChatRequest,
 } from '../dto/chat';
 import { ChatStateResponse } from '../dto/chat-state.dto';
+import { QuickResponsesResponse } from '../dto/quick-responses.dto';
 import { ChatState } from '../enum/chat-state.enum';
 import { CancelFollowupTool } from '../tool/cancel-followup.tool';
 import { EditWellnessPlanTool } from '../tool/edit-wellness-plan.tool';
@@ -840,5 +841,158 @@ export class ChatService implements OnApplicationBootstrap {
       return latestChat.wellnessPlan;
     }
     return null;
+  }
+
+  @Transactional()
+  async getQuickResponses(userId: string): Promise<QuickResponsesResponse> {
+    this.logger.debug(`Generating quick responses for user ${userId}`);
+
+    try {
+      // Ensure user exists and get their chat
+      await this.ensureUserExists(userId);
+      const chat = await this.getOrCreateChat(userId);
+
+      // Get recent conversation history for context
+      const tx = this.txHost.tx;
+      const recentMessages = await tx.query.chatMessages.findMany({
+        where: and(
+          eq(chatMessages.userId, userId),
+          eq(chatMessages.chatId, chat.id),
+          not(eq(chatMessages.role, 'tool')),
+          sql`${chatMessages.toolData} IS NULL`,
+        ),
+        orderBy: [desc(chatMessages.createdAt)],
+        limit: 6, // Last 6 messages for context
+        columns: {
+          role: true,
+          content: true,
+          createdAt: true,
+        },
+      });
+
+      if (recentMessages.length === 0) {
+        this.logger.debug(
+          `No messages found for user ${userId}, returning empty quick responses`,
+        );
+        return { quickResponses: [] };
+      }
+
+      // Reverse to get chronological order
+      recentMessages.reverse();
+
+      // Find the last assistant message
+      const lastAssistantMessage = recentMessages
+        .filter((msg) => msg.role === 'assistant')
+        .pop();
+
+      if (!lastAssistantMessage) {
+        this.logger.debug(
+          `No assistant messages found for user ${userId}, returning empty quick responses`,
+        );
+        return { quickResponses: [] };
+      }
+
+      // Build conversation context
+      const conversationContext = recentMessages.map(
+        (msg) =>
+          `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`,
+      );
+
+      // Get system prompt for quick responses
+      const systemPrompt =
+        await this.promptService.getQuickResponseSystemPrompt(
+          userId,
+          lastAssistantMessage.content,
+          conversationContext,
+        );
+
+      // Use mini client for quick response generation
+      const client = this.openai.getMiniOpenAiClient({
+        sessionId: chat.id,
+      });
+
+      // Define JSON schema for quick responses
+      const quickResponsesSchema = {
+        type: 'object',
+        properties: {
+          responses: {
+            type: 'array',
+            items: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 50,
+            },
+            minItems: 2,
+            maxItems: 4,
+            description: 'Array of quick response options for the user',
+          },
+        },
+        required: ['responses'],
+        additionalProperties: false,
+      };
+
+      const completion = await client.chat.completions.create({
+        model: this.configService.getOrThrow('AZURE_OPENAI_MODEL_MINI'),
+        messages: [{ role: 'system', content: systemPrompt }],
+        temperature: 0.8,
+        max_tokens: 150,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'quick_responses',
+            description: 'Quick response options for chat interface',
+            schema: quickResponsesSchema,
+            strict: true,
+          },
+        },
+      });
+
+      const responseContent = completion.choices[0]?.message?.content;
+
+      if (!responseContent) {
+        this.logger.warn(
+          `Empty response from OpenAI for quick responses for user ${userId}`,
+        );
+        return { quickResponses: [] };
+      }
+
+      try {
+        // Parse the JSON response - expecting object with responses array
+        const parsedResponse = JSON.parse(responseContent);
+
+        if (
+          !parsedResponse.responses ||
+          !Array.isArray(parsedResponse.responses)
+        ) {
+          this.logger.warn(
+            `Invalid response format from OpenAI for quick responses: ${responseContent}`,
+          );
+          return { quickResponses: [] };
+        }
+
+        const quickResponses = parsedResponse.responses
+          .filter((text) => typeof text === 'string' && text.trim().length > 0)
+          .slice(0, 4) // Max 4 responses
+          .map((text) => ({ text: text.trim() }));
+
+        this.logger.debug(
+          `Generated ${quickResponses.length} quick responses for user ${userId}`,
+        );
+        return { quickResponses };
+      } catch (parseError) {
+        this.logger.error(
+          `Failed to parse quick responses JSON for user ${userId}: ${parseError}`,
+          parseError,
+        );
+        this.logger.debug(`Raw response was: ${responseContent}`);
+        return { quickResponses: [] };
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to generate quick responses for user ${userId}: ${error}`,
+        error,
+      );
+      return { quickResponses: [] };
+    }
   }
 }

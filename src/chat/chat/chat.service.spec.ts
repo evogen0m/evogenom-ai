@@ -84,11 +84,13 @@ describe('ChatService', () => {
         .fn()
         .mockReturnValue('formatted mock system prompt'),
       formatUserProfileInfo: vi.fn().mockReturnValue(''),
+      getQuickResponseSystemPrompt: vi.fn(),
     } as unknown as PromptService;
 
     const mockConfigService = {
       getOrThrow: vi.fn().mockImplementation((key) => {
         if (key === 'AZURE_OPENAI_MODEL') return 'mock-model';
+        if (key === 'AZURE_OPENAI_MODEL_MINI') return 'mock-model-mini';
         if (key === 'AZURE_OPENAI_EMBEDDING_MODEL')
           return 'text-embedding-3-small';
         return 'mock-value';
@@ -2039,6 +2041,240 @@ describe('ChatService', () => {
 
       const result = await service.getCurrentWellnessPlan(userId);
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getQuickResponses', () => {
+    it('should return empty quick responses when no messages exist', async () => {
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+
+      const result = await service.getQuickResponses(userId);
+
+      expect(result).toEqual({ quickResponses: [] });
+    });
+
+    it('should return empty quick responses when no assistant messages exist', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'user',
+        content: 'Hello',
+        createdAt: new Date(),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
+
+      const result = await service.getQuickResponses(userId);
+
+      expect(result).toEqual({ quickResponses: [] });
+    });
+
+    it('should generate quick responses when assistant messages exist', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      // Insert conversation messages
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'user',
+        content: 'Hello',
+        createdAt: new Date(Date.now() - 2000),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
+
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'assistant',
+        content: 'Hi there! How are you feeling today?',
+        createdAt: new Date(Date.now() - 1000),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
+
+      // Mock the OpenAI response with structured JSON schema format
+      mockOpenAiClient.chat.completions.create.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                responses: ['Great!', 'Tell me more', 'I need help', 'Thanks!'],
+              }),
+            },
+          },
+        ],
+      });
+
+      const result = await service.getQuickResponses(userId);
+
+      expect(result.quickResponses).toHaveLength(4);
+      expect(result.quickResponses[0].text).toBe('Great!');
+      expect(result.quickResponses[1].text).toBe('Tell me more');
+      expect(result.quickResponses[2].text).toBe('I need help');
+      expect(result.quickResponses[3].text).toBe('Thanks!');
+
+      // Verify the correct model was used
+      expect(mockOpenAiClient.chat.completions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'mock-model-mini',
+          response_format: expect.objectContaining({
+            type: 'json_schema',
+            json_schema: expect.objectContaining({
+              name: 'quick_responses',
+              description: 'Quick response options for chat interface',
+              strict: true,
+            }),
+          }),
+        }),
+      );
+
+      // Verify PromptService was called correctly
+      expect(
+        mockPromptService.getQuickResponseSystemPrompt,
+      ).toHaveBeenCalledWith(
+        userId,
+        'Hi there! How are you feeling today?',
+        expect.arrayContaining([
+          'User: Hello',
+          'Assistant: Hi there! How are you feeling today?',
+        ]),
+      );
+    });
+
+    it('should handle invalid JSON response gracefully', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'assistant',
+        content: 'Hi there!',
+        createdAt: new Date(),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
+
+      // Mock invalid JSON response
+      mockOpenAiClient.chat.completions.create.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: 'invalid json',
+            },
+          },
+        ],
+      });
+
+      const result = await service.getQuickResponses(userId);
+
+      expect(result).toEqual({ quickResponses: [] });
+    });
+
+    it('should handle missing responses property gracefully', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'assistant',
+        content: 'Hi there!',
+        createdAt: new Date(),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
+
+      // Mock response with object but missing responses property
+      mockOpenAiClient.chat.completions.create.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({ someOtherProperty: 'value' }),
+            },
+          },
+        ],
+      });
+
+      const result = await service.getQuickResponses(userId);
+
+      expect(result).toEqual({ quickResponses: [] });
+    });
+
+    it('should filter out empty strings from responses', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'assistant',
+        content: 'Hi there!',
+        createdAt: new Date(),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
+
+      // Mock response with some empty strings
+      mockOpenAiClient.chat.completions.create.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                responses: [
+                  'Great!',
+                  '',
+                  '  ',
+                  'Tell me more',
+                  null,
+                  'Thanks!',
+                ],
+              }),
+            },
+          },
+        ],
+      });
+
+      const result = await service.getQuickResponses(userId);
+
+      expect(result.quickResponses).toHaveLength(3);
+      expect(result.quickResponses.map((r) => r.text)).toEqual([
+        'Great!',
+        'Tell me more',
+        'Thanks!',
+      ]);
     });
   });
 });

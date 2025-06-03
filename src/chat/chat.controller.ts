@@ -29,6 +29,7 @@ import {
   ChatRequest,
 } from './dto/chat';
 import { ChatStateResponse } from './dto/chat-state.dto';
+import { QuickResponsesResponse } from './dto/quick-responses.dto';
 import { WellnessPlanResponse } from './dto/wellness-plan.dto';
 
 class ChatMessagesResponse extends PagedResult<ChatMessageResponse> {
@@ -154,5 +155,17 @@ export class ChatController {
   ): Promise<WellnessPlanResponse> {
     const wellnessPlan = await this.chatService.getCurrentWellnessPlan(user.id);
     return { wellnessPlan };
+  }
+
+  @Get('/quick-responses')
+  @ApiResponse({
+    status: 200,
+    type: QuickResponsesResponse,
+    description: 'Get quick response options for the current user',
+  })
+  async getQuickResponses(
+    @User() user: UserPrincipal,
+  ): Promise<QuickResponsesResponse> {
+    return this.chatService.getQuickResponses(user.id);
   }
 }
