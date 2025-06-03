@@ -332,7 +332,7 @@ describe('ChatService', () => {
   });
 
   describe('getMessages', () => {
-    it('should return messages for a user, excluding tool messages', async () => {
+    it('should return messages for a user, excluding tool messages, respecting default pagination', async () => {
       // Setup
       const userId = randomUUID();
       const chatId = randomUUID();
@@ -342,28 +342,22 @@ describe('ChatService', () => {
       await dbClient.insert(chats).values({ id: chatId, userId });
 
       // Insert messages including a tool message that should be filtered out
-      await dbClient.insert(chatMessages).values({
-        id: randomUUID(),
-        role: 'assistant',
-        content: 'Hi there',
-        createdAt: new Date(),
-        userId,
-        chatId,
-        messageScope: 'COACH',
-        toolData: null,
-        embedding: null,
-      });
-      await dbClient.insert(chatMessages).values({
-        id: randomUUID(),
-        role: 'user',
-        content: 'Hello',
-        createdAt: new Date(Date.now() - 1000),
-        userId,
-        chatId,
-        messageScope: 'COACH',
-        toolData: null,
-        embedding: null,
-      });
+      // Insert more than default pageSize (100 based on service change) to test pagination
+      const totalMessages = 105;
+      for (let i = 0; i < totalMessages; i++) {
+        await dbClient.insert(chatMessages).values({
+          id: randomUUID(),
+          role: i % 3 === 0 ? 'user' : 'assistant', // Mix of user and assistant
+          content: `Message ${i}`,
+          createdAt: new Date(Date.now() - (totalMessages - i) * 1000), // Ensure order
+          userId,
+          chatId,
+          messageScope: 'COACH',
+          toolData: null,
+          embedding: null,
+        });
+      }
+      // Add one tool message
       await dbClient.insert(chatMessages).values({
         id: randomUUID(),
         role: 'tool',
@@ -376,24 +370,30 @@ describe('ChatService', () => {
         embedding: null,
       });
 
-      // Execute
+      // Execute with default pagination
       const result = await service.getMessagesForUi(userId);
 
       // Verify
-      expect(result.length).toEqual(2);
-      // The result is ordered by createdAt DESC (newest first)
-      expect(result[0].role).toEqual('assistant'); // Newest message
-      expect(result[0].content).toEqual('Hi there');
-      expect(result[1].role).toEqual('user'); // Oldest message
-      expect(result[1].content).toEqual('Hello');
+      expect(result.items.length).toEqual(100); // Default pageSize is 100 after user's change
+      expect(result.total).toEqual(totalMessages);
+      expect(result.page).toEqual(0);
+      expect(result.pageSize).toEqual(100);
+
+      // The result.items are ordered by createdAt DESC (newest first)
+      expect(result.items[0].content).toEqual(`Message ${totalMessages - 1}`); // Newest non-tool message
+      expect(result.items[99].content).toEqual(
+        `Message ${totalMessages - 100}`,
+      );
 
       // All messages should be either 'user' or 'assistant' (no 'tool' messages)
       expect(
-        result.every((msg) => msg.role === 'user' || msg.role === 'assistant'),
+        result.items.every(
+          (msg) => msg.role === 'user' || msg.role === 'assistant',
+        ),
       ).toBe(true);
     });
 
-    it('should return a generated welcome message when no messages exist', async () => {
+    it('should return a generated welcome message when no messages exist and on page 0', async () => {
       // Setup
       const userId = randomUUID();
       await dbClient.insert(users).values({ id: userId });
@@ -404,13 +404,15 @@ describe('ChatService', () => {
         choices: [{ message: { content: mockWelcomeContent } }],
       });
 
-      // Execute
+      // Execute with default pagination (page 0)
       const result = await service.getMessagesForUi(userId);
 
       // Verify
-      expect(result.length).toEqual(1);
-      expect(result[0].role).toEqual('assistant');
-      expect(result[0].content).toEqual(mockWelcomeContent);
+      expect(result.items.length).toEqual(1);
+      expect(result.total).toEqual(1);
+      expect(result.page).toEqual(0);
+      expect(result.items[0].role).toEqual('assistant');
+      expect(result.items[0].content).toEqual(mockWelcomeContent);
 
       // Verify PromptService was called for the welcome prompt
       expect(
@@ -431,6 +433,176 @@ describe('ChatService', () => {
       expect(savedMessages.length).toEqual(1);
       expect(savedMessages[0].role).toEqual('assistant');
       expect(savedMessages[0].content).toEqual(mockWelcomeContent);
+    });
+
+    it('should return empty items if requesting a page beyond total messages and no welcome message applicable', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'user',
+        content: 'A single message',
+        userId,
+        chatId,
+        messageScope: 'COACH',
+      });
+
+      const result = await service.getMessagesForUi(userId, 1, 10); // Request page 1 (second page)
+
+      expect(result.items.length).toEqual(0);
+      expect(result.total).toEqual(1);
+      expect(result.page).toEqual(1);
+      expect(result.pageSize).toEqual(10);
+    });
+
+    it('should respect custom page and pageSize parameters', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      const totalMessages = 25;
+      for (let i = 0; i < totalMessages; i++) {
+        await dbClient.insert(chatMessages).values({
+          id: randomUUID(),
+          role: 'user',
+          content: `Message ${i}`,
+          createdAt: new Date(Date.now() - (totalMessages - i) * 1000),
+          userId,
+          chatId,
+          messageScope: 'COACH',
+        });
+      }
+
+      const page = 1;
+      const pageSize = 5;
+      const result = await service.getMessagesForUi(userId, page, pageSize);
+
+      expect(result.items.length).toEqual(pageSize);
+      expect(result.total).toEqual(totalMessages);
+      expect(result.page).toEqual(page);
+      expect(result.pageSize).toEqual(pageSize);
+      // Messages are 0-indexed. Newest is Message 24.
+      // Page 0, pageSize 5: Messages 24, 23, 22, 21, 20
+      // Page 1, pageSize 5: Messages 19, 18, 17, 16, 15
+      expect(result.items[0].content).toEqual('Message 19'); // (total - 1) - (page * pageSize)
+      expect(result.items[4].content).toEqual('Message 15'); // (total - 1) - (page * pageSize) - (pageSize - 1)
+    });
+
+    it('should return the last partial page correctly', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      const totalMessages = 23; // Not an even multiple of pageSize
+      for (let i = 0; i < totalMessages; i++) {
+        await dbClient.insert(chatMessages).values({
+          id: randomUUID(),
+          role: 'user',
+          content: `Message ${i}`,
+          createdAt: new Date(Date.now() - (totalMessages - i) * 1000),
+          userId,
+          chatId,
+          messageScope: 'COACH',
+        });
+      }
+
+      const pageSize = 10;
+      const page = 2; // page 0: 10 msgs, page 1: 10 msgs, page 2: 3 msgs
+      const result = await service.getMessagesForUi(userId, page, pageSize);
+
+      expect(result.items.length).toEqual(3); // Remaining messages
+      expect(result.total).toEqual(totalMessages);
+      expect(result.page).toEqual(page);
+      expect(result.pageSize).toEqual(pageSize);
+      // Newest is Message 22
+      // Page 0: Msgs 22..13
+      // Page 1: Msgs 12..3
+      // Page 2: Msgs 2, 1, 0
+      expect(result.items[0].content).toEqual('Message 2');
+      expect(result.items[2].content).toEqual('Message 0');
+    });
+
+    it('should not generate welcome message if on page > 0, even if total messages are 0 (which should not happen if page > 0)', async () => {
+      const userId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+
+      // Mock OpenAI to check if it's called
+      mockOpenAiClient.chat.completions.create.mockClear();
+
+      // Request page 1, pageSize 10. No messages exist.
+      const result = await service.getMessagesForUi(userId, 1, 10);
+
+      expect(result.items.length).toEqual(0);
+      expect(result.total).toEqual(0);
+      expect(result.page).toEqual(1);
+      expect(result.pageSize).toEqual(10);
+      expect(mockOpenAiClient.chat.completions.create).not.toHaveBeenCalled();
+    });
+
+    it('should use default pageSize of 100 if pageSize is not provided', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      const totalMessages = 105;
+      for (let i = 0; i < totalMessages; i++) {
+        await dbClient.insert(chatMessages).values({
+          id: randomUUID(),
+          role: 'user',
+          content: `Message ${i}`,
+          createdAt: new Date(Date.now() - (totalMessages - i) * 1000),
+          userId,
+          chatId,
+          messageScope: 'COACH',
+        });
+      }
+
+      // Call with page 0, but no pageSize (should default to 100 in service)
+      const result = await service.getMessagesForUi(userId, 0);
+
+      expect(result.items.length).toEqual(100);
+      expect(result.total).toEqual(totalMessages);
+      expect(result.page).toEqual(0);
+      expect(result.pageSize).toEqual(100);
+      expect(result.items[0].content).toEqual(`Message ${totalMessages - 1}`);
+      expect(result.items[99].content).toEqual(
+        `Message ${totalMessages - 100}`,
+      );
+    });
+
+    it('should use default page of 0 if page is not provided', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      const totalMessages = 15;
+      for (let i = 0; i < totalMessages; i++) {
+        await dbClient.insert(chatMessages).values({
+          id: randomUUID(),
+          role: 'user',
+          content: `Message ${i}`,
+          createdAt: new Date(Date.now() - (totalMessages - i) * 1000),
+          userId,
+          chatId,
+          messageScope: 'COACH',
+        });
+      }
+
+      // Call with pageSize, but no page (should default to 0 in service)
+      const result = await service.getMessagesForUi(userId, undefined, 5);
+
+      expect(result.items.length).toEqual(5);
+      expect(result.total).toEqual(totalMessages);
+      expect(result.page).toEqual(0);
+      expect(result.pageSize).toEqual(5);
+      expect(result.items[0].content).toEqual('Message 14');
+      expect(result.items[4].content).toEqual('Message 10');
     });
   });
 

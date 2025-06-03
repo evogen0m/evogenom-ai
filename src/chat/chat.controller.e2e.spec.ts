@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { TestingModule } from '@nestjs/testing';
 import { EventSource } from 'eventsource';
 import { AuthGuard } from 'src/auth/auth/auth.guard';
@@ -36,7 +36,6 @@ describe('ChatController (e2e)', () => {
     chatService = mockDeep<ChatService>();
 
     // Configure mocks BEFORE app init
-    // Setup the mock for createChatStream
     const mockChunkEvent: ChatChunkEventResponse = {
       id: 'chunk-1',
       chunk: 'Hello',
@@ -55,22 +54,22 @@ describe('ChatController (e2e)', () => {
     };
     chatService.createChatStream.mockImplementation(() => mockAsyncGenerator());
 
-    // Setup the mock for getMessages
-    const mockMessages: ChatMessageResponse[] = [
+    // Setup a more generic/default mock for getMessagesForUi here
+    // This will be used if a test doesn't override with mockResolvedValueOnce
+    const defaultMockMessages: ChatMessageResponse[] = [
       {
-        id: 'message-1',
-        content: 'Hello world',
-        role: 'assistant',
-        createdAt: new Date(),
-      },
-      {
-        id: 'message-2',
-        content: 'How can I help?',
+        id: 'default-msg-1',
+        content: 'Default message 1',
         role: 'assistant',
         createdAt: new Date(),
       },
     ];
-    chatService.getMessagesForUi.mockResolvedValue(mockMessages);
+    chatService.getMessagesForUi.mockResolvedValue({
+      items: defaultMockMessages,
+      total: defaultMockMessages.length, // e.g., 1
+      page: 0,
+      pageSize: 10, // Reflecting a common default
+    });
 
     // Setup the mock for getCurrentWellnessPlan
     const mockWellnessPlan =
@@ -98,6 +97,10 @@ describe('ChatController (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    // Enable validation and transformation for DTOs
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
   });
 
@@ -190,36 +193,102 @@ describe('ChatController (e2e)', () => {
   });
 
   describe('when getting chat messages', () => {
-    it('should return all messages for the user', async () => {
-      // Make the request
+    it('should return all messages for the user with pagination info', async () => {
+      // Specific mock for this test case, placed before the request
+      const mockItemsForDefaultCall: ChatMessageResponse[] = [
+        {
+          id: 'message-1-default',
+          content: 'Default Page Content 1',
+          role: 'assistant',
+          createdAt: new Date(),
+        },
+        {
+          id: 'message-2-default',
+          content: 'Default Page Content 2',
+          role: 'assistant',
+          createdAt: new Date(),
+        },
+      ];
+      const expectedDefaultPageSize = 10;
+      const mockTotalForDefault = 25;
+
+      chatService.getMessagesForUi.mockResolvedValueOnce({
+        items: mockItemsForDefaultCall,
+        total: mockTotalForDefault,
+        page: 0,
+        pageSize: expectedDefaultPageSize,
+      });
+
+      // Make the request without query parameters (should use defaults)
       const response = await request(app.getHttpServer())
         .get('/api/chat/messages')
         .expect(200);
 
-      // Verify the service was called correctly
+      // Verify the service was called correctly with default pagination parameters
       // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(chatService.getMessagesForUi).toHaveBeenCalledWith(mockUser.id);
+      expect(chatService.getMessagesForUi).toHaveBeenCalledWith(
+        mockUser.id,
+        0, // Default page from PagedQuery
+        10, // Default pageSize from PagedQuery
+      );
 
-      // Verify the response body
       expect(response.body).toEqual(
         expect.objectContaining({
-          items: expect.arrayContaining([
-            expect.objectContaining({
-              id: 'message-1',
-              content: 'Hello world',
-              role: 'assistant',
-            }),
-            expect.objectContaining({
-              id: 'message-2',
-              content: 'How can I help?',
-              role: 'assistant',
-            }),
-          ]),
+          items: mockItemsForDefaultCall.map((item) => ({
+            ...item,
+            createdAt: item.createdAt.toISOString(), // Compare with ISO string
+          })),
           page: 0,
-          pageSize: 2,
-          total: 2,
+          pageSize: expectedDefaultPageSize,
+          total: mockTotalForDefault,
         }),
       );
+      // expect(response.body.items.length).toBeLessThanOrEqual(expectedDefaultPageSize); // This is implicitly covered by the items match
+    });
+
+    it('should respect page and pageSize query parameters', async () => {
+      const page = 1;
+      const pageSize = 5;
+
+      const specificMockMessages: ChatMessageResponse[] = Array.from(
+        { length: pageSize },
+        (_, i) => ({
+          id: `message-page-${page}-item-${i}`,
+          content: `Content for page ${page}, item ${i}`,
+          role: 'assistant',
+          createdAt: new Date(),
+        }),
+      );
+      const mockTotal = 20;
+
+      // Specific mock for this test case, placed before the request
+      chatService.getMessagesForUi.mockResolvedValueOnce({
+        items: specificMockMessages,
+        total: mockTotal,
+        page: page,
+        pageSize: pageSize,
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(`/api/chat/messages?page=${page}&pageSize=${pageSize}`)
+        .expect(200);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(chatService.getMessagesForUi).toHaveBeenCalledWith(
+        mockUser.id,
+        page,
+        pageSize,
+      );
+
+      expect(response.body).toEqual({
+        items: specificMockMessages.map((msg) => ({
+          ...msg,
+          createdAt: msg.createdAt.toISOString(), // Compare with ISO string
+        })),
+        total: mockTotal,
+        page: page,
+        pageSize: pageSize,
+      });
     });
   });
 
