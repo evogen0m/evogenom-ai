@@ -81,6 +81,31 @@ export const chatMessages = pgTable(
   ],
 );
 
+// New table for caching quick responses
+export const quickResponses = pgTable(
+  'quick_response',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    chatId: uuid('chat_id')
+      .notNull()
+      .references(() => chats.id, { onDelete: 'cascade' }),
+    // The assistant message for which these quick responses were generated
+    assistantMessageId: uuid('assistant_message_id')
+      .notNull()
+      .references(() => chatMessages.id, { onDelete: 'cascade' }),
+    // Array of quick response strings
+    responses: jsonb('responses').$type<string[]>().notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => [
+    index('quick_response_chat_id_assistant_message_id_index').on(
+      t.chatId,
+      t.assistantMessageId,
+    ),
+    index('quick_response_created_at_index').on(t.createdAt),
+  ],
+);
+
 // Follow up models
 export const followUps = pgTable(
   'follow_up',

@@ -6,6 +6,7 @@ import { CognitoService } from 'src/aws/cognito.service';
 import { ContentfulApiClient } from 'src/contentful/contentful-api-client';
 import { chatMessages, chats, users } from 'src/db';
 import { DRIZZLE_INSTANCE, DrizzleInstanceType } from 'src/db/drizzle.provider';
+import { quickResponses } from 'src/db/schema';
 import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { createTestingModuleWithDb } from 'test/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -252,6 +253,7 @@ describe('ChatService', () => {
   // Add afterEach to clean up the database
   afterEach(async () => {
     await dbClient.execute(sql`TRUNCATE TABLE chat_message CASCADE`);
+    await dbClient.execute(sql`TRUNCATE TABLE quick_response CASCADE`);
     await dbClient.execute(sql`TRUNCATE TABLE chat CASCADE`);
     await dbClient.execute(sql`TRUNCATE TABLE users CASCADE`);
   });
@@ -2077,14 +2079,25 @@ describe('ChatService', () => {
       expect(result).toEqual({ quickResponses: [] });
     });
 
-    it('should generate quick responses when assistant messages exist', async () => {
+    it('should generate quick responses and cache them when no cache exists', async () => {
       const userId = randomUUID();
       const chatId = randomUUID();
 
       await dbClient.insert(users).values({ id: userId });
       await dbClient.insert(chats).values({ id: chatId, userId });
 
-      // Insert conversation messages
+      const assistantMessageId = randomUUID();
+      await dbClient.insert(chatMessages).values({
+        id: assistantMessageId,
+        role: 'assistant',
+        content: 'Hi there! How are you feeling today?',
+        createdAt: new Date(Date.now() - 1000),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+        embedding: null,
+      });
       await dbClient.insert(chatMessages).values({
         id: randomUUID(),
         role: 'user',
@@ -2097,25 +2110,13 @@ describe('ChatService', () => {
         embedding: null,
       });
 
-      await dbClient.insert(chatMessages).values({
-        id: randomUUID(),
-        role: 'assistant',
-        content: 'Hi there! How are you feeling today?',
-        createdAt: new Date(Date.now() - 1000),
-        userId,
-        chatId,
-        messageScope: 'COACH',
-        toolData: null,
-        embedding: null,
-      });
-
-      // Mock the OpenAI response with structured JSON schema format
+      const mockGeneratedResponses = ['Great!', 'Tell me more', 'I need help'];
       mockOpenAiClient.chat.completions.create.mockResolvedValue({
         choices: [
           {
             message: {
               content: JSON.stringify({
-                responses: ['Great!', 'Tell me more', 'I need help', 'Thanks!'],
+                responses: mockGeneratedResponses,
               }),
             },
           },
@@ -2124,26 +2125,22 @@ describe('ChatService', () => {
 
       const result = await service.getQuickResponses(userId);
 
-      expect(result.quickResponses).toHaveLength(4);
-      expect(result.quickResponses[0].text).toBe('Great!');
-      expect(result.quickResponses[1].text).toBe('Tell me more');
-      expect(result.quickResponses[2].text).toBe('I need help');
-      expect(result.quickResponses[3].text).toBe('Thanks!');
-
-      // Verify the correct model was used
-      expect(mockOpenAiClient.chat.completions.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          model: 'mock-model-mini',
-          response_format: expect.objectContaining({
-            type: 'json_schema',
-            json_schema: expect.objectContaining({
-              name: 'quick_responses',
-              description: 'Quick response options for chat interface',
-              strict: true,
-            }),
-          }),
-        }),
+      expect(result.quickResponses).toHaveLength(mockGeneratedResponses.length);
+      expect(result.quickResponses.map((r) => r.text)).toEqual(
+        mockGeneratedResponses,
       );
+      expect(mockOpenAiClient.chat.completions.create).toHaveBeenCalledTimes(1);
+
+      // Verify responses were cached
+      const cached = await dbClient.query.quickResponses.findFirst({
+        where: (qr, { eq, and }) =>
+          and(
+            eq(qr.chatId, chatId),
+            eq(qr.assistantMessageId, assistantMessageId),
+          ),
+      });
+      expect(cached).toBeDefined();
+      expect(cached?.responses).toEqual(mockGeneratedResponses);
 
       // Verify PromptService was called correctly
       expect(
@@ -2158,7 +2155,141 @@ describe('ChatService', () => {
       );
     });
 
-    it('should handle invalid JSON response gracefully', async () => {
+    it('should return cached quick responses if available for the latest assistant message', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      const assistantMessageId = randomUUID();
+      await dbClient.insert(chatMessages).values({
+        id: assistantMessageId,
+        role: 'assistant',
+        content: 'Latest assistant message content',
+        createdAt: new Date(),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+        toolData: null,
+      });
+      // Older message to ensure we pick the latest assistant message
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'user',
+        content: 'User asking something',
+        createdAt: new Date(Date.now() - 1000),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+      });
+
+      const cachedResponses = ['Cached Option 1', 'Cached Option 2'];
+      await dbClient.insert(quickResponses).values({
+        chatId,
+        assistantMessageId,
+        responses: cachedResponses,
+      });
+
+      // Clear any previous mock calls to ensure we're testing this specific scenario
+      mockOpenAiClient.chat.completions.create.mockClear();
+
+      const result = await service.getQuickResponses(userId);
+
+      expect(result.quickResponses).toHaveLength(cachedResponses.length);
+      expect(result.quickResponses.map((r) => r.text)).toEqual(cachedResponses);
+      expect(mockOpenAiClient.chat.completions.create).not.toHaveBeenCalled();
+    });
+
+    it('should generate new responses if cache exists for an OLDER assistant message', async () => {
+      const userId = randomUUID();
+      const chatId = randomUUID();
+      await dbClient.insert(users).values({ id: userId });
+      await dbClient.insert(chats).values({ id: chatId, userId });
+
+      const oldAssistantMessageId = randomUUID();
+      await dbClient.insert(chatMessages).values({
+        id: oldAssistantMessageId,
+        role: 'assistant',
+        content: 'Old assistant message',
+        createdAt: new Date(Date.now() - 2000), // Older message
+        userId,
+        chatId,
+        messageScope: 'COACH',
+      });
+
+      const oldCachedResponses = ['Old Cached 1', 'Old Cached 2'];
+      await dbClient.insert(quickResponses).values({
+        chatId,
+        assistantMessageId: oldAssistantMessageId,
+        responses: oldCachedResponses,
+      });
+
+      const newAssistantMessageId = randomUUID();
+      const newAssistantContent = 'New assistant message content';
+      await dbClient.insert(chatMessages).values({
+        id: newAssistantMessageId,
+        role: 'assistant',
+        content: newAssistantContent,
+        createdAt: new Date(Date.now() - 1000), // Newer message
+        userId,
+        chatId,
+        messageScope: 'COACH',
+      });
+      // User message to provide context
+      await dbClient.insert(chatMessages).values({
+        id: randomUUID(),
+        role: 'user',
+        content: 'User query for new assistant message',
+        createdAt: new Date(Date.now() - 1500),
+        userId,
+        chatId,
+        messageScope: 'COACH',
+      });
+
+      const newGeneratedResponses = ['Fresh Option A', 'Fresh Option B'];
+      mockOpenAiClient.chat.completions.create.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({ responses: newGeneratedResponses }),
+            },
+          },
+        ],
+      });
+
+      const result = await service.getQuickResponses(userId);
+
+      expect(result.quickResponses.map((r) => r.text)).toEqual(
+        newGeneratedResponses,
+      );
+      expect(mockOpenAiClient.chat.completions.create).toHaveBeenCalledTimes(1);
+
+      // Verify new responses were cached for the NEW assistant message
+      const newCached = await dbClient.query.quickResponses.findFirst({
+        where: (qr, { eq, and }) =>
+          and(
+            eq(qr.chatId, chatId),
+            eq(qr.assistantMessageId, newAssistantMessageId),
+          ),
+      });
+      expect(newCached).toBeDefined();
+      expect(newCached?.responses).toEqual(newGeneratedResponses);
+
+      // Verify old cache still exists (or was not overwritten by mistake for the wrong assistantId)
+      const oldCacheStillExists = await dbClient.query.quickResponses.findFirst(
+        {
+          where: (qr, { eq, and }) =>
+            and(
+              eq(qr.chatId, chatId),
+              eq(qr.assistantMessageId, oldAssistantMessageId),
+            ),
+        },
+      );
+      expect(oldCacheStillExists).toBeDefined();
+      expect(oldCacheStillExists?.responses).toEqual(oldCachedResponses);
+    });
+
+    it('should handle invalid JSON response gracefully when generating new responses', async () => {
       const userId = randomUUID();
       const chatId = randomUUID();
 

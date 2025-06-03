@@ -14,7 +14,7 @@ import {
 } from 'openai/resources/chat';
 import { CognitoService } from 'src/aws/cognito.service';
 import { AppConfigType } from 'src/config';
-import { chatMessages, chats, users } from 'src/db';
+import { chatMessages, chats, quickResponses, users } from 'src/db';
 import { DbTransactionAdapter } from 'src/db/drizzle.provider';
 import { MessageScope } from 'src/db/schema';
 import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
@@ -845,15 +845,15 @@ export class ChatService implements OnApplicationBootstrap {
 
   @Transactional()
   async getQuickResponses(userId: string): Promise<QuickResponsesResponse> {
-    this.logger.debug(`Generating quick responses for user ${userId}`);
+    this.logger.debug(
+      `Generating or fetching quick responses for user ${userId}`,
+    );
+    const tx = this.txHost.tx;
 
     try {
-      // Ensure user exists and get their chat
       await this.ensureUserExists(userId);
       const chat = await this.getOrCreateChat(userId);
 
-      // Get recent conversation history for context
-      const tx = this.txHost.tx;
       const recentMessages = await tx.query.chatMessages.findMany({
         where: and(
           eq(chatMessages.userId, userId),
@@ -862,8 +862,9 @@ export class ChatService implements OnApplicationBootstrap {
           sql`${chatMessages.toolData} IS NULL`,
         ),
         orderBy: [desc(chatMessages.createdAt)],
-        limit: 6, // Last 6 messages for context
+        limit: 6,
         columns: {
+          id: true, // Need the ID of the assistant message
           role: true,
           content: true,
           createdAt: true,
@@ -877,28 +878,48 @@ export class ChatService implements OnApplicationBootstrap {
         return { quickResponses: [] };
       }
 
-      // Reverse to get chronological order
-      recentMessages.reverse();
+      const lastAssistantMessage = recentMessages.find(
+        (msg) => msg.role === 'assistant',
+      ); // find first from sorted desc
 
-      // Find the last assistant message
-      const lastAssistantMessage = recentMessages
-        .filter((msg) => msg.role === 'assistant')
-        .pop();
-
-      if (!lastAssistantMessage) {
+      if (!lastAssistantMessage || !lastAssistantMessage.content) {
         this.logger.debug(
-          `No assistant messages found for user ${userId}, returning empty quick responses`,
+          `No relevant assistant messages found for user ${userId}, returning empty quick responses`,
         );
         return { quickResponses: [] };
       }
 
-      // Build conversation context
+      // Try to fetch from cache
+      const cachedQuickResponses = await tx.query.quickResponses.findFirst({
+        where: and(
+          eq(quickResponses.chatId, chat.id),
+          eq(quickResponses.assistantMessageId, lastAssistantMessage.id),
+        ),
+        orderBy: [desc(quickResponses.createdAt)], // Get the latest entry if multiple somehow exist
+      });
+
+      if (cachedQuickResponses) {
+        this.logger.debug(
+          `Returning cached quick responses for user ${userId}, assistant message ${lastAssistantMessage.id}`,
+        );
+        return {
+          quickResponses: cachedQuickResponses.responses.map((text) => ({
+            text,
+          })),
+        };
+      }
+
+      this.logger.debug(
+        `No cached quick responses found for assistant message ${lastAssistantMessage.id}. Generating new ones.`,
+      );
+
+      // If not in cache, generate, then save
+      recentMessages.reverse(); // Reverse to get chronological order for prompt context
       const conversationContext = recentMessages.map(
         (msg) =>
           `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`,
       );
 
-      // Get system prompt for quick responses
       const systemPrompt =
         await this.promptService.getQuickResponseSystemPrompt(
           userId,
@@ -906,12 +927,10 @@ export class ChatService implements OnApplicationBootstrap {
           conversationContext,
         );
 
-      // Use mini client for quick response generation
       const client = this.openai.getMiniOpenAiClient({
         sessionId: chat.id,
       });
 
-      // Define JSON schema for quick responses
       const quickResponsesSchema = {
         type: 'object',
         properties: {
@@ -957,7 +976,6 @@ export class ChatService implements OnApplicationBootstrap {
       }
 
       try {
-        // Parse the JSON response - expecting object with responses array
         const parsedResponse = JSON.parse(responseContent);
 
         if (
@@ -970,15 +988,28 @@ export class ChatService implements OnApplicationBootstrap {
           return { quickResponses: [] };
         }
 
-        const quickResponses = parsedResponse.responses
+        const generatedTexts = parsedResponse.responses
           .filter((text) => typeof text === 'string' && text.trim().length > 0)
           .slice(0, 4) // Max 4 responses
-          .map((text) => ({ text: text.trim() }));
+          .map((text) => text.trim());
 
+        if (generatedTexts.length > 0) {
+          // Save to cache
+          await tx.insert(quickResponses).values({
+            chatId: chat.id,
+            assistantMessageId: lastAssistantMessage.id,
+            responses: generatedTexts,
+          });
+          this.logger.debug(
+            `Saved ${generatedTexts.length} new quick responses to cache for assistant message ${lastAssistantMessage.id}`,
+          );
+        }
+
+        const finalQuickResponses = generatedTexts.map((text) => ({ text }));
         this.logger.debug(
-          `Generated ${quickResponses.length} quick responses for user ${userId}`,
+          `Generated ${finalQuickResponses.length} quick responses for user ${userId}`,
         );
-        return { quickResponses };
+        return { quickResponses: finalQuickResponses };
       } catch (parseError) {
         this.logger.error(
           `Failed to parse quick responses JSON for user ${userId}: ${parseError}`,
@@ -989,7 +1020,7 @@ export class ChatService implements OnApplicationBootstrap {
       }
     } catch (error) {
       this.logger.error(
-        `Failed to generate quick responses for user ${userId}: ${error}`,
+        `Failed to generate/fetch quick responses for user ${userId}: ${error}`,
         error,
       );
       return { quickResponses: [] };
