@@ -21,6 +21,7 @@ import { AuthGuard } from 'src/auth/auth/auth.guard';
 import { User } from 'src/auth/decorators';
 import { UserPrincipal } from 'src/auth/UserPrincipal';
 import { PagedResult } from 'src/db';
+import { PagedQuery } from 'src/db/pagination';
 import { ChatService } from './chat/chat.service';
 import {
   ChatChunkEventResponse,
@@ -119,19 +120,17 @@ export class ChatController {
   @ApiResponse({
     status: 200,
     type: ChatMessagesResponse,
-    isArray: true,
     description: 'Get all messages for the current user',
   })
   async getMessages(
     @User() user: UserPrincipal,
+    @Query() query: PagedQuery,
   ): Promise<ChatMessagesResponse> {
-    const messages = await this.chatService.getMessagesForUi(user.id);
-    return {
-      items: messages,
-      total: messages.length,
-      page: 0,
-      pageSize: messages.length,
-    };
+    return this.chatService.getMessagesForUi(
+      user.id,
+      query.page,
+      query.pageSize,
+    );
   }
 
   @Get('/state')

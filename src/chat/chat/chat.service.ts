@@ -16,6 +16,7 @@ import { CognitoService } from 'src/aws/cognito.service';
 import { AppConfigType } from 'src/config';
 import { chatMessages, chats, quickResponses, users } from 'src/db';
 import { DbTransactionAdapter } from 'src/db/drizzle.provider';
+import { PagedResult } from 'src/db/pagination';
 import { MessageScope } from 'src/db/schema';
 import { EvogenomApiClient } from 'src/evogenom-api-client/evogenom-api.client';
 import { OpenAiProvider } from 'src/openai/openai';
@@ -450,46 +451,79 @@ export class ChatService implements OnApplicationBootstrap {
   }
 
   @Transactional()
-  async getMessagesForUi(userId: string): Promise<ChatMessageResponse[]> {
+  async getMessagesForUi(
+    userId: string,
+    page: number = 0,
+    pageSize: number = 100,
+  ): Promise<PagedResult<ChatMessageResponse>> {
     const tx = this.txHost.tx;
 
     // Ensure user and chat exist for initial message generation if needed
     await this.ensureUserExists(userId);
     const chat = await this.getOrCreateChat(userId);
 
-    let messages = await tx.query.chatMessages.findMany({
+    const offset = page * pageSize;
+
+    // Query for total count
+    const totalQuery = tx
+      .select({ count: sql<number>`count(*)` })
+      .from(chatMessages)
+      .where(
+        and(
+          eq(chatMessages.userId, userId),
+          eq(chatMessages.chatId, chat.id),
+          not(eq(chatMessages.role, 'tool')),
+          sql`${chatMessages.toolData} IS NULL`,
+        ),
+      )
+      .then((result) => parseInt(result[0]?.count?.toString() || '0', 10)); // Ensure count is a number
+
+    // Query for messages with pagination
+    const messagesQuery = tx.query.chatMessages.findMany({
       where: and(
         eq(chatMessages.userId, userId),
-        eq(chatMessages.chatId, chat.id), // Ensure messages are for the user's current chat
+        eq(chatMessages.chatId, chat.id),
         not(eq(chatMessages.role, 'tool')),
         sql`${chatMessages.toolData} IS NULL`,
       ),
-      orderBy: [desc(chatMessages.createdAt)], // Fetching in descending order for UI
-      // No limit here initially, as we need to check if it's empty
+      orderBy: [desc(chatMessages.createdAt)],
+      limit: pageSize,
+      offset: offset,
     });
 
-    if (messages.length === 0) {
-      this.logger.log(
-        `No messages found for user ${userId} in chat ${chat.id}. Generating initial welcome message.`,
-      );
+    const [total, dbMessages] = await Promise.all([totalQuery, messagesQuery]);
 
-      // Get OpenAI client for welcome message generation
-      const client = this.openai.getMiniOpenAiClient({
-        sessionId: chat.id, // Use chat.id as sessionID
-      });
+    const itemsToReturn = dbMessages;
+
+    if (page === 0 && itemsToReturn.length === 0 && total === 0) {
+      this.logger.log(
+        `No messages found for user ${userId} in chat ${chat.id} on page 0. Generating initial welcome message.`,
+      );
+      const client = this.openai.getMiniOpenAiClient({ sessionId: chat.id });
       const welcomeMessage = await this._generateAndSaveWelcomeMessage(
         userId,
         chat.id,
         client,
       );
       if (welcomeMessage) {
-        messages = [welcomeMessage];
+        // If a welcome message was created, it's the only item, and total is 1
+        return {
+          items: [ChatMessageResponse.fromDb(welcomeMessage)],
+          total: 1,
+          page,
+          pageSize,
+        };
       }
     }
 
-    // Map all messages (original or the newly created welcome message) to response DTO
-    // Messages are already sorted by createdAt desc from the initial query or are a single new message.
-    return messages.map((message) => ChatMessageResponse.fromDb(message));
+    return {
+      items: itemsToReturn.map((message) =>
+        ChatMessageResponse.fromDb(message),
+      ),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   @Transactional()
