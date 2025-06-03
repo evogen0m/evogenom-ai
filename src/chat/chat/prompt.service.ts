@@ -406,4 +406,48 @@ ${toneAndFeel}
 
 You will next ask details about the user's profile, start by asking for the user's name.`;
   }
+
+  async getQuickResponseSystemPrompt(
+    userId: string,
+    lastAssistantMessage: string,
+    conversationContext: string[],
+  ): Promise<string> {
+    const userTimeZone = await this.getUserTimeZone(userId);
+    const userProfile = await this.getUserProfile(userId);
+    const isOnboarded = await this.getIsUserOnboarded(userId);
+
+    const userProfileInfo = this.formatUserProfileInfo(userProfile);
+
+    const contextMessages = conversationContext
+      .slice(-3) // Last 3 messages for context
+      .map((msg, index) => `${index + 1}. ${msg}`)
+      .join('\n');
+
+    return `
+# Current date and time: ${dateFnsTz.formatInTimeZone(new Date(), userTimeZone, 'yyyy-MM-dd HH:mm')}
+
+# Your Role & Purpose
+You are an AI assistant helping to generate quick response options for a wellness coaching chat app.
+
+# Task
+Generate 3-4 short, natural quick response options that a user might want to send in response to the last assistant message. The responses should:
+- Be conversational and natural
+- Be appropriate for a wellness coaching context
+- Be brief (3-8 words typically)
+- Reflect different types of responses (positive, questioning, requesting more info, etc.)
+- Be relevant to the conversation context
+
+# User Context
+${userProfileInfo}
+- User is ${isOnboarded ? 'onboarded' : 'completing onboarding'}
+
+# Recent Conversation Context
+${contextMessages}
+
+# Last Assistant Message
+"${lastAssistantMessage}"
+
+Generate diverse quick response options that give the user meaningful choices to continue the conversation naturally.
+`;
+  }
 }

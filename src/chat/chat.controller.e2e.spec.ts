@@ -77,6 +77,17 @@ describe('ChatController (e2e)', () => {
       '## Wellness Plan\n\n- Drink more water\n- Exercise daily';
     chatService.getCurrentWellnessPlan.mockResolvedValue(mockWellnessPlan);
 
+    // Setup the mock for getQuickResponses
+    const mockQuickResponses = {
+      quickResponses: [
+        { text: 'That sounds great!' },
+        { text: 'Tell me more' },
+        { text: 'I need help' },
+        { text: 'Thanks!' },
+      ],
+    };
+    chatService.getQuickResponses.mockResolvedValue(mockQuickResponses);
+
     const moduleFixture: TestingModule = await createTestingModuleWithDb({
       imports: [ChatModule],
     })
@@ -229,6 +240,29 @@ describe('ChatController (e2e)', () => {
       expect(response.body).toEqual({
         wellnessPlan:
           '## Wellness Plan\n\n- Drink more water\n- Exercise daily',
+      });
+    });
+  });
+
+  describe('when getting quick responses', () => {
+    it('should return quick response options for the user', async () => {
+      // Make the request
+      const response = await request(app.getHttpServer())
+        .get('/api/chat/quick-responses')
+        .expect(200);
+
+      // Verify the service was called correctly
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(chatService.getQuickResponses).toHaveBeenCalledWith(mockUser.id);
+
+      // Verify the response body
+      expect(response.body).toEqual({
+        quickResponses: [
+          { text: 'That sounds great!' },
+          { text: 'Tell me more' },
+          { text: 'I need help' },
+          { text: 'Thanks!' },
+        ],
       });
     });
   });
