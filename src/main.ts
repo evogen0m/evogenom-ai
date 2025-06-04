@@ -38,7 +38,7 @@ export async function bootstrap() {
   const document = SwaggerModule.createDocument(app, openapiConfig);
   SwaggerModule.setup('api', app, document);
 
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   app.enableShutdownHooks();
 
