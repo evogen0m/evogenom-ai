@@ -12,8 +12,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Tool, ToolCall } from './tool';
 
 const SEARCH_MEMORY_TOOL_NAME = 'search_memory';
-const SIMILARITY_THRESHOLD = 0.7;
-const MAX_RESULTS = 50;
+const MAX_RESULTS = 35;
 const MESSAGES_BEFORE_COUNT = 2;
 const MESSAGES_AFTER_COUNT = 2;
 
@@ -53,7 +52,7 @@ export class MemoryTool implements Tool {
     const results = await this._performSimilaritySearch(userId, embedding);
 
     if (results.length === 0) {
-      return `No relevant memories found for: "${args.searchString}"`;
+      return `No chat history found to search from.`;
     }
 
     const combinedContext = await this._fetchCombinedContext(userId, results);
@@ -94,7 +93,7 @@ export class MemoryTool implements Tool {
   ): Promise<SearchResult[]> {
     const similarity = sql<number>`1 - (${cosineDistance(chatMessages.embedding, embedding)})`;
 
-    return this.txHost.tx
+    const results = await this.txHost.tx
       .select({
         id: chatMessages.id,
         content: chatMessages.content,
@@ -103,11 +102,11 @@ export class MemoryTool implements Tool {
         similarity,
       })
       .from(chatMessages)
-      .where(
-        sql`${chatMessages.userId} = ${userId} AND ${similarity} > ${SIMILARITY_THRESHOLD}`,
-      )
+      .where(eq(chatMessages.userId, userId))
       .orderBy(desc(similarity))
       .limit(MAX_RESULTS);
+
+    return results;
   }
 
   private async _fetchCombinedContext(

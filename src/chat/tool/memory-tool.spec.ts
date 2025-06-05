@@ -176,11 +176,11 @@ describe('MemoryTool', () => {
       expect(result).toContain('This is a summary of the conversation.');
     });
 
-    it('should return a message when no memories are found', async () => {
+    it('should return a message when no chat history exists', async () => {
       // Mock _getUserChatId to return the chatId
       vi.spyOn(memoryTool as any, '_getUserChatId').mockResolvedValue(chatId);
 
-      // Mock similarity search to return an empty array
+      // Mock similarity search to return an empty array (no messages in database)
       vi.spyOn(
         memoryTool as any,
         '_performSimilaritySearch',
@@ -197,10 +197,8 @@ describe('MemoryTool', () => {
       // Execute the tool
       const result = await memoryTool.execute(userId, toolCall);
 
-      // Verify the response for no memories
-      expect(result).toContain(
-        'No relevant memories found for: "something not in memory"',
-      );
+      // Verify the response for no chat history
+      expect(result).toContain('No chat history found to search from.');
     });
 
     it('should handle embedding generation error gracefully', async () => {
