@@ -102,12 +102,11 @@ Please provide the new, complete wellness plan based on these instructions.
     ];
 
     try {
-      const miniClient = this.openaiProvider.getMiniOpenAiClient({
-        sessionId: userId, // Or a more specific session ID if available
-      });
-      const response = await miniClient.chat.completions.create({
-        model: this.configService.getOrThrow('AZURE_OPENAI_MODEL_MINI'),
+      const response = await this.openaiProvider.createChatCompletion({
         messages,
+        sessionId: userId, // Or a more specific session ID if available
+        stream: false,
+        model: 'mini',
         temperature: 0.2,
       });
 

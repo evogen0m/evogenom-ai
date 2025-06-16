@@ -83,15 +83,6 @@ export class ChatService implements OnApplicationBootstrap {
     const userIsOnboarded = await this.promptService.getIsUserOnboarded(userId);
     const currentAgentScope = userIsOnboarded ? 'COACH' : 'ONBOARDING';
 
-    const client =
-      currentAgentScope === 'ONBOARDING'
-        ? this.openai.getMiniOpenAiClient({
-            sessionId: chat.id,
-          })
-        : this.openai.getOpenAiClient({
-            sessionId: chat.id,
-          });
-
     // 1. Save user message
     const userMessageId = randomUUID();
 
@@ -131,9 +122,8 @@ export class ChatService implements OnApplicationBootstrap {
       messagesWithSystem,
       userId,
       chat.id,
-      client,
-      0,
       currentAgentScope,
+      0,
     );
 
     this.logger.log(`Chat stream completed for user ${userId}`);
@@ -143,23 +133,23 @@ export class ChatService implements OnApplicationBootstrap {
     messages: ChatCompletionMessageParam[],
     userId: string,
     chatId: string,
-    client: OpenAI, // Pass client to avoid fetching repeatedly
-    toolCallDepth: number,
     currentAgentScope: MessageScope,
+    toolCallDepth: number,
   ): AsyncGenerator<ChatEventResponse> {
     this.logger.debug(
       `Processing chat turn for user ${userId}, depth ${toolCallDepth}`,
     );
 
     // API call for the current turn
-    const completion = await client.chat.completions.create({
-      model: this.configService.getOrThrow('AZURE_OPENAI_MODEL'),
+    const completion = await this.openai.createChatCompletion({
       messages,
+      sessionId: chatId,
       stream: true,
+      model: currentAgentScope === 'ONBOARDING' ? 'mini' : 'standard',
       tools: this.tools.map((tool) => tool.toolDefinition),
-      tool_choice: 'auto',
+      toolChoice: 'auto',
       temperature: 0.7,
-      top_p: 0.5,
+      topP: 0.5,
     });
 
     // Process response stream
@@ -252,9 +242,8 @@ export class ChatService implements OnApplicationBootstrap {
         nextMessages,
         userId,
         chatId,
-        client,
-        toolCallDepth + 1, // Increment depth
         currentAgentScope,
+        toolCallDepth + 1, // Increment depth
       );
     } else {
       // Handle regular response (no tool calls)
@@ -499,11 +488,9 @@ export class ChatService implements OnApplicationBootstrap {
       this.logger.log(
         `No messages found for user ${userId} in chat ${chat.id} on page 0. Generating initial welcome message.`,
       );
-      const client = this.openai.getMiniOpenAiClient({ sessionId: chat.id });
       const welcomeMessage = await this._generateAndSaveWelcomeMessage(
         userId,
         chat.id,
-        client,
       );
       if (welcomeMessage) {
         // If a welcome message was created, it's the only item, and total is 1
@@ -820,7 +807,6 @@ export class ChatService implements OnApplicationBootstrap {
   private async _generateAndSaveWelcomeMessage(
     userId: string,
     chatId: string,
-    client: OpenAI, // Pass the client to reuse it
   ): Promise<typeof chatMessages.$inferSelect | null> {
     this.logger.log(
       `Generating initial welcome message for user ${userId}, chat ${chatId}.`,
@@ -833,9 +819,11 @@ export class ChatService implements OnApplicationBootstrap {
 
     try {
       // 2. Make a non-streaming call to OpenAI to generate the welcome message
-      const completion = await client.chat.completions.create({
-        model: this.configService.getOrThrow('AZURE_OPENAI_MODEL'),
+      const completion = await this.openai.createChatCompletion({
         messages: [{ role: 'system', content: welcomeSystemPrompt }],
+        sessionId: chatId,
+        stream: false,
+        model: 'mini',
         temperature: 0.7,
       });
 
@@ -974,10 +962,6 @@ export class ChatService implements OnApplicationBootstrap {
           conversationContext,
         );
 
-      const client = this.openai.getMiniOpenAiClient({
-        sessionId: chat.id,
-      });
-
       const quickResponsesSchema = {
         type: 'object',
         properties: {
@@ -997,12 +981,14 @@ export class ChatService implements OnApplicationBootstrap {
         additionalProperties: false,
       };
 
-      const completion = await client.chat.completions.create({
-        model: this.configService.getOrThrow('AZURE_OPENAI_MODEL_MINI'),
+      const completion = await this.openai.createChatCompletion({
         messages: [{ role: 'system', content: systemPrompt }],
+        sessionId: chat.id,
+        stream: false,
+        model: 'mini',
         temperature: 0.8,
-        max_tokens: 150,
-        response_format: {
+        maxTokens: 150,
+        responseFormat: {
           type: 'json_schema',
           json_schema: {
             name: 'quick_responses',

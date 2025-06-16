@@ -54,8 +54,46 @@ describe('ChatService', () => {
       .map((_, i) => (i % 10) * 0.1);
     // Set up OpenAI mock
     openAiProvider = {
-      getOpenAiClient: vi.fn().mockReturnValue(mockOpenAiClient),
-      getMiniOpenAiClient: vi.fn().mockReturnValue(mockOpenAiClient),
+      createChatCompletion: vi.fn().mockImplementation(async (params) => {
+        const {
+          stream,
+          messages,
+          tools,
+          toolChoice,
+          temperature,
+          topP,
+          maxTokens,
+          responseFormat,
+        } = params;
+
+        if (stream) {
+          // Pass all the parameters to the mock OpenAI client
+          return mockOpenAiClient.chat.completions.create({
+            stream: true,
+            messages,
+            model: 'mock-model',
+            ...(tools && { tools }),
+            ...(toolChoice && { tool_choice: toolChoice }),
+            ...(temperature !== undefined && { temperature }),
+            ...(topP !== undefined && { top_p: topP }),
+            ...(maxTokens !== undefined && { max_tokens: maxTokens }),
+            ...(responseFormat && { response_format: responseFormat }),
+          });
+        } else {
+          // Pass all the parameters to the mock OpenAI client
+          return mockOpenAiClient.chat.completions.create({
+            stream: false,
+            messages,
+            model: 'mock-model',
+            ...(tools && { tools }),
+            ...(toolChoice && { tool_choice: toolChoice }),
+            ...(temperature !== undefined && { temperature }),
+            ...(topP !== undefined && { top_p: topP }),
+            ...(maxTokens !== undefined && { max_tokens: maxTokens }),
+            ...(responseFormat && { response_format: responseFormat }),
+          });
+        }
+      }),
       generateEmbedding: vi.fn().mockResolvedValue(mockEmbedding),
     } as unknown as OpenAiProvider;
 
@@ -691,7 +729,7 @@ describe('ChatService', () => {
       await dbClient.insert(users).values({ id: userId });
 
       // Configure mocks for this test
-      (openAiProvider.getOpenAiClient as any).mockReturnValue(mockOpenAiClient);
+      // The createChatCompletion mock is already set up in beforeEach
 
       // Mock the streaming behavior
       mockOpenAiClient.chat.completions.create.mockResolvedValue({
@@ -766,7 +804,7 @@ describe('ChatService', () => {
       await dbClient.insert(users).values({ id: userId });
 
       // Configure mocks for this test
-      (openAiProvider.getOpenAiClient as any).mockReturnValue(mockOpenAiClient);
+      // The createChatCompletion mock is already set up in beforeEach
 
       // Mock the streaming behavior
       mockOpenAiClient.chat.completions.create.mockResolvedValue({

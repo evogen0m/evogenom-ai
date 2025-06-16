@@ -28,14 +28,6 @@ describe('MemoryTool', () => {
     },
   };
 
-  const mockOpenAiClient = {
-    embeddings: {
-      create: vi.fn().mockResolvedValue({
-        data: [{ embedding: Array(1536).fill(0.1) }],
-      }),
-    },
-  };
-
   beforeEach(async () => {
     // Reset mocks
     vi.clearAllMocks();
@@ -45,9 +37,10 @@ describe('MemoryTool', () => {
 
     // Set up OpenAI mock
     openAiProvider = {
-      getOpenAiClient: vi.fn(),
-      getMiniOpenAiClient: vi.fn().mockReturnValue(mockMiniOpenAiClient),
-      getEmbeddingClient: vi.fn().mockReturnValue(mockOpenAiClient),
+      createChatCompletion: vi.fn().mockImplementation(async (params) => {
+        // Return the mock response based on the params
+        return mockMiniOpenAiClient.chat.completions.create(params);
+      }),
       generateEmbedding: vi.fn().mockResolvedValue(mockEmbedding),
     } as unknown as OpenAiProvider;
 
@@ -167,7 +160,7 @@ describe('MemoryTool', () => {
       );
 
       // Verify summary was generated
-      expect(mockMiniOpenAiClient.chat.completions.create).toHaveBeenCalled();
+      expect(openAiProvider.createChatCompletion).toHaveBeenCalled();
 
       // The result should include the summary
       expect(result).toContain(
@@ -327,16 +320,20 @@ describe('MemoryTool', () => {
       await memoryTool.execute(userId, toolCall);
 
       // Verify that the summary request includes context messages
-      const summaryCallArgs =
-        mockMiniOpenAiClient.chat.completions.create.mock.calls[0][0];
+      const createChatCompletionSpy = vi.mocked(
+        openAiProvider.createChatCompletion,
+      );
+      expect(createChatCompletionSpy).toHaveBeenCalled();
+
+      const summaryCallArgs = createChatCompletionSpy.mock.calls[0][0];
 
       // The prompt should contain both the main messages and context
       expect(summaryCallArgs.messages[0].content).toContain(
         'MESSAGE SEPARATOR',
       );
 
-      // Ensure the mini client was called for generating the summary
-      expect(openAiProvider.getMiniOpenAiClient).toHaveBeenCalled();
+      // Ensure the chat completion was called for generating the summary
+      expect(summaryCallArgs.model).toBe('mini');
     });
   });
 });

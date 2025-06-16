@@ -209,11 +209,12 @@ Summary:
     `.trim();
 
     try {
-      const miniClient = this.openai.getMiniOpenAiClient({ sessionId: chatId });
-      const summaryResponse = await miniClient.chat.completions.create({
-        model: this.configService.getOrThrow('AZURE_OPENAI_MODEL_MINI'),
+      const summaryResponse = await this.openai.createChatCompletion({
         messages: [{ role: 'system', content: summaryPrompt }],
-        max_tokens: 1000,
+        sessionId: chatId,
+        stream: false,
+        model: 'mini',
+        maxTokens: 1000,
       });
 
       return (
