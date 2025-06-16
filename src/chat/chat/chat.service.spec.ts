@@ -1976,6 +1976,198 @@ describe('ChatService', () => {
         ),
       ).toBeDefined();
     });
+
+    it('should place tool messages directly after their parent assistant messages regardless of intervening messages', async () => {
+      const toolCallId1 = `tc1-${randomUUID()}`;
+      const toolCallId2 = `tc2-${randomUUID()}`;
+
+      // Create messages with intervening messages between tool calls and their responses
+      await insertMessage({
+        role: 'user',
+        content: 'First user message',
+        createdAt: new Date(Date.now() - 6000),
+      });
+
+      // Assistant message with first tool call
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId1,
+              type: 'function',
+              function: { name: 'tool1', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 5000),
+      });
+
+      // Intervening user message BEFORE tool response
+      await insertMessage({
+        role: 'user',
+        content: 'Intervening user message',
+        createdAt: new Date(Date.now() - 4500),
+      });
+
+      // Tool response for first tool call (comes after intervening message in DB)
+      await insertMessage({
+        role: 'tool',
+        content: 'Tool1 result',
+        toolData: { toolCallId: toolCallId1 },
+        createdAt: new Date(Date.now() - 4000),
+      });
+
+      // Assistant message with second tool call
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId2,
+              type: 'function',
+              function: { name: 'tool2', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 3000),
+      });
+
+      // Another intervening assistant message
+      await insertMessage({
+        role: 'assistant',
+        content: 'Some other assistant response',
+        createdAt: new Date(Date.now() - 2500),
+      });
+
+      // Tool response for second tool call
+      await insertMessage({
+        role: 'tool',
+        content: 'Tool2 result',
+        toolData: { toolCallId: toolCallId2 },
+        createdAt: new Date(Date.now() - 2000),
+      });
+
+      const history = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+
+      // Find the positions of messages in the history
+      const messageRoles = history.map((m) => m.role);
+      const messageContents = history.map((m) => {
+        if (m.role === 'tool' && 'tool_call_id' in m) {
+          return `tool:${(m as any).tool_call_id}`;
+        }
+        if (m.role === 'assistant' && m.tool_calls) {
+          return `assistant:with-tools`;
+        }
+        return m.content;
+      });
+
+      // Verify tool messages come directly after their parent assistant messages
+      const firstAssistantIndex = messageContents.indexOf(
+        'assistant:with-tools',
+      );
+      expect(messageContents[firstAssistantIndex + 1]).toBe(
+        `tool:${toolCallId1}`,
+      );
+
+      const secondAssistantIndex = messageContents.lastIndexOf(
+        'assistant:with-tools',
+      );
+      expect(messageContents[secondAssistantIndex + 1]).toBe(
+        `tool:${toolCallId2}`,
+      );
+
+      // Verify the overall order includes intervening messages at their correct positions
+      expect(messageRoles).toEqual([
+        'system', // timestamp for first user
+        'user', // First user message
+        'assistant', // Assistant with tool call 1
+        'tool', // Tool1 result (moved to be right after its parent)
+        'system', // timestamp for intervening user
+        'user', // Intervening user message
+        'assistant', // Assistant with tool call 2
+        'tool', // Tool2 result (moved to be right after its parent)
+        'assistant', // Some other assistant response
+      ]);
+    });
+
+    it('should handle multiple tool calls in a single assistant message with proper ordering', async () => {
+      const toolCallId1 = `multi-tc1-${randomUUID()}`;
+      const toolCallId2 = `multi-tc2-${randomUUID()}`;
+      const toolCallId3 = `multi-tc3-${randomUUID()}`;
+
+      // Assistant message with multiple tool calls
+      await insertMessage({
+        role: 'assistant',
+        content: null,
+        toolData: {
+          toolCalls: [
+            {
+              id: toolCallId1,
+              type: 'function',
+              function: { name: 'toolA', arguments: '{}' },
+            },
+            {
+              id: toolCallId2,
+              type: 'function',
+              function: { name: 'toolB', arguments: '{}' },
+            },
+            {
+              id: toolCallId3,
+              type: 'function',
+              function: { name: 'toolC', arguments: '{}' },
+            },
+          ],
+        },
+        createdAt: new Date(Date.now() - 5000),
+      });
+
+      // Tool responses come in different order than tool calls
+      await insertMessage({
+        role: 'tool',
+        content: 'ToolB result',
+        toolData: { toolCallId: toolCallId2 },
+        createdAt: new Date(Date.now() - 4000),
+      });
+
+      await insertMessage({
+        role: 'tool',
+        content: 'ToolC result',
+        toolData: { toolCallId: toolCallId3 },
+        createdAt: new Date(Date.now() - 3000),
+      });
+
+      await insertMessage({
+        role: 'tool',
+        content: 'ToolA result',
+        toolData: { toolCallId: toolCallId1 },
+        createdAt: new Date(Date.now() - 2000),
+      });
+
+      const history = await service['getChatHistory'](
+        userId,
+        chatId,
+        agentScope,
+      );
+
+      // All tool responses should come directly after the assistant message
+      expect(history.length).toBe(4); // 1 assistant + 3 tools
+      expect(history[0].role).toBe('assistant');
+      expect(history[1].role).toBe('tool');
+      expect(history[2].role).toBe('tool');
+      expect(history[3].role).toBe('tool');
+
+      // Tool responses should be in the order of tool calls, not creation time
+      expect((history[1] as any).tool_call_id).toBe(toolCallId1);
+      expect((history[2] as any).tool_call_id).toBe(toolCallId2);
+      expect((history[3] as any).tool_call_id).toBe(toolCallId3);
+    });
   });
 
   describe('onApplicationBootstrap', () => {
