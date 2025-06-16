@@ -33,7 +33,10 @@ describe('EditWellnessPlanTool', () => {
 
     // Set up OpenAI mock
     openAiProvider = {
-      getMiniOpenAiClient: vi.fn().mockReturnValue(mockMiniOpenAiClient),
+      createChatCompletion: vi.fn().mockImplementation(async (params) => {
+        // Return the mock response based on the params
+        return mockMiniOpenAiClient.chat.completions.create(params);
+      }),
     } as unknown as OpenAiProvider;
 
     const mockConfigService = {
