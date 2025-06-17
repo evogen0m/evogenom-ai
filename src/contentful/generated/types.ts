@@ -870,12 +870,19 @@ export enum NotificationsOrder {
 export type Package = Entry & _Node & {
   __typename?: 'Package';
   _id: Scalars['ID']['output'];
+  cardDescription: Maybe<PackageCardDescription>;
   contentfulMetadata: ContentfulMetadata;
   linkedFrom: Maybe<PackageLinkingCollections>;
   name: Maybe<Scalars['String']['output']>;
   packageCode: Maybe<Scalars['Int']['output']>;
   subtitle: Maybe<Scalars['String']['output']>;
   sys: Sys;
+};
+
+
+/** [See type definition](https://app.contentful.com/spaces/nslj8lsfnbof/content_types/package) */
+export type PackageCardDescriptionArgs = {
+  locale: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -902,6 +909,54 @@ export type PackageSubtitleArgs = {
   locale: InputMaybe<Scalars['String']['input']>;
 };
 
+export type PackageCardDescription = {
+  __typename?: 'PackageCardDescription';
+  json: Scalars['JSON']['output'];
+  links: PackageCardDescriptionLinks;
+};
+
+export type PackageCardDescriptionAssets = {
+  __typename?: 'PackageCardDescriptionAssets';
+  block: Array<Maybe<Asset>>;
+  hyperlink: Array<Maybe<Asset>>;
+};
+
+export type PackageCardDescriptionEntries = {
+  __typename?: 'PackageCardDescriptionEntries';
+  block: Array<Maybe<Entry>>;
+  hyperlink: Array<Maybe<Entry>>;
+  inline: Array<Maybe<Entry>>;
+};
+
+export type PackageCardDescriptionLinks = {
+  __typename?: 'PackageCardDescriptionLinks';
+  assets: PackageCardDescriptionAssets;
+  entries: PackageCardDescriptionEntries;
+  resources: PackageCardDescriptionResources;
+};
+
+export type PackageCardDescriptionResources = {
+  __typename?: 'PackageCardDescriptionResources';
+  block: Array<PackageCardDescriptionResourcesBlock>;
+  hyperlink: Array<PackageCardDescriptionResourcesHyperlink>;
+  inline: Array<PackageCardDescriptionResourcesInline>;
+};
+
+export type PackageCardDescriptionResourcesBlock = ResourceLink & {
+  __typename?: 'PackageCardDescriptionResourcesBlock';
+  sys: ResourceSys;
+};
+
+export type PackageCardDescriptionResourcesHyperlink = ResourceLink & {
+  __typename?: 'PackageCardDescriptionResourcesHyperlink';
+  sys: ResourceSys;
+};
+
+export type PackageCardDescriptionResourcesInline = ResourceLink & {
+  __typename?: 'PackageCardDescriptionResourcesInline';
+  sys: ResourceSys;
+};
+
 export type PackageCollection = {
   __typename?: 'PackageCollection';
   items: Array<Maybe<Package>>;
@@ -913,6 +968,9 @@ export type PackageCollection = {
 export type PackageFilter = {
   AND: InputMaybe<Array<InputMaybe<PackageFilter>>>;
   OR: InputMaybe<Array<InputMaybe<PackageFilter>>>;
+  cardDescription_contains: InputMaybe<Scalars['String']['input']>;
+  cardDescription_exists: InputMaybe<Scalars['Boolean']['input']>;
+  cardDescription_not_contains: InputMaybe<Scalars['String']['input']>;
   contentfulMetadata: InputMaybe<ContentfulMetadataFilter>;
   name: InputMaybe<Scalars['String']['input']>;
   name_contains: InputMaybe<Scalars['String']['input']>;
@@ -1079,6 +1137,8 @@ export type Query = {
   productCollection: Maybe<ProductCollection>;
   resultRow: Maybe<ResultRow>;
   resultRowCollection: Maybe<ResultRowCollection>;
+  wellnessCoachWelcomeMessage: Maybe<WellnessCoachWelcomeMessage>;
+  wellnessCoachWelcomeMessageCollection: Maybe<WellnessCoachWelcomeMessageCollection>;
 };
 
 
@@ -1239,6 +1299,23 @@ export type QueryResultRowCollectionArgs = {
   preview: InputMaybe<Scalars['Boolean']['input']>;
   skip?: InputMaybe<Scalars['Int']['input']>;
   where: InputMaybe<ResultRowFilter>;
+};
+
+
+export type QueryWellnessCoachWelcomeMessageArgs = {
+  id: Scalars['String']['input'];
+  locale: InputMaybe<Scalars['String']['input']>;
+  preview: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
+export type QueryWellnessCoachWelcomeMessageCollectionArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  locale: InputMaybe<Scalars['String']['input']>;
+  order: InputMaybe<Array<InputMaybe<WellnessCoachWelcomeMessageOrder>>>;
+  preview: InputMaybe<Scalars['Boolean']['input']>;
+  skip?: InputMaybe<Scalars['Int']['input']>;
+  where: InputMaybe<WellnessCoachWelcomeMessageFilter>;
 };
 
 export type ResourceLink = {
@@ -1496,6 +1573,104 @@ export type TaxonomyConcept = {
   __typename?: 'TaxonomyConcept';
   id: Maybe<Scalars['String']['output']>;
 };
+
+/** Wellcome message displayed by the wellness coach in the mobile app [See type definition](https://app.contentful.com/spaces/nslj8lsfnbof/content_types/wellnessCoachWelcomeMessage) */
+export type WellnessCoachWelcomeMessage = Entry & _Node & {
+  __typename?: 'WellnessCoachWelcomeMessage';
+  _id: Scalars['ID']['output'];
+  contentfulMetadata: ContentfulMetadata;
+  exampleQuestions: Maybe<Scalars['String']['output']>;
+  exampleQuestionsText: Maybe<Scalars['String']['output']>;
+  linkedFrom: Maybe<WellnessCoachWelcomeMessageLinkingCollections>;
+  sys: Sys;
+  title: Maybe<Scalars['String']['output']>;
+};
+
+
+/** Wellcome message displayed by the wellness coach in the mobile app [See type definition](https://app.contentful.com/spaces/nslj8lsfnbof/content_types/wellnessCoachWelcomeMessage) */
+export type WellnessCoachWelcomeMessageExampleQuestionsArgs = {
+  locale: InputMaybe<Scalars['String']['input']>;
+};
+
+
+/** Wellcome message displayed by the wellness coach in the mobile app [See type definition](https://app.contentful.com/spaces/nslj8lsfnbof/content_types/wellnessCoachWelcomeMessage) */
+export type WellnessCoachWelcomeMessageExampleQuestionsTextArgs = {
+  locale: InputMaybe<Scalars['String']['input']>;
+};
+
+
+/** Wellcome message displayed by the wellness coach in the mobile app [See type definition](https://app.contentful.com/spaces/nslj8lsfnbof/content_types/wellnessCoachWelcomeMessage) */
+export type WellnessCoachWelcomeMessageLinkedFromArgs = {
+  allowedLocales: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+};
+
+
+/** Wellcome message displayed by the wellness coach in the mobile app [See type definition](https://app.contentful.com/spaces/nslj8lsfnbof/content_types/wellnessCoachWelcomeMessage) */
+export type WellnessCoachWelcomeMessageTitleArgs = {
+  locale: InputMaybe<Scalars['String']['input']>;
+};
+
+export type WellnessCoachWelcomeMessageCollection = {
+  __typename?: 'WellnessCoachWelcomeMessageCollection';
+  items: Array<Maybe<WellnessCoachWelcomeMessage>>;
+  limit: Scalars['Int']['output'];
+  skip: Scalars['Int']['output'];
+  total: Scalars['Int']['output'];
+};
+
+export type WellnessCoachWelcomeMessageFilter = {
+  AND: InputMaybe<Array<InputMaybe<WellnessCoachWelcomeMessageFilter>>>;
+  OR: InputMaybe<Array<InputMaybe<WellnessCoachWelcomeMessageFilter>>>;
+  contentfulMetadata: InputMaybe<ContentfulMetadataFilter>;
+  exampleQuestions: InputMaybe<Scalars['String']['input']>;
+  exampleQuestionsText: InputMaybe<Scalars['String']['input']>;
+  exampleQuestionsText_contains: InputMaybe<Scalars['String']['input']>;
+  exampleQuestionsText_exists: InputMaybe<Scalars['Boolean']['input']>;
+  exampleQuestionsText_in: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  exampleQuestionsText_not: InputMaybe<Scalars['String']['input']>;
+  exampleQuestionsText_not_contains: InputMaybe<Scalars['String']['input']>;
+  exampleQuestionsText_not_in: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  exampleQuestions_contains: InputMaybe<Scalars['String']['input']>;
+  exampleQuestions_exists: InputMaybe<Scalars['Boolean']['input']>;
+  exampleQuestions_in: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  exampleQuestions_not: InputMaybe<Scalars['String']['input']>;
+  exampleQuestions_not_contains: InputMaybe<Scalars['String']['input']>;
+  exampleQuestions_not_in: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  sys: InputMaybe<SysFilter>;
+  title: InputMaybe<Scalars['String']['input']>;
+  title_contains: InputMaybe<Scalars['String']['input']>;
+  title_exists: InputMaybe<Scalars['Boolean']['input']>;
+  title_in: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  title_not: InputMaybe<Scalars['String']['input']>;
+  title_not_contains: InputMaybe<Scalars['String']['input']>;
+  title_not_in: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+};
+
+export type WellnessCoachWelcomeMessageLinkingCollections = {
+  __typename?: 'WellnessCoachWelcomeMessageLinkingCollections';
+  entryCollection: Maybe<EntryCollection>;
+};
+
+
+export type WellnessCoachWelcomeMessageLinkingCollectionsEntryCollectionArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  locale: InputMaybe<Scalars['String']['input']>;
+  preview: InputMaybe<Scalars['Boolean']['input']>;
+  skip?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export enum WellnessCoachWelcomeMessageOrder {
+  SysFirstPublishedAtAsc = 'sys_firstPublishedAt_ASC',
+  SysFirstPublishedAtDesc = 'sys_firstPublishedAt_DESC',
+  SysIdAsc = 'sys_id_ASC',
+  SysIdDesc = 'sys_id_DESC',
+  SysPublishedAtAsc = 'sys_publishedAt_ASC',
+  SysPublishedAtDesc = 'sys_publishedAt_DESC',
+  SysPublishedVersionAsc = 'sys_publishedVersion_ASC',
+  SysPublishedVersionDesc = 'sys_publishedVersion_DESC',
+  TitleAsc = 'title_ASC',
+  TitleDesc = 'title_DESC'
+}
 
 export type _Node = {
   _id: Scalars['ID']['output'];

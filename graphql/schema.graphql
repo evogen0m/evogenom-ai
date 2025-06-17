@@ -1,9 +1,3 @@
-schema {
-  query: Query
-  mutation: Mutation
-  subscription: Subscription
-}
-
 scalar AWSDate
 scalar AWSTime
 scalar AWSDateTime
@@ -20,6 +14,12 @@ directive @aws_iam on FIELD_DEFINITION | OBJECT
 directive @aws_subscribe(mutations: [String!]!) on FIELD_DEFINITION
 directive @aws_auth(cognito_groups: [String!]) on FIELD_DEFINITION
 directive @aws_lambda on FIELD_DEFINITION | OBJECT
+
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
 
 type Address @aws_cognito_user_pools @aws_iam {
   city: String
@@ -52,12 +52,7 @@ type Customer @aws_cognito_user_pools @aws_iam {
   isSampleReady: Boolean
   languageCode: String
   lastName: String
-  orders(
-    filter: ModelOrderFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelOrderConnection
+  orders(filter: ModelOrderFilterInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection): ModelOrderConnection
   owner: ID!
   phoneNumber: String!
   sample: Sample
@@ -125,10 +120,7 @@ type ModelPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam {
   nextToken: String
 }
 
-type ModelPackageProductConnection
-  @aws_api_key
-  @aws_cognito_user_pools
-  @aws_iam {
+type ModelPackageProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam {
   items: [PackageProduct]!
   nextToken: String
 }
@@ -140,16 +132,6 @@ type ModelPaymentConnection @aws_cognito_user_pools @aws_iam {
 
 type ModelProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam {
   items: [Product]!
-  nextToken: String
-}
-
-type ModelReportDataCustomerConnection @aws_cognito_user_pools @aws_iam {
-  items: [ReportDataCustomer]!
-  nextToken: String
-}
-
-type ModelReportDataOrderConnection @aws_cognito_user_pools @aws_iam {
-  items: [ReportDataOrder]!
   nextToken: String
 }
 
@@ -169,174 +151,42 @@ type ModelWebadminSampleConnection @aws_cognito_user_pools @aws_iam {
 }
 
 type Mutation {
-  createConfig(
-    condition: ModelConfigConditionInput
-    input: CreateConfigInput!
-  ): Config @aws_cognito_user_pools @aws_iam
-  createCustomer(
-    condition: ModelCustomerConditionInput
-    input: CreateCustomerInput!
-  ): Customer @aws_cognito_user_pools @aws_iam
-  createGiftOrder(
-    condition: ModelGiftOrderConditionInput
-    input: CreateGiftOrderInput!
-  ): GiftOrder @aws_cognito_user_pools @aws_iam
-  createOrder(
-    condition: ModelOrderConditionInput
-    input: CreateOrderInput!
-  ): Order @aws_cognito_user_pools @aws_iam
-  createOrderPackage(
-    condition: ModelOrderPackageConditionInput
-    input: CreateOrderPackageInput!
-  ): OrderPackage @aws_cognito_user_pools @aws_iam
-  createPackage(
-    condition: ModelPackageConditionInput
-    input: CreatePackageInput!
-  ): Package @aws_cognito_user_pools @aws_iam
-  createPackageProduct(
-    condition: ModelPackageProductConditionInput
-    input: CreatePackageProductInput!
-  ): PackageProduct @aws_cognito_user_pools @aws_iam
-  createPayment(
-    condition: ModelPaymentConditionInput
-    input: CreatePaymentInput!
-  ): Payment @aws_cognito_user_pools @aws_iam
-  createProduct(
-    condition: ModelProductConditionInput
-    input: CreateProductInput!
-  ): Product @aws_cognito_user_pools @aws_iam
-  createReportDataCustomer(
-    condition: ModelReportDataCustomerConditionInput
-    input: CreateReportDataCustomerInput!
-  ): ReportDataCustomer @aws_cognito_user_pools @aws_iam
-  createReportDataOrder(
-    condition: ModelReportDataOrderConditionInput
-    input: CreateReportDataOrderInput!
-  ): ReportDataOrder @aws_cognito_user_pools @aws_iam
-  createResult(
-    condition: ModelResultConditionInput
-    input: CreateResultInput!
-  ): Result @aws_cognito_user_pools @aws_iam
-  createSample(
-    condition: ModelSampleConditionInput
-    input: CreateSampleInput!
-  ): Sample @aws_cognito_user_pools @aws_iam
-  createWebadminSample(
-    condition: ModelWebadminSampleConditionInput
-    input: CreateWebadminSampleInput!
-  ): WebadminSample @aws_cognito_user_pools @aws_iam
-  deleteConfig(
-    condition: ModelConfigConditionInput
-    input: DeleteConfigInput!
-  ): Config @aws_cognito_user_pools @aws_iam
-  deleteCustomer(
-    condition: ModelCustomerConditionInput
-    input: DeleteCustomerInput!
-  ): Customer @aws_cognito_user_pools @aws_iam
-  deleteGiftOrder(
-    condition: ModelGiftOrderConditionInput
-    input: DeleteGiftOrderInput!
-  ): GiftOrder @aws_cognito_user_pools @aws_iam
-  deleteOrder(
-    condition: ModelOrderConditionInput
-    input: DeleteOrderInput!
-  ): Order @aws_cognito_user_pools @aws_iam
-  deleteOrderPackage(
-    condition: ModelOrderPackageConditionInput
-    input: DeleteOrderPackageInput!
-  ): OrderPackage @aws_cognito_user_pools @aws_iam
-  deletePackage(
-    condition: ModelPackageConditionInput
-    input: DeletePackageInput!
-  ): Package @aws_cognito_user_pools @aws_iam
-  deletePackageProduct(
-    condition: ModelPackageProductConditionInput
-    input: DeletePackageProductInput!
-  ): PackageProduct @aws_cognito_user_pools @aws_iam
-  deletePayment(
-    condition: ModelPaymentConditionInput
-    input: DeletePaymentInput!
-  ): Payment @aws_cognito_user_pools @aws_iam
-  deleteProduct(
-    condition: ModelProductConditionInput
-    input: DeleteProductInput!
-  ): Product @aws_cognito_user_pools @aws_iam
-  deleteReportDataCustomer(
-    condition: ModelReportDataCustomerConditionInput
-    input: DeleteReportDataCustomerInput!
-  ): ReportDataCustomer @aws_cognito_user_pools @aws_iam
-  deleteReportDataOrder(
-    condition: ModelReportDataOrderConditionInput
-    input: DeleteReportDataOrderInput!
-  ): ReportDataOrder @aws_cognito_user_pools @aws_iam
-  deleteResult(
-    condition: ModelResultConditionInput
-    input: DeleteResultInput!
-  ): Result @aws_cognito_user_pools @aws_iam
-  deleteSample(
-    condition: ModelSampleConditionInput
-    input: DeleteSampleInput!
-  ): Sample @aws_cognito_user_pools @aws_iam
-  deleteWebadminSample(
-    condition: ModelWebadminSampleConditionInput
-    input: DeleteWebadminSampleInput!
-  ): WebadminSample @aws_cognito_user_pools @aws_iam
-  updateConfig(
-    condition: ModelConfigConditionInput
-    input: UpdateConfigInput!
-  ): Config @aws_cognito_user_pools @aws_iam
-  updateCustomer(
-    condition: ModelCustomerConditionInput
-    input: UpdateCustomerInput!
-  ): Customer @aws_cognito_user_pools @aws_iam
-  updateGiftOrder(
-    condition: ModelGiftOrderConditionInput
-    input: UpdateGiftOrderInput!
-  ): GiftOrder @aws_cognito_user_pools @aws_iam
-  updateOrder(
-    condition: ModelOrderConditionInput
-    input: UpdateOrderInput!
-  ): Order @aws_cognito_user_pools @aws_iam
-  updateOrderPackage(
-    condition: ModelOrderPackageConditionInput
-    input: UpdateOrderPackageInput!
-  ): OrderPackage @aws_cognito_user_pools @aws_iam
-  updatePackage(
-    condition: ModelPackageConditionInput
-    input: UpdatePackageInput!
-  ): Package @aws_cognito_user_pools @aws_iam
-  updatePackageProduct(
-    condition: ModelPackageProductConditionInput
-    input: UpdatePackageProductInput!
-  ): PackageProduct @aws_cognito_user_pools @aws_iam
-  updatePayment(
-    condition: ModelPaymentConditionInput
-    input: UpdatePaymentInput!
-  ): Payment @aws_cognito_user_pools @aws_iam
-  updateProduct(
-    condition: ModelProductConditionInput
-    input: UpdateProductInput!
-  ): Product @aws_cognito_user_pools @aws_iam
-  updateReportDataCustomer(
-    condition: ModelReportDataCustomerConditionInput
-    input: UpdateReportDataCustomerInput!
-  ): ReportDataCustomer @aws_cognito_user_pools @aws_iam
-  updateReportDataOrder(
-    condition: ModelReportDataOrderConditionInput
-    input: UpdateReportDataOrderInput!
-  ): ReportDataOrder @aws_cognito_user_pools @aws_iam
-  updateResult(
-    condition: ModelResultConditionInput
-    input: UpdateResultInput!
-  ): Result @aws_cognito_user_pools @aws_iam
-  updateSample(
-    condition: ModelSampleConditionInput
-    input: UpdateSampleInput!
-  ): Sample @aws_cognito_user_pools @aws_iam
-  updateWebadminSample(
-    condition: ModelWebadminSampleConditionInput
-    input: UpdateWebadminSampleInput!
-  ): WebadminSample @aws_cognito_user_pools @aws_iam
+  createConfig(condition: ModelConfigConditionInput, input: CreateConfigInput!): Config @aws_cognito_user_pools @aws_iam
+  createCustomer(condition: ModelCustomerConditionInput, input: CreateCustomerInput!): Customer @aws_cognito_user_pools @aws_iam
+  createGiftOrder(condition: ModelGiftOrderConditionInput, input: CreateGiftOrderInput!): GiftOrder @aws_cognito_user_pools @aws_iam
+  createOrder(condition: ModelOrderConditionInput, input: CreateOrderInput!): Order @aws_cognito_user_pools @aws_iam
+  createOrderPackage(condition: ModelOrderPackageConditionInput, input: CreateOrderPackageInput!): OrderPackage @aws_cognito_user_pools @aws_iam
+  createPackage(condition: ModelPackageConditionInput, input: CreatePackageInput!): Package @aws_cognito_user_pools @aws_iam
+  createPackageProduct(condition: ModelPackageProductConditionInput, input: CreatePackageProductInput!): PackageProduct @aws_cognito_user_pools @aws_iam
+  createPayment(condition: ModelPaymentConditionInput, input: CreatePaymentInput!): Payment @aws_cognito_user_pools @aws_iam
+  createProduct(condition: ModelProductConditionInput, input: CreateProductInput!): Product @aws_cognito_user_pools @aws_iam
+  createResult(condition: ModelResultConditionInput, input: CreateResultInput!): Result @aws_cognito_user_pools @aws_iam
+  createSample(condition: ModelSampleConditionInput, input: CreateSampleInput!): Sample @aws_cognito_user_pools @aws_iam
+  createWebadminSample(condition: ModelWebadminSampleConditionInput, input: CreateWebadminSampleInput!): WebadminSample @aws_cognito_user_pools @aws_iam
+  deleteConfig(condition: ModelConfigConditionInput, input: DeleteConfigInput!): Config @aws_cognito_user_pools @aws_iam
+  deleteCustomer(condition: ModelCustomerConditionInput, input: DeleteCustomerInput!): Customer @aws_cognito_user_pools @aws_iam
+  deleteGiftOrder(condition: ModelGiftOrderConditionInput, input: DeleteGiftOrderInput!): GiftOrder @aws_cognito_user_pools @aws_iam
+  deleteOrder(condition: ModelOrderConditionInput, input: DeleteOrderInput!): Order @aws_cognito_user_pools @aws_iam
+  deleteOrderPackage(condition: ModelOrderPackageConditionInput, input: DeleteOrderPackageInput!): OrderPackage @aws_cognito_user_pools @aws_iam
+  deletePackage(condition: ModelPackageConditionInput, input: DeletePackageInput!): Package @aws_cognito_user_pools @aws_iam
+  deletePackageProduct(condition: ModelPackageProductConditionInput, input: DeletePackageProductInput!): PackageProduct @aws_cognito_user_pools @aws_iam
+  deletePayment(condition: ModelPaymentConditionInput, input: DeletePaymentInput!): Payment @aws_cognito_user_pools @aws_iam
+  deleteProduct(condition: ModelProductConditionInput, input: DeleteProductInput!): Product @aws_cognito_user_pools @aws_iam
+  deleteResult(condition: ModelResultConditionInput, input: DeleteResultInput!): Result @aws_cognito_user_pools @aws_iam
+  deleteSample(condition: ModelSampleConditionInput, input: DeleteSampleInput!): Sample @aws_cognito_user_pools @aws_iam
+  deleteWebadminSample(condition: ModelWebadminSampleConditionInput, input: DeleteWebadminSampleInput!): WebadminSample @aws_cognito_user_pools @aws_iam
+  updateConfig(condition: ModelConfigConditionInput, input: UpdateConfigInput!): Config @aws_cognito_user_pools @aws_iam
+  updateCustomer(condition: ModelCustomerConditionInput, input: UpdateCustomerInput!): Customer @aws_cognito_user_pools @aws_iam
+  updateGiftOrder(condition: ModelGiftOrderConditionInput, input: UpdateGiftOrderInput!): GiftOrder @aws_cognito_user_pools @aws_iam
+  updateOrder(condition: ModelOrderConditionInput, input: UpdateOrderInput!): Order @aws_cognito_user_pools @aws_iam
+  updateOrderPackage(condition: ModelOrderPackageConditionInput, input: UpdateOrderPackageInput!): OrderPackage @aws_cognito_user_pools @aws_iam
+  updatePackage(condition: ModelPackageConditionInput, input: UpdatePackageInput!): Package @aws_cognito_user_pools @aws_iam
+  updatePackageProduct(condition: ModelPackageProductConditionInput, input: UpdatePackageProductInput!): PackageProduct @aws_cognito_user_pools @aws_iam
+  updatePayment(condition: ModelPaymentConditionInput, input: UpdatePaymentInput!): Payment @aws_cognito_user_pools @aws_iam
+  updateProduct(condition: ModelProductConditionInput, input: UpdateProductInput!): Product @aws_cognito_user_pools @aws_iam
+  updateResult(condition: ModelResultConditionInput, input: UpdateResultInput!): Result @aws_cognito_user_pools @aws_iam
+  updateSample(condition: ModelSampleConditionInput, input: UpdateSampleInput!): Sample @aws_cognito_user_pools @aws_iam
+  updateWebadminSample(condition: ModelWebadminSampleConditionInput, input: UpdateWebadminSampleInput!): WebadminSample @aws_cognito_user_pools @aws_iam
 }
 
 type Order @aws_cognito_user_pools @aws_iam {
@@ -351,12 +201,7 @@ type Order @aws_cognito_user_pools @aws_iam {
   id: ID!
   mobile_pay_payment_id: ID
   owner: ID
-  packages(
-    filter: ModelOrderPackageFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelOrderPackageConnection
+  packages(filter: ModelOrderPackageFilterInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection): ModelOrderPackageConnection
   postal_code: String
   stripe_payment_intent_id: String
   updatedAt: AWSDateTime!
@@ -380,23 +225,14 @@ type Package @aws_api_key @aws_cognito_user_pools @aws_iam {
   description: String
   id: ID!
   images: [AWSURL]
+  isDiscontinued: Boolean
   meta_data: String
   name: String
-  orders(
-    filter: ModelOrderPackageFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelOrderPackageConnection
+  orders(filter: ModelOrderPackageFilterInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection): ModelOrderPackageConnection
   price: String
   productCode: Int
   productType: ProductType
-  products(
-    filter: ModelPackageProductFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelPackageProductConnection
+  products(filter: ModelPackageProductFilterInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection): ModelPackageProductConnection
   short_description: String
   sku: String
   subText: String
@@ -424,7 +260,6 @@ type Payment @aws_cognito_user_pools @aws_iam {
   packageCodes: [Int]
   provider: PaymentProvider
   status: PaymentStatus
-  stripeMetadata: StripePaymentMetadata
   updatedAt: AWSDateTime!
   userId: ID
 }
@@ -436,21 +271,11 @@ type Product @aws_api_key @aws_cognito_user_pools @aws_iam {
   images: [AWSURL]
   meta_data: String
   name: String!
-  packages(
-    filter: ModelPackageProductFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelPackageProductConnection
+  packages(filter: ModelPackageProductFilterInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection): ModelPackageProductConnection
   price: String
   productCode: String!
   productType: ProductType
-  results(
-    filter: ModelResultFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelResultConnection
+  results(filter: ModelResultFilterInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection): ModelResultConnection
   short_description: String
   sku: String
   tax_class: String
@@ -458,264 +283,45 @@ type Product @aws_api_key @aws_cognito_user_pools @aws_iam {
 }
 
 type Query {
-  RDCustomerByMobAppCustomerId(
-    filter: ModelReportDataCustomerFilterInput
-    limit: Int
-    mobileAppCustomerId: ID!
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelReportDataCustomerConnection @aws_cognito_user_pools @aws_iam
-  customerByHasBoughtMainPackage(
-    compound_dateFirstMainPackageBought_id: ModelStringKeyConditionInput
-    filter: ModelCustomerFilterInput
-    hasBoughtMainPackage: Int!
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
-  customerByPhoneNumber(
-    filter: ModelCustomerFilterInput
-    limit: Int
-    nextToken: String
-    phoneNumber: String!
-    sortDirection: ModelSortDirection
-  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
-  customerScanByUpdatedAt(
-    filter: ModelCustomerFilterInput
-    limit: Int
-    nextToken: String
-    scanSortPrimaryKey: Int!
-    sortDirection: ModelSortDirection
-    updatedAt: ModelStringKeyConditionInput
-  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  customerByHasBoughtMainPackage(compound_dateFirstMainPackageBought_id: ModelStringKeyConditionInput, filter: ModelCustomerFilterInput, hasBoughtMainPackage: Int!, limit: Int, nextToken: String, sortDirection: ModelSortDirection): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  customerByPhoneNumber(filter: ModelCustomerFilterInput, limit: Int, nextToken: String, phoneNumber: String!, sortDirection: ModelSortDirection): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  customerScanByUpdatedAt(filter: ModelCustomerFilterInput, limit: Int, nextToken: String, scanSortPrimaryKey: Int!, sortDirection: ModelSortDirection, updatedAt: ModelStringKeyConditionInput): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
   getConfig(id: ID!): Config @aws_api_key @aws_cognito_user_pools @aws_iam
   getCustomer(id: ID!): Customer @aws_cognito_user_pools @aws_iam
-  getCustomerByCognitoSub(
-    filter: ModelCustomerFilterInput
-    limit: Int
-    nextToken: String
-    owner: ID!
-    sortDirection: ModelSortDirection
-  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
-  getCustomerByStripeId(
-    filter: ModelCustomerFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-    stripeId: String!
-  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  getCustomerByCognitoSub(filter: ModelCustomerFilterInput, limit: Int, nextToken: String, owner: ID!, sortDirection: ModelSortDirection): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  getCustomerByStripeId(filter: ModelCustomerFilterInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection, stripeId: String!): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
   getGiftOrder(id: ID!): GiftOrder @aws_cognito_user_pools @aws_iam
   getOrder(id: ID!): Order @aws_cognito_user_pools @aws_iam
-  getOrderPackage(id: ID!): OrderPackage
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
+  getOrderPackage(id: ID!): OrderPackage @aws_api_key @aws_cognito_user_pools @aws_iam
   getPackage(id: ID!): Package @aws_api_key @aws_cognito_user_pools @aws_iam
-  getPackageProduct(id: ID!): PackageProduct
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
+  getPackageProduct(id: ID!): PackageProduct @aws_api_key @aws_cognito_user_pools @aws_iam
   getPayment(id: ID!): Payment @aws_cognito_user_pools @aws_iam
   getProduct(id: ID!): Product @aws_api_key @aws_cognito_user_pools @aws_iam
-  getProductByCode(
-    filter: ModelProductFilterInput
-    limit: Int
-    nextToken: String
-    productCode: String!
-    sortDirection: ModelSortDirection
-  ): ModelProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam
-  getReportDataCustomer(id: ID!): ReportDataCustomer
-    @aws_cognito_user_pools
-    @aws_iam
-  getReportDataOrder(id: ID!): ReportDataOrder @aws_cognito_user_pools @aws_iam
+  getProductByCode(filter: ModelProductFilterInput, limit: Int, nextToken: String, productCode: String!, sortDirection: ModelSortDirection): ModelProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam
   getResult(id: ID!): Result @aws_cognito_user_pools @aws_iam
   getSample(id: ID!): Sample @aws_cognito_user_pools @aws_iam
-  getSampleByName(
-    filter: ModelSampleFilterInput
-    limit: Int
-    name: String!
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelSampleConnection @aws_cognito_user_pools @aws_iam
+  getSampleByName(filter: ModelSampleFilterInput, limit: Int, name: String!, nextToken: String, sortDirection: ModelSortDirection): ModelSampleConnection @aws_cognito_user_pools @aws_iam
   getWebadminSample(id: ID!): WebadminSample @aws_cognito_user_pools @aws_iam
-  listConfigs(
-    filter: ModelConfigFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelConfigConnection @aws_api_key @aws_cognito_user_pools @aws_iam
-  listCustomers(
-    filter: ModelCustomerFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
-  listGiftOrders(
-    filter: ModelGiftOrderFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelGiftOrderConnection @aws_cognito_user_pools @aws_iam
-  listOrderPackages(
-    filter: ModelOrderPackageFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelOrderPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam
-  listOrders(
-    filter: ModelOrderFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelOrderConnection @aws_cognito_user_pools @aws_iam
-  listPackageProducts(
-    filter: ModelPackageProductFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelPackageProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam
-  listPackages(
-    filter: ModelPackageFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam
-  listPayments(
-    filter: ModelPaymentFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelPaymentConnection @aws_cognito_user_pools @aws_iam
-  listProducts(
-    filter: ModelProductFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam
-  listReportDataCustomers(
-    filter: ModelReportDataCustomerFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelReportDataCustomerConnection @aws_cognito_user_pools @aws_iam
-  listReportDataOrders(
-    filter: ModelReportDataOrderFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelReportDataOrderConnection @aws_cognito_user_pools @aws_iam
-  listResults(
-    filter: ModelResultFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelResultConnection @aws_cognito_user_pools @aws_iam
-  listSamples(
-    filter: ModelSampleFilterInput
-    limit: Int
-    nextToken: String
-  ): ModelSampleConnection @aws_cognito_user_pools @aws_iam
-  listWebadminSamples(
-    filter: ModelWebadminSampleFilterInput
-    id: ID
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelWebadminSampleConnection @aws_cognito_user_pools @aws_iam
-  orderByEPassiPayPaymentId(
-    epassi_payment_id: ID!
-    filter: ModelOrderFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelOrderConnection @aws_cognito_user_pools @aws_iam
-  orderByMobilePayPaymentId(
-    filter: ModelOrderFilterInput
-    limit: Int
-    mobile_pay_payment_id: ID!
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelOrderConnection @aws_cognito_user_pools @aws_iam
-  orderByOwner(
-    filter: ModelOrderFilterInput
-    id: ModelIDKeyConditionInput
-    limit: Int
-    nextToken: String
-    owner: ID!
-    sortDirection: ModelSortDirection
-  ): ModelOrderConnection @aws_cognito_user_pools @aws_iam
-  orderByStripePaymentIntentId(
-    filter: ModelOrderFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-    stripe_payment_intent_id: String!
-  ): ModelOrderConnection @aws_cognito_user_pools @aws_iam
-  packageByCode(
-    filter: ModelPackageFilterInput
-    limit: Int
-    nextToken: String
-    productCode: Int!
-    sortDirection: ModelSortDirection
-  ): ModelPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam
-  resultByOwner(
-    filter: ModelResultFilterInput
-    id: ModelIDKeyConditionInput
-    limit: Int
-    nextToken: String
-    owner: ID!
-    sortDirection: ModelSortDirection
-  ): ModelResultConnection @aws_cognito_user_pools @aws_iam
-  sampleByCustomer(
-    filter: ModelSampleFilterInput
-    id: ModelIDKeyConditionInput
-    limit: Int
-    nextToken: String
-    sampleCustomerId: ID!
-    sortDirection: ModelSortDirection
-  ): ModelSampleConnection @aws_cognito_user_pools @aws_iam
-  webadminSampleByCustomer(
-    filter: ModelWebadminSampleFilterInput
-    id: ModelIDKeyConditionInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-    webadminSampleCustomerId: ID!
-  ): ModelWebadminSampleConnection @aws_cognito_user_pools @aws_iam
-}
-
-type ReportDataCustomer @aws_cognito_user_pools @aws_iam {
-  address: Address
-  createdAt: AWSDateTime!
-  customer: Customer
-  email: String
-  firstName: String
-  id: ID!
-  language: String
-  lastName: String
-  mobileAppCustomerId: ID
-  orders(
-    filter: ModelReportDataOrderFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelReportDataOrderConnection
-  phoneNumber: String
-  resultsReadyDate: String
-  updatedAt: AWSDateTime!
-}
-
-type ReportDataOrder @aws_cognito_user_pools @aws_iam {
-  campaign: String
-  coupon: String
-  createdAt: AWSDateTime!
-  customer: ReportDataCustomer
-  details: String
-  discount: Float
-  id: ID!
-  mobileAppOrderId: Order
-  orderDate: String
-  orderSource: String
-  paymentMethod: String
-  price: Float
-  products: [ReportDataProduct]
-  reportDataCustomerOrdersId: ID
-  reportDataOrderMobileAppOrderIdId: ID
-  updatedAt: AWSDateTime!
-  vatRate: Float
-}
-
-type ReportDataProduct @aws_cognito_user_pools @aws_iam {
-  name: String
-  price: Float
+  listConfigs(filter: ModelConfigFilterInput, limit: Int, nextToken: String): ModelConfigConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  listCustomers(filter: ModelCustomerFilterInput, limit: Int, nextToken: String): ModelCustomerConnection @aws_cognito_user_pools @aws_iam
+  listGiftOrders(filter: ModelGiftOrderFilterInput, limit: Int, nextToken: String): ModelGiftOrderConnection @aws_cognito_user_pools @aws_iam
+  listOrderPackages(filter: ModelOrderPackageFilterInput, limit: Int, nextToken: String): ModelOrderPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  listOrders(filter: ModelOrderFilterInput, limit: Int, nextToken: String): ModelOrderConnection @aws_cognito_user_pools @aws_iam
+  listPackageProducts(filter: ModelPackageProductFilterInput, limit: Int, nextToken: String): ModelPackageProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  listPackages(filter: ModelPackageFilterInput, limit: Int, nextToken: String): ModelPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  listPayments(filter: ModelPaymentFilterInput, limit: Int, nextToken: String): ModelPaymentConnection @aws_cognito_user_pools @aws_iam
+  listProducts(filter: ModelProductFilterInput, limit: Int, nextToken: String): ModelProductConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  listResults(filter: ModelResultFilterInput, limit: Int, nextToken: String): ModelResultConnection @aws_cognito_user_pools @aws_iam
+  listSamples(filter: ModelSampleFilterInput, limit: Int, nextToken: String): ModelSampleConnection @aws_cognito_user_pools @aws_iam
+  listWebadminSamples(filter: ModelWebadminSampleFilterInput, id: ID, limit: Int, nextToken: String, sortDirection: ModelSortDirection): ModelWebadminSampleConnection @aws_cognito_user_pools @aws_iam
+  orderByEPassiPayPaymentId(epassi_payment_id: ID!, filter: ModelOrderFilterInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection): ModelOrderConnection @aws_cognito_user_pools @aws_iam
+  orderByMobilePayPaymentId(filter: ModelOrderFilterInput, limit: Int, mobile_pay_payment_id: ID!, nextToken: String, sortDirection: ModelSortDirection): ModelOrderConnection @aws_cognito_user_pools @aws_iam
+  orderByOwner(filter: ModelOrderFilterInput, id: ModelIDKeyConditionInput, limit: Int, nextToken: String, owner: ID!, sortDirection: ModelSortDirection): ModelOrderConnection @aws_cognito_user_pools @aws_iam
+  orderByStripePaymentIntentId(filter: ModelOrderFilterInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection, stripe_payment_intent_id: String!): ModelOrderConnection @aws_cognito_user_pools @aws_iam
+  packageByCode(filter: ModelPackageFilterInput, limit: Int, nextToken: String, productCode: Int!, sortDirection: ModelSortDirection): ModelPackageConnection @aws_api_key @aws_cognito_user_pools @aws_iam
+  resultByOwner(filter: ModelResultFilterInput, id: ModelIDKeyConditionInput, limit: Int, nextToken: String, owner: ID!, sortDirection: ModelSortDirection): ModelResultConnection @aws_cognito_user_pools @aws_iam
+  sampleByCustomer(filter: ModelSampleFilterInput, id: ModelIDKeyConditionInput, limit: Int, nextToken: String, sampleCustomerId: ID!, sortDirection: ModelSortDirection): ModelSampleConnection @aws_cognito_user_pools @aws_iam
+  webadminSampleByCustomer(filter: ModelWebadminSampleFilterInput, id: ModelIDKeyConditionInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection, webadminSampleCustomerId: ID!): ModelWebadminSampleConnection @aws_cognito_user_pools @aws_iam
 }
 
 type Result @aws_cognito_user_pools @aws_iam {
@@ -738,295 +344,49 @@ type Sample @aws_cognito_user_pools @aws_iam {
   name: String!
   owner: ID
   phoneNumber: AWSPhone!
-  results(
-    filter: ModelResultFilterInput
-    limit: Int
-    nextToken: String
-    sortDirection: ModelSortDirection
-  ): ModelResultConnection
+  results(filter: ModelResultFilterInput, limit: Int, nextToken: String, sortDirection: ModelSortDirection): ModelResultConnection
   sampleCustomerId: ID
   status: SampleStatus
   updatedAt: AWSDateTime!
 }
 
-type StripePaymentMetadata @aws_cognito_user_pools @aws_iam {
-  paymentIntentId: String
-}
-
 type Subscription {
-  onCreateConfig(filter: ModelSubscriptionConfigFilterInput): Config
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createConfig"])
-  onCreateCustomer(
-    filter: ModelSubscriptionCustomerFilterInput
-    owner: String
-  ): Customer
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createCustomer"])
-  onCreateGiftOrder(
-    filter: ModelSubscriptionGiftOrderFilterInput
-    owner: String
-  ): GiftOrder
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createGiftOrder"])
-  onCreateOrder(
-    filter: ModelSubscriptionOrderFilterInput
-    owner: String
-  ): Order
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createOrder"])
-  onCreateOrderPackage(
-    filter: ModelSubscriptionOrderPackageFilterInput
-    owner: String
-  ): OrderPackage
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createOrderPackage"])
-  onCreatePackage(filter: ModelSubscriptionPackageFilterInput): Package
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createPackage"])
-  onCreatePackageProduct(
-    filter: ModelSubscriptionPackageProductFilterInput
-  ): PackageProduct
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createPackageProduct"])
-  onCreatePayment(
-    filter: ModelSubscriptionPaymentFilterInput
-    userId: String
-  ): Payment
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createPayment"])
-  onCreateProduct(filter: ModelSubscriptionProductFilterInput): Product
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createProduct"])
-  onCreateReportDataCustomer(
-    filter: ModelSubscriptionReportDataCustomerFilterInput
-  ): ReportDataCustomer
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createReportDataCustomer"])
-  onCreateReportDataOrder(
-    filter: ModelSubscriptionReportDataOrderFilterInput
-  ): ReportDataOrder
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createReportDataOrder"])
-  onCreateResult(
-    filter: ModelSubscriptionResultFilterInput
-    owner: String
-  ): Result
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createResult"])
-  onCreateSample(
-    filter: ModelSubscriptionSampleFilterInput
-    owner: String
-  ): Sample
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createSample"])
-  onCreateWebadminSample(
-    filter: ModelSubscriptionWebadminSampleFilterInput
-    webadminSampleCustomerId: String
-  ): WebadminSample
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["createWebadminSample"])
-  onDeleteConfig(filter: ModelSubscriptionConfigFilterInput): Config
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteConfig"])
-  onDeleteCustomer(
-    filter: ModelSubscriptionCustomerFilterInput
-    owner: String
-  ): Customer
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteCustomer"])
-  onDeleteGiftOrder(
-    filter: ModelSubscriptionGiftOrderFilterInput
-    owner: String
-  ): GiftOrder
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteGiftOrder"])
-  onDeleteOrder(
-    filter: ModelSubscriptionOrderFilterInput
-    owner: String
-  ): Order
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteOrder"])
-  onDeleteOrderPackage(
-    filter: ModelSubscriptionOrderPackageFilterInput
-    owner: String
-  ): OrderPackage
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteOrderPackage"])
-  onDeletePackage(filter: ModelSubscriptionPackageFilterInput): Package
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deletePackage"])
-  onDeletePackageProduct(
-    filter: ModelSubscriptionPackageProductFilterInput
-  ): PackageProduct
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deletePackageProduct"])
-  onDeletePayment(
-    filter: ModelSubscriptionPaymentFilterInput
-    userId: String
-  ): Payment
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deletePayment"])
-  onDeleteProduct(filter: ModelSubscriptionProductFilterInput): Product
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteProduct"])
-  onDeleteReportDataCustomer(
-    filter: ModelSubscriptionReportDataCustomerFilterInput
-  ): ReportDataCustomer
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteReportDataCustomer"])
-  onDeleteReportDataOrder(
-    filter: ModelSubscriptionReportDataOrderFilterInput
-  ): ReportDataOrder
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteReportDataOrder"])
-  onDeleteResult(
-    filter: ModelSubscriptionResultFilterInput
-    owner: String
-  ): Result
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteResult"])
-  onDeleteSample(
-    filter: ModelSubscriptionSampleFilterInput
-    owner: String
-  ): Sample
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteSample"])
-  onDeleteWebadminSample(
-    filter: ModelSubscriptionWebadminSampleFilterInput
-    webadminSampleCustomerId: String
-  ): WebadminSample
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["deleteWebadminSample"])
-  onUpdateConfig(filter: ModelSubscriptionConfigFilterInput): Config
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateConfig"])
-  onUpdateCustomer(
-    filter: ModelSubscriptionCustomerFilterInput
-    owner: String
-  ): Customer
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateCustomer"])
-  onUpdateGiftOrder(
-    filter: ModelSubscriptionGiftOrderFilterInput
-    owner: String
-  ): GiftOrder
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateGiftOrder"])
-  onUpdateOrder(
-    filter: ModelSubscriptionOrderFilterInput
-    owner: String
-  ): Order
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateOrder"])
-  onUpdateOrderPackage(
-    filter: ModelSubscriptionOrderPackageFilterInput
-    owner: String
-  ): OrderPackage
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateOrderPackage"])
-  onUpdatePackage(filter: ModelSubscriptionPackageFilterInput): Package
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updatePackage"])
-  onUpdatePackageProduct(
-    filter: ModelSubscriptionPackageProductFilterInput
-  ): PackageProduct
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updatePackageProduct"])
-  onUpdatePayment(
-    filter: ModelSubscriptionPaymentFilterInput
-    userId: String
-  ): Payment
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updatePayment"])
-  onUpdateProduct(filter: ModelSubscriptionProductFilterInput): Product
-    @aws_api_key
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateProduct"])
-  onUpdateReportDataCustomer(
-    filter: ModelSubscriptionReportDataCustomerFilterInput
-  ): ReportDataCustomer
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateReportDataCustomer"])
-  onUpdateReportDataOrder(
-    filter: ModelSubscriptionReportDataOrderFilterInput
-  ): ReportDataOrder
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateReportDataOrder"])
-  onUpdateResult(
-    filter: ModelSubscriptionResultFilterInput
-    owner: String
-  ): Result
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateResult"])
-  onUpdateSample(
-    filter: ModelSubscriptionSampleFilterInput
-    owner: String
-  ): Sample
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateSample"])
-  onUpdateWebadminSample(
-    filter: ModelSubscriptionWebadminSampleFilterInput
-    webadminSampleCustomerId: String
-  ): WebadminSample
-    @aws_cognito_user_pools
-    @aws_iam
-    @aws_subscribe(mutations: ["updateWebadminSample"])
+  onCreateConfig(filter: ModelSubscriptionConfigFilterInput): Config @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createConfig"])
+  onCreateCustomer(filter: ModelSubscriptionCustomerFilterInput, owner: String): Customer @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createCustomer"])
+  onCreateGiftOrder(filter: ModelSubscriptionGiftOrderFilterInput, owner: String): GiftOrder @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createGiftOrder"])
+  onCreateOrder(filter: ModelSubscriptionOrderFilterInput, owner: String): Order @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createOrder"])
+  onCreateOrderPackage(filter: ModelSubscriptionOrderPackageFilterInput, owner: String): OrderPackage @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createOrderPackage"])
+  onCreatePackage(filter: ModelSubscriptionPackageFilterInput): Package @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createPackage"])
+  onCreatePackageProduct(filter: ModelSubscriptionPackageProductFilterInput): PackageProduct @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createPackageProduct"])
+  onCreatePayment(filter: ModelSubscriptionPaymentFilterInput, userId: String): Payment @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createPayment"])
+  onCreateProduct(filter: ModelSubscriptionProductFilterInput): Product @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createProduct"])
+  onCreateResult(filter: ModelSubscriptionResultFilterInput, owner: String): Result @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createResult"])
+  onCreateSample(filter: ModelSubscriptionSampleFilterInput, owner: String): Sample @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createSample"])
+  onCreateWebadminSample(filter: ModelSubscriptionWebadminSampleFilterInput, webadminSampleCustomerId: String): WebadminSample @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["createWebadminSample"])
+  onDeleteConfig(filter: ModelSubscriptionConfigFilterInput): Config @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deleteConfig"])
+  onDeleteCustomer(filter: ModelSubscriptionCustomerFilterInput, owner: String): Customer @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deleteCustomer"])
+  onDeleteGiftOrder(filter: ModelSubscriptionGiftOrderFilterInput, owner: String): GiftOrder @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deleteGiftOrder"])
+  onDeleteOrder(filter: ModelSubscriptionOrderFilterInput, owner: String): Order @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deleteOrder"])
+  onDeleteOrderPackage(filter: ModelSubscriptionOrderPackageFilterInput, owner: String): OrderPackage @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deleteOrderPackage"])
+  onDeletePackage(filter: ModelSubscriptionPackageFilterInput): Package @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deletePackage"])
+  onDeletePackageProduct(filter: ModelSubscriptionPackageProductFilterInput): PackageProduct @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deletePackageProduct"])
+  onDeletePayment(filter: ModelSubscriptionPaymentFilterInput, userId: String): Payment @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deletePayment"])
+  onDeleteProduct(filter: ModelSubscriptionProductFilterInput): Product @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deleteProduct"])
+  onDeleteResult(filter: ModelSubscriptionResultFilterInput, owner: String): Result @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deleteResult"])
+  onDeleteSample(filter: ModelSubscriptionSampleFilterInput, owner: String): Sample @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deleteSample"])
+  onDeleteWebadminSample(filter: ModelSubscriptionWebadminSampleFilterInput, webadminSampleCustomerId: String): WebadminSample @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["deleteWebadminSample"])
+  onUpdateConfig(filter: ModelSubscriptionConfigFilterInput): Config @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updateConfig"])
+  onUpdateCustomer(filter: ModelSubscriptionCustomerFilterInput, owner: String): Customer @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updateCustomer"])
+  onUpdateGiftOrder(filter: ModelSubscriptionGiftOrderFilterInput, owner: String): GiftOrder @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updateGiftOrder"])
+  onUpdateOrder(filter: ModelSubscriptionOrderFilterInput, owner: String): Order @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updateOrder"])
+  onUpdateOrderPackage(filter: ModelSubscriptionOrderPackageFilterInput, owner: String): OrderPackage @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updateOrderPackage"])
+  onUpdatePackage(filter: ModelSubscriptionPackageFilterInput): Package @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updatePackage"])
+  onUpdatePackageProduct(filter: ModelSubscriptionPackageProductFilterInput): PackageProduct @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updatePackageProduct"])
+  onUpdatePayment(filter: ModelSubscriptionPaymentFilterInput, userId: String): Payment @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updatePayment"])
+  onUpdateProduct(filter: ModelSubscriptionProductFilterInput): Product @aws_api_key @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updateProduct"])
+  onUpdateResult(filter: ModelSubscriptionResultFilterInput, owner: String): Result @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updateResult"])
+  onUpdateSample(filter: ModelSubscriptionSampleFilterInput, owner: String): Sample @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updateSample"])
+  onUpdateWebadminSample(filter: ModelSubscriptionWebadminSampleFilterInput, webadminSampleCustomerId: String): WebadminSample @aws_cognito_user_pools @aws_iam @aws_subscribe(mutations : ["updateWebadminSample"])
 }
 
 type WebadminSample @aws_cognito_user_pools @aws_iam {
@@ -1160,6 +520,7 @@ input CreatePackageInput {
   description: String
   id: ID
   images: [AWSURL]
+  isDiscontinued: Boolean
   meta_data: String
   name: String
   price: String
@@ -1186,7 +547,6 @@ input CreatePaymentInput {
   packageCodes: [Int]
   provider: PaymentProvider
   status: PaymentStatus
-  stripeMetadata: StripePaymentMetadataInput
   userId: ID
 }
 
@@ -1202,34 +562,6 @@ input CreateProductInput {
   short_description: String
   sku: String
   tax_class: String
-}
-
-input CreateReportDataCustomerInput {
-  address: AddressInput
-  email: String
-  firstName: String
-  id: ID
-  language: String
-  lastName: String
-  mobileAppCustomerId: ID
-  phoneNumber: String
-  resultsReadyDate: String
-}
-
-input CreateReportDataOrderInput {
-  campaign: String
-  coupon: String
-  details: String
-  discount: Float
-  id: ID
-  orderDate: String
-  orderSource: String
-  paymentMethod: String
-  price: Float
-  products: [ReportDataProductInput]
-  reportDataCustomerOrdersId: ID
-  reportDataOrderMobileAppOrderIdId: ID
-  vatRate: Float
 }
 
 input CreateResultInput {
@@ -1293,14 +625,6 @@ input DeletePaymentInput {
 }
 
 input DeleteProductInput {
-  id: ID!
-}
-
-input DeleteReportDataCustomerInput {
-  id: ID!
-}
-
-input DeleteReportDataOrderInput {
   id: ID!
 }
 
@@ -1550,6 +874,7 @@ input ModelPackageConditionInput {
   createdAt: ModelStringInput
   description: ModelStringInput
   images: ModelStringInput
+  isDiscontinued: ModelBooleanInput
   meta_data: ModelStringInput
   name: ModelStringInput
   not: ModelPackageConditionInput
@@ -1570,6 +895,7 @@ input ModelPackageFilterInput {
   description: ModelStringInput
   id: ModelIDInput
   images: ModelStringInput
+  isDiscontinued: ModelBooleanInput
   meta_data: ModelStringInput
   name: ModelStringInput
   not: ModelPackageFilterInput
@@ -1684,76 +1010,6 @@ input ModelProductFilterInput {
 input ModelProductTypeInput {
   eq: ProductType
   ne: ProductType
-}
-
-input ModelReportDataCustomerConditionInput {
-  and: [ModelReportDataCustomerConditionInput]
-  createdAt: ModelStringInput
-  email: ModelStringInput
-  firstName: ModelStringInput
-  language: ModelStringInput
-  lastName: ModelStringInput
-  mobileAppCustomerId: ModelIDInput
-  not: ModelReportDataCustomerConditionInput
-  or: [ModelReportDataCustomerConditionInput]
-  phoneNumber: ModelStringInput
-  resultsReadyDate: ModelStringInput
-  updatedAt: ModelStringInput
-}
-
-input ModelReportDataCustomerFilterInput {
-  and: [ModelReportDataCustomerFilterInput]
-  createdAt: ModelStringInput
-  email: ModelStringInput
-  firstName: ModelStringInput
-  id: ModelIDInput
-  language: ModelStringInput
-  lastName: ModelStringInput
-  mobileAppCustomerId: ModelIDInput
-  not: ModelReportDataCustomerFilterInput
-  or: [ModelReportDataCustomerFilterInput]
-  phoneNumber: ModelStringInput
-  resultsReadyDate: ModelStringInput
-  updatedAt: ModelStringInput
-}
-
-input ModelReportDataOrderConditionInput {
-  and: [ModelReportDataOrderConditionInput]
-  campaign: ModelStringInput
-  coupon: ModelStringInput
-  createdAt: ModelStringInput
-  details: ModelStringInput
-  discount: ModelFloatInput
-  not: ModelReportDataOrderConditionInput
-  or: [ModelReportDataOrderConditionInput]
-  orderDate: ModelStringInput
-  orderSource: ModelStringInput
-  paymentMethod: ModelStringInput
-  price: ModelFloatInput
-  reportDataCustomerOrdersId: ModelIDInput
-  reportDataOrderMobileAppOrderIdId: ModelIDInput
-  updatedAt: ModelStringInput
-  vatRate: ModelFloatInput
-}
-
-input ModelReportDataOrderFilterInput {
-  and: [ModelReportDataOrderFilterInput]
-  campaign: ModelStringInput
-  coupon: ModelStringInput
-  createdAt: ModelStringInput
-  details: ModelStringInput
-  discount: ModelFloatInput
-  id: ModelIDInput
-  not: ModelReportDataOrderFilterInput
-  or: [ModelReportDataOrderFilterInput]
-  orderDate: ModelStringInput
-  orderSource: ModelStringInput
-  paymentMethod: ModelStringInput
-  price: ModelFloatInput
-  reportDataCustomerOrdersId: ModelIDInput
-  reportDataOrderMobileAppOrderIdId: ModelIDInput
-  updatedAt: ModelStringInput
-  vatRate: ModelFloatInput
 }
 
 input ModelResultConditionInput {
@@ -1980,6 +1236,7 @@ input ModelSubscriptionPackageFilterInput {
   description: ModelSubscriptionStringInput
   id: ModelSubscriptionIDInput
   images: ModelSubscriptionStringInput
+  isDiscontinued: ModelSubscriptionBooleanInput
   meta_data: ModelSubscriptionStringInput
   name: ModelSubscriptionStringInput
   or: [ModelSubscriptionPackageFilterInput]
@@ -2034,40 +1291,6 @@ input ModelSubscriptionProductFilterInput {
   sku: ModelSubscriptionStringInput
   tax_class: ModelSubscriptionStringInput
   updatedAt: ModelSubscriptionStringInput
-}
-
-input ModelSubscriptionReportDataCustomerFilterInput {
-  and: [ModelSubscriptionReportDataCustomerFilterInput]
-  createdAt: ModelSubscriptionStringInput
-  email: ModelSubscriptionStringInput
-  firstName: ModelSubscriptionStringInput
-  id: ModelSubscriptionIDInput
-  language: ModelSubscriptionStringInput
-  lastName: ModelSubscriptionStringInput
-  mobileAppCustomerId: ModelSubscriptionIDInput
-  or: [ModelSubscriptionReportDataCustomerFilterInput]
-  phoneNumber: ModelSubscriptionStringInput
-  reportDataCustomerOrdersId: ModelSubscriptionIDInput
-  resultsReadyDate: ModelSubscriptionStringInput
-  updatedAt: ModelSubscriptionStringInput
-}
-
-input ModelSubscriptionReportDataOrderFilterInput {
-  and: [ModelSubscriptionReportDataOrderFilterInput]
-  campaign: ModelSubscriptionStringInput
-  coupon: ModelSubscriptionStringInput
-  createdAt: ModelSubscriptionStringInput
-  details: ModelSubscriptionStringInput
-  discount: ModelSubscriptionFloatInput
-  id: ModelSubscriptionIDInput
-  or: [ModelSubscriptionReportDataOrderFilterInput]
-  orderDate: ModelSubscriptionStringInput
-  orderSource: ModelSubscriptionStringInput
-  paymentMethod: ModelSubscriptionStringInput
-  price: ModelSubscriptionFloatInput
-  reportDataOrderMobileAppOrderIdId: ModelSubscriptionIDInput
-  updatedAt: ModelSubscriptionStringInput
-  vatRate: ModelSubscriptionFloatInput
 }
 
 input ModelSubscriptionResultFilterInput {
@@ -2154,15 +1377,6 @@ input ModelWebadminSampleStatusInput {
   ne: WebadminSampleStatus
 }
 
-input ReportDataProductInput {
-  name: String
-  price: Float
-}
-
-input StripePaymentMetadataInput {
-  paymentIntentId: String
-}
-
 input UpdateConfigInput {
   data: AWSJSON
   id: String!
@@ -2223,6 +1437,7 @@ input UpdatePackageInput {
   description: String
   id: ID!
   images: [AWSURL]
+  isDiscontinued: Boolean
   meta_data: String
   name: String
   price: String
@@ -2249,7 +1464,6 @@ input UpdatePaymentInput {
   packageCodes: [Int]
   provider: PaymentProvider
   status: PaymentStatus
-  stripeMetadata: StripePaymentMetadataInput
   userId: ID
 }
 
@@ -2265,34 +1479,6 @@ input UpdateProductInput {
   short_description: String
   sku: String
   tax_class: String
-}
-
-input UpdateReportDataCustomerInput {
-  address: AddressInput
-  email: String
-  firstName: String
-  id: ID!
-  language: String
-  lastName: String
-  mobileAppCustomerId: ID
-  phoneNumber: String
-  resultsReadyDate: String
-}
-
-input UpdateReportDataOrderInput {
-  campaign: String
-  coupon: String
-  details: String
-  discount: Float
-  id: ID!
-  orderDate: String
-  orderSource: String
-  paymentMethod: String
-  price: Float
-  products: [ReportDataProductInput]
-  reportDataCustomerOrdersId: ID
-  reportDataOrderMobileAppOrderIdId: ID
-  vatRate: Float
 }
 
 input UpdateResultInput {

@@ -5,6 +5,15 @@ export const ProductFragment = gql`
     id
     name
     productCode
+    packages {
+      items {
+        packageID
+        package {
+          id
+          isDiscontinued
+        }
+      }
+    }
   }
 `;
 
@@ -17,6 +26,7 @@ export const UserOrderFragement = gql`
       productCode
       productType
       createdAt
+      isDiscontinued
     }
   }
 `;

@@ -71,21 +71,65 @@ describe('ResultService', () => {
       id: 'evg-prod-1',
       name: 'Evogenom Product One',
       productCode: '101',
+      packages: {
+        items: [
+          {
+            packageID: 'pkg-1',
+            package: {
+              id: 'pkg-1',
+              isDiscontinued: false,
+            },
+          },
+        ],
+      },
     },
     {
       id: 'evg-prod-2',
       name: 'Evogenom Product Two',
       productCode: '102',
+      packages: {
+        items: [
+          {
+            packageID: 'pkg-2',
+            package: {
+              id: 'pkg-2',
+              isDiscontinued: false,
+            },
+          },
+        ],
+      },
     },
     {
       id: 'evg-prod-no-cf-product',
       name: 'Evogenom Product No CF Match',
       productCode: '103',
+      packages: {
+        items: [
+          {
+            packageID: 'pkg-3',
+            package: {
+              id: 'pkg-3',
+              isDiscontinued: false,
+            },
+          },
+        ],
+      },
     },
     {
       id: 'evg-prod-3',
       name: 'Evogenom Product Three',
       productCode: '104',
+      packages: {
+        items: [
+          {
+            packageID: 'pkg-4',
+            package: {
+              id: 'pkg-4',
+              isDiscontinued: false,
+            },
+          },
+        ],
+      },
     },
   ];
 
@@ -491,6 +535,17 @@ describe('ResultService', () => {
         id: 'evg-prod-no-code',
         name: 'Evogenom Product No Code',
         productCode: null,
+        packages: {
+          items: [
+            {
+              packageID: 'pkg-invalid',
+              package: {
+                id: 'pkg-invalid',
+                isDiscontinued: false,
+              },
+            },
+          ],
+        },
       };
       const userResultUsingProductWithInvalidCode = {
         id: 'evg-res-7',
@@ -556,6 +611,131 @@ describe('ResultService', () => {
           extra: expect.objectContaining({ productCode: '103' }),
         }),
       );
+    });
+
+    it('should filter out results for products with only discontinued packages', async () => {
+      const productWithDiscontinuedPackage = {
+        id: 'evg-prod-discontinued',
+        name: 'Discontinued Product',
+        productCode: '105',
+        packages: {
+          items: [
+            {
+              packageID: 'pkg-disc-1',
+              package: {
+                id: 'pkg-disc-1',
+                isDiscontinued: true,
+              },
+            },
+            {
+              packageID: 'pkg-disc-2',
+              package: {
+                id: 'pkg-disc-2',
+                isDiscontinued: true,
+              },
+            },
+          ],
+        },
+      };
+      const userResultForDiscontinuedProduct = {
+        id: 'evg-res-discontinued',
+        productResultsId: 'evg-prod-discontinued',
+        value: 1,
+        name: 'Result for Discontinued',
+        description: 'Desc discontinued',
+        createdAt: 'date-disc',
+        sampleResultsId: 'sample-disc',
+      };
+
+      vi.spyOn(evogenomApiClient, 'getUserResults').mockResolvedValue([
+        userResultForDiscontinuedProduct as EvogenomUserResult,
+      ]);
+      vi.spyOn(evogenomApiClient, 'getAllProducts').mockResolvedValue([
+        productWithDiscontinuedPackage as unknown as EvogenomProduct,
+      ]);
+
+      const results = await service.getMappedUserResults(
+        mockUserId,
+        mockEvogenomApiToken,
+      );
+
+      expect(results.length).toBe(0);
+      expect(Sentry.captureMessage).not.toHaveBeenCalled();
+    });
+
+    it('should include results for products with at least one active package', async () => {
+      const productWithMixedPackages = {
+        id: 'evg-prod-mixed',
+        name: 'Mixed Package Product',
+        productCode: '106',
+        packages: {
+          items: [
+            {
+              packageID: 'pkg-disc',
+              package: {
+                id: 'pkg-disc',
+                isDiscontinued: true,
+              },
+            },
+            {
+              packageID: 'pkg-active',
+              package: {
+                id: 'pkg-active',
+                isDiscontinued: false,
+              },
+            },
+          ],
+        },
+      };
+      const userResultForMixedProduct = {
+        id: 'evg-res-mixed',
+        productResultsId: 'evg-prod-mixed',
+        value: 1,
+        name: 'Result for Mixed',
+        description: 'Desc mixed',
+        createdAt: 'date-mixed',
+        sampleResultsId: 'sample-mixed',
+      };
+
+      const cfProduct = {
+        productCode: 106,
+        name: 'CF Product 106',
+        sys: { id: 'cf-p-106' },
+        __typename: 'Product',
+      } as ContentfulProduct;
+
+      const cfResultRow = {
+        productCode: '106',
+        result: 1,
+        resultText: 'CF Text for 106, Value 1',
+        sys: { id: 'cf-rr-106' },
+        __typename: 'ResultRow',
+      } as ContentfulResultRow;
+
+      vi.spyOn(evogenomApiClient, 'getUserResults').mockResolvedValue([
+        userResultForMixedProduct as EvogenomUserResult,
+      ]);
+      vi.spyOn(evogenomApiClient, 'getAllProducts').mockResolvedValue([
+        productWithMixedPackages as unknown as EvogenomProduct,
+      ]);
+      vi.spyOn(contentfulApiClient, 'getProducts').mockResolvedValue([
+        cfProduct,
+      ]);
+      vi.spyOn(contentfulApiClient, 'getResults').mockResolvedValue([
+        cfResultRow,
+      ]);
+
+      const results = await service.getMappedUserResults(
+        mockUserId,
+        mockEvogenomApiToken,
+      );
+
+      expect(results.length).toBe(1);
+      expect(results[0]).toEqual({
+        finalProductName: 'CF Product 106',
+        interpretationText: 'CF Text for 106, Value 1',
+      });
+      expect(Sentry.captureMessage).not.toHaveBeenCalled();
     });
   });
 });

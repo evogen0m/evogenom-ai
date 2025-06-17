@@ -106,6 +106,20 @@ export class ResultService {
           evogenomProduct.productCode === undefined
         )
           return null;
+
+        // Check if the product has any active (non-discontinued) packages
+        const hasActivePackages =
+          evogenomProduct.packages?.items?.some(
+            (packageItem) =>
+              packageItem?.package &&
+              (packageItem.package.isDiscontinued === false ||
+                packageItem.package.isDiscontinued === null),
+          ) ?? false;
+
+        if (!hasActivePackages) {
+          return null; // Filter out results for products with only discontinued packages
+        }
+
         return {
           productCode: String(evogenomProduct.productCode),
           productName: evogenomProduct.name || 'Unknown Product',
