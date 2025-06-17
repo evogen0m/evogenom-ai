@@ -115,6 +115,7 @@ export type CreatePackageInput = {
   description: InputMaybe<Scalars['String']['input']>;
   id: InputMaybe<Scalars['ID']['input']>;
   images: InputMaybe<Array<InputMaybe<Scalars['AWSURL']['input']>>>;
+  isDiscontinued: InputMaybe<Scalars['Boolean']['input']>;
   meta_data: InputMaybe<Scalars['String']['input']>;
   name: InputMaybe<Scalars['String']['input']>;
   price: InputMaybe<Scalars['String']['input']>;
@@ -141,7 +142,6 @@ export type CreatePaymentInput = {
   packageCodes: InputMaybe<Array<InputMaybe<Scalars['Int']['input']>>>;
   provider: InputMaybe<PaymentProvider>;
   status: InputMaybe<PaymentStatus>;
-  stripeMetadata: InputMaybe<StripePaymentMetadataInput>;
   userId: InputMaybe<Scalars['ID']['input']>;
 };
 
@@ -157,34 +157,6 @@ export type CreateProductInput = {
   short_description: InputMaybe<Scalars['String']['input']>;
   sku: InputMaybe<Scalars['String']['input']>;
   tax_class: InputMaybe<Scalars['String']['input']>;
-};
-
-export type CreateReportDataCustomerInput = {
-  address: InputMaybe<AddressInput>;
-  email: InputMaybe<Scalars['String']['input']>;
-  firstName: InputMaybe<Scalars['String']['input']>;
-  id: InputMaybe<Scalars['ID']['input']>;
-  language: InputMaybe<Scalars['String']['input']>;
-  lastName: InputMaybe<Scalars['String']['input']>;
-  mobileAppCustomerId: InputMaybe<Scalars['ID']['input']>;
-  phoneNumber: InputMaybe<Scalars['String']['input']>;
-  resultsReadyDate: InputMaybe<Scalars['String']['input']>;
-};
-
-export type CreateReportDataOrderInput = {
-  campaign: InputMaybe<Scalars['String']['input']>;
-  coupon: InputMaybe<Scalars['String']['input']>;
-  details: InputMaybe<Scalars['String']['input']>;
-  discount: InputMaybe<Scalars['Float']['input']>;
-  id: InputMaybe<Scalars['ID']['input']>;
-  orderDate: InputMaybe<Scalars['String']['input']>;
-  orderSource: InputMaybe<Scalars['String']['input']>;
-  paymentMethod: InputMaybe<Scalars['String']['input']>;
-  price: InputMaybe<Scalars['Float']['input']>;
-  products: InputMaybe<Array<InputMaybe<ReportDataProductInput>>>;
-  reportDataCustomerOrdersId: InputMaybe<Scalars['ID']['input']>;
-  reportDataOrderMobileAppOrderIdId: InputMaybe<Scalars['ID']['input']>;
-  vatRate: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type CreateResultInput = {
@@ -282,14 +254,6 @@ export type DeletePaymentInput = {
 };
 
 export type DeleteProductInput = {
-  id: Scalars['ID']['input'];
-};
-
-export type DeleteReportDataCustomerInput = {
-  id: Scalars['ID']['input'];
-};
-
-export type DeleteReportDataOrderInput = {
   id: Scalars['ID']['input'];
 };
 
@@ -613,6 +577,7 @@ export type ModelPackageConditionInput = {
   createdAt: InputMaybe<ModelStringInput>;
   description: InputMaybe<ModelStringInput>;
   images: InputMaybe<ModelStringInput>;
+  isDiscontinued: InputMaybe<ModelBooleanInput>;
   meta_data: InputMaybe<ModelStringInput>;
   name: InputMaybe<ModelStringInput>;
   not: InputMaybe<ModelPackageConditionInput>;
@@ -639,6 +604,7 @@ export type ModelPackageFilterInput = {
   description: InputMaybe<ModelStringInput>;
   id: InputMaybe<ModelIdInput>;
   images: InputMaybe<ModelStringInput>;
+  isDiscontinued: InputMaybe<ModelBooleanInput>;
   meta_data: InputMaybe<ModelStringInput>;
   name: InputMaybe<ModelStringInput>;
   not: InputMaybe<ModelPackageFilterInput>;
@@ -771,88 +737,6 @@ export type ModelProductFilterInput = {
 export type ModelProductTypeInput = {
   eq: InputMaybe<ProductType>;
   ne: InputMaybe<ProductType>;
-};
-
-export type ModelReportDataCustomerConditionInput = {
-  and: InputMaybe<Array<InputMaybe<ModelReportDataCustomerConditionInput>>>;
-  createdAt: InputMaybe<ModelStringInput>;
-  email: InputMaybe<ModelStringInput>;
-  firstName: InputMaybe<ModelStringInput>;
-  language: InputMaybe<ModelStringInput>;
-  lastName: InputMaybe<ModelStringInput>;
-  mobileAppCustomerId: InputMaybe<ModelIdInput>;
-  not: InputMaybe<ModelReportDataCustomerConditionInput>;
-  or: InputMaybe<Array<InputMaybe<ModelReportDataCustomerConditionInput>>>;
-  phoneNumber: InputMaybe<ModelStringInput>;
-  resultsReadyDate: InputMaybe<ModelStringInput>;
-  updatedAt: InputMaybe<ModelStringInput>;
-};
-
-export type ModelReportDataCustomerConnection = {
-  __typename?: 'ModelReportDataCustomerConnection';
-  items: Array<Maybe<ReportDataCustomer>>;
-  nextToken: Maybe<Scalars['String']['output']>;
-};
-
-export type ModelReportDataCustomerFilterInput = {
-  and: InputMaybe<Array<InputMaybe<ModelReportDataCustomerFilterInput>>>;
-  createdAt: InputMaybe<ModelStringInput>;
-  email: InputMaybe<ModelStringInput>;
-  firstName: InputMaybe<ModelStringInput>;
-  id: InputMaybe<ModelIdInput>;
-  language: InputMaybe<ModelStringInput>;
-  lastName: InputMaybe<ModelStringInput>;
-  mobileAppCustomerId: InputMaybe<ModelIdInput>;
-  not: InputMaybe<ModelReportDataCustomerFilterInput>;
-  or: InputMaybe<Array<InputMaybe<ModelReportDataCustomerFilterInput>>>;
-  phoneNumber: InputMaybe<ModelStringInput>;
-  resultsReadyDate: InputMaybe<ModelStringInput>;
-  updatedAt: InputMaybe<ModelStringInput>;
-};
-
-export type ModelReportDataOrderConditionInput = {
-  and: InputMaybe<Array<InputMaybe<ModelReportDataOrderConditionInput>>>;
-  campaign: InputMaybe<ModelStringInput>;
-  coupon: InputMaybe<ModelStringInput>;
-  createdAt: InputMaybe<ModelStringInput>;
-  details: InputMaybe<ModelStringInput>;
-  discount: InputMaybe<ModelFloatInput>;
-  not: InputMaybe<ModelReportDataOrderConditionInput>;
-  or: InputMaybe<Array<InputMaybe<ModelReportDataOrderConditionInput>>>;
-  orderDate: InputMaybe<ModelStringInput>;
-  orderSource: InputMaybe<ModelStringInput>;
-  paymentMethod: InputMaybe<ModelStringInput>;
-  price: InputMaybe<ModelFloatInput>;
-  reportDataCustomerOrdersId: InputMaybe<ModelIdInput>;
-  reportDataOrderMobileAppOrderIdId: InputMaybe<ModelIdInput>;
-  updatedAt: InputMaybe<ModelStringInput>;
-  vatRate: InputMaybe<ModelFloatInput>;
-};
-
-export type ModelReportDataOrderConnection = {
-  __typename?: 'ModelReportDataOrderConnection';
-  items: Array<Maybe<ReportDataOrder>>;
-  nextToken: Maybe<Scalars['String']['output']>;
-};
-
-export type ModelReportDataOrderFilterInput = {
-  and: InputMaybe<Array<InputMaybe<ModelReportDataOrderFilterInput>>>;
-  campaign: InputMaybe<ModelStringInput>;
-  coupon: InputMaybe<ModelStringInput>;
-  createdAt: InputMaybe<ModelStringInput>;
-  details: InputMaybe<ModelStringInput>;
-  discount: InputMaybe<ModelFloatInput>;
-  id: InputMaybe<ModelIdInput>;
-  not: InputMaybe<ModelReportDataOrderFilterInput>;
-  or: InputMaybe<Array<InputMaybe<ModelReportDataOrderFilterInput>>>;
-  orderDate: InputMaybe<ModelStringInput>;
-  orderSource: InputMaybe<ModelStringInput>;
-  paymentMethod: InputMaybe<ModelStringInput>;
-  price: InputMaybe<ModelFloatInput>;
-  reportDataCustomerOrdersId: InputMaybe<ModelIdInput>;
-  reportDataOrderMobileAppOrderIdId: InputMaybe<ModelIdInput>;
-  updatedAt: InputMaybe<ModelStringInput>;
-  vatRate: InputMaybe<ModelFloatInput>;
 };
 
 export type ModelResultConditionInput = {
@@ -1096,6 +980,7 @@ export type ModelSubscriptionPackageFilterInput = {
   description: InputMaybe<ModelSubscriptionStringInput>;
   id: InputMaybe<ModelSubscriptionIdInput>;
   images: InputMaybe<ModelSubscriptionStringInput>;
+  isDiscontinued: InputMaybe<ModelSubscriptionBooleanInput>;
   meta_data: InputMaybe<ModelSubscriptionStringInput>;
   name: InputMaybe<ModelSubscriptionStringInput>;
   or: InputMaybe<Array<InputMaybe<ModelSubscriptionPackageFilterInput>>>;
@@ -1150,40 +1035,6 @@ export type ModelSubscriptionProductFilterInput = {
   sku: InputMaybe<ModelSubscriptionStringInput>;
   tax_class: InputMaybe<ModelSubscriptionStringInput>;
   updatedAt: InputMaybe<ModelSubscriptionStringInput>;
-};
-
-export type ModelSubscriptionReportDataCustomerFilterInput = {
-  and: InputMaybe<Array<InputMaybe<ModelSubscriptionReportDataCustomerFilterInput>>>;
-  createdAt: InputMaybe<ModelSubscriptionStringInput>;
-  email: InputMaybe<ModelSubscriptionStringInput>;
-  firstName: InputMaybe<ModelSubscriptionStringInput>;
-  id: InputMaybe<ModelSubscriptionIdInput>;
-  language: InputMaybe<ModelSubscriptionStringInput>;
-  lastName: InputMaybe<ModelSubscriptionStringInput>;
-  mobileAppCustomerId: InputMaybe<ModelSubscriptionIdInput>;
-  or: InputMaybe<Array<InputMaybe<ModelSubscriptionReportDataCustomerFilterInput>>>;
-  phoneNumber: InputMaybe<ModelSubscriptionStringInput>;
-  reportDataCustomerOrdersId: InputMaybe<ModelSubscriptionIdInput>;
-  resultsReadyDate: InputMaybe<ModelSubscriptionStringInput>;
-  updatedAt: InputMaybe<ModelSubscriptionStringInput>;
-};
-
-export type ModelSubscriptionReportDataOrderFilterInput = {
-  and: InputMaybe<Array<InputMaybe<ModelSubscriptionReportDataOrderFilterInput>>>;
-  campaign: InputMaybe<ModelSubscriptionStringInput>;
-  coupon: InputMaybe<ModelSubscriptionStringInput>;
-  createdAt: InputMaybe<ModelSubscriptionStringInput>;
-  details: InputMaybe<ModelSubscriptionStringInput>;
-  discount: InputMaybe<ModelSubscriptionFloatInput>;
-  id: InputMaybe<ModelSubscriptionIdInput>;
-  or: InputMaybe<Array<InputMaybe<ModelSubscriptionReportDataOrderFilterInput>>>;
-  orderDate: InputMaybe<ModelSubscriptionStringInput>;
-  orderSource: InputMaybe<ModelSubscriptionStringInput>;
-  paymentMethod: InputMaybe<ModelSubscriptionStringInput>;
-  price: InputMaybe<ModelSubscriptionFloatInput>;
-  reportDataOrderMobileAppOrderIdId: InputMaybe<ModelSubscriptionIdInput>;
-  updatedAt: InputMaybe<ModelSubscriptionStringInput>;
-  vatRate: InputMaybe<ModelSubscriptionFloatInput>;
 };
 
 export type ModelSubscriptionResultFilterInput = {
@@ -1287,8 +1138,6 @@ export type Mutation = {
   createPackageProduct: Maybe<PackageProduct>;
   createPayment: Maybe<Payment>;
   createProduct: Maybe<Product>;
-  createReportDataCustomer: Maybe<ReportDataCustomer>;
-  createReportDataOrder: Maybe<ReportDataOrder>;
   createResult: Maybe<Result>;
   createSample: Maybe<Sample>;
   createWebadminSample: Maybe<WebadminSample>;
@@ -1301,8 +1150,6 @@ export type Mutation = {
   deletePackageProduct: Maybe<PackageProduct>;
   deletePayment: Maybe<Payment>;
   deleteProduct: Maybe<Product>;
-  deleteReportDataCustomer: Maybe<ReportDataCustomer>;
-  deleteReportDataOrder: Maybe<ReportDataOrder>;
   deleteResult: Maybe<Result>;
   deleteSample: Maybe<Sample>;
   deleteWebadminSample: Maybe<WebadminSample>;
@@ -1315,8 +1162,6 @@ export type Mutation = {
   updatePackageProduct: Maybe<PackageProduct>;
   updatePayment: Maybe<Payment>;
   updateProduct: Maybe<Product>;
-  updateReportDataCustomer: Maybe<ReportDataCustomer>;
-  updateReportDataOrder: Maybe<ReportDataOrder>;
   updateResult: Maybe<Result>;
   updateSample: Maybe<Sample>;
   updateWebadminSample: Maybe<WebadminSample>;
@@ -1374,18 +1219,6 @@ export type MutationCreatePaymentArgs = {
 export type MutationCreateProductArgs = {
   condition: InputMaybe<ModelProductConditionInput>;
   input: CreateProductInput;
-};
-
-
-export type MutationCreateReportDataCustomerArgs = {
-  condition: InputMaybe<ModelReportDataCustomerConditionInput>;
-  input: CreateReportDataCustomerInput;
-};
-
-
-export type MutationCreateReportDataOrderArgs = {
-  condition: InputMaybe<ModelReportDataOrderConditionInput>;
-  input: CreateReportDataOrderInput;
 };
 
 
@@ -1461,18 +1294,6 @@ export type MutationDeleteProductArgs = {
 };
 
 
-export type MutationDeleteReportDataCustomerArgs = {
-  condition: InputMaybe<ModelReportDataCustomerConditionInput>;
-  input: DeleteReportDataCustomerInput;
-};
-
-
-export type MutationDeleteReportDataOrderArgs = {
-  condition: InputMaybe<ModelReportDataOrderConditionInput>;
-  input: DeleteReportDataOrderInput;
-};
-
-
 export type MutationDeleteResultArgs = {
   condition: InputMaybe<ModelResultConditionInput>;
   input: DeleteResultInput;
@@ -1545,18 +1366,6 @@ export type MutationUpdateProductArgs = {
 };
 
 
-export type MutationUpdateReportDataCustomerArgs = {
-  condition: InputMaybe<ModelReportDataCustomerConditionInput>;
-  input: UpdateReportDataCustomerInput;
-};
-
-
-export type MutationUpdateReportDataOrderArgs = {
-  condition: InputMaybe<ModelReportDataOrderConditionInput>;
-  input: UpdateReportDataOrderInput;
-};
-
-
 export type MutationUpdateResultArgs = {
   condition: InputMaybe<ModelResultConditionInput>;
   input: UpdateResultInput;
@@ -1621,6 +1430,7 @@ export type Package = {
   description: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   images: Maybe<Array<Maybe<Scalars['AWSURL']['output']>>>;
+  isDiscontinued: Maybe<Scalars['Boolean']['output']>;
   meta_data: Maybe<Scalars['String']['output']>;
   name: Maybe<Scalars['String']['output']>;
   orders: Maybe<ModelOrderPackageConnection>;
@@ -1673,7 +1483,6 @@ export type Payment = {
   packageCodes: Maybe<Array<Maybe<Scalars['Int']['output']>>>;
   provider: Maybe<PaymentProvider>;
   status: Maybe<PaymentStatus>;
-  stripeMetadata: Maybe<StripePaymentMetadata>;
   updatedAt: Scalars['AWSDateTime']['output'];
   userId: Maybe<Scalars['ID']['output']>;
 };
@@ -1732,7 +1541,6 @@ export enum ProductType {
 
 export type Query = {
   __typename?: 'Query';
-  RDCustomerByMobAppCustomerId: Maybe<ModelReportDataCustomerConnection>;
   customerByHasBoughtMainPackage: Maybe<ModelCustomerConnection>;
   customerByPhoneNumber: Maybe<ModelCustomerConnection>;
   customerScanByUpdatedAt: Maybe<ModelCustomerConnection>;
@@ -1748,8 +1556,6 @@ export type Query = {
   getPayment: Maybe<Payment>;
   getProduct: Maybe<Product>;
   getProductByCode: Maybe<ModelProductConnection>;
-  getReportDataCustomer: Maybe<ReportDataCustomer>;
-  getReportDataOrder: Maybe<ReportDataOrder>;
   getResult: Maybe<Result>;
   getSample: Maybe<Sample>;
   getSampleByName: Maybe<ModelSampleConnection>;
@@ -1763,8 +1569,6 @@ export type Query = {
   listPackages: Maybe<ModelPackageConnection>;
   listPayments: Maybe<ModelPaymentConnection>;
   listProducts: Maybe<ModelProductConnection>;
-  listReportDataCustomers: Maybe<ModelReportDataCustomerConnection>;
-  listReportDataOrders: Maybe<ModelReportDataOrderConnection>;
   listResults: Maybe<ModelResultConnection>;
   listSamples: Maybe<ModelSampleConnection>;
   listWebadminSamples: Maybe<ModelWebadminSampleConnection>;
@@ -1776,15 +1580,6 @@ export type Query = {
   resultByOwner: Maybe<ModelResultConnection>;
   sampleByCustomer: Maybe<ModelSampleConnection>;
   webadminSampleByCustomer: Maybe<ModelWebadminSampleConnection>;
-};
-
-
-export type QueryRdCustomerByMobAppCustomerIdArgs = {
-  filter: InputMaybe<ModelReportDataCustomerFilterInput>;
-  limit: InputMaybe<Scalars['Int']['input']>;
-  mobileAppCustomerId: Scalars['ID']['input'];
-  nextToken: InputMaybe<Scalars['String']['input']>;
-  sortDirection: InputMaybe<ModelSortDirection>;
 };
 
 
@@ -1889,16 +1684,6 @@ export type QueryGetProductByCodeArgs = {
 };
 
 
-export type QueryGetReportDataCustomerArgs = {
-  id: Scalars['ID']['input'];
-};
-
-
-export type QueryGetReportDataOrderArgs = {
-  id: Scalars['ID']['input'];
-};
-
-
 export type QueryGetResultArgs = {
   id: Scalars['ID']['input'];
 };
@@ -1981,20 +1766,6 @@ export type QueryListPaymentsArgs = {
 
 export type QueryListProductsArgs = {
   filter: InputMaybe<ModelProductFilterInput>;
-  limit: InputMaybe<Scalars['Int']['input']>;
-  nextToken: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type QueryListReportDataCustomersArgs = {
-  filter: InputMaybe<ModelReportDataCustomerFilterInput>;
-  limit: InputMaybe<Scalars['Int']['input']>;
-  nextToken: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type QueryListReportDataOrdersArgs = {
-  filter: InputMaybe<ModelReportDataOrderFilterInput>;
   limit: InputMaybe<Scalars['Int']['input']>;
   nextToken: InputMaybe<Scalars['String']['input']>;
 };
@@ -2098,63 +1869,6 @@ export type QueryWebadminSampleByCustomerArgs = {
   webadminSampleCustomerId: Scalars['ID']['input'];
 };
 
-export type ReportDataCustomer = {
-  __typename?: 'ReportDataCustomer';
-  address: Maybe<Address>;
-  createdAt: Scalars['AWSDateTime']['output'];
-  customer: Maybe<Customer>;
-  email: Maybe<Scalars['String']['output']>;
-  firstName: Maybe<Scalars['String']['output']>;
-  id: Scalars['ID']['output'];
-  language: Maybe<Scalars['String']['output']>;
-  lastName: Maybe<Scalars['String']['output']>;
-  mobileAppCustomerId: Maybe<Scalars['ID']['output']>;
-  orders: Maybe<ModelReportDataOrderConnection>;
-  phoneNumber: Maybe<Scalars['String']['output']>;
-  resultsReadyDate: Maybe<Scalars['String']['output']>;
-  updatedAt: Scalars['AWSDateTime']['output'];
-};
-
-
-export type ReportDataCustomerOrdersArgs = {
-  filter: InputMaybe<ModelReportDataOrderFilterInput>;
-  limit: InputMaybe<Scalars['Int']['input']>;
-  nextToken: InputMaybe<Scalars['String']['input']>;
-  sortDirection: InputMaybe<ModelSortDirection>;
-};
-
-export type ReportDataOrder = {
-  __typename?: 'ReportDataOrder';
-  campaign: Maybe<Scalars['String']['output']>;
-  coupon: Maybe<Scalars['String']['output']>;
-  createdAt: Scalars['AWSDateTime']['output'];
-  customer: Maybe<ReportDataCustomer>;
-  details: Maybe<Scalars['String']['output']>;
-  discount: Maybe<Scalars['Float']['output']>;
-  id: Scalars['ID']['output'];
-  mobileAppOrderId: Maybe<Order>;
-  orderDate: Maybe<Scalars['String']['output']>;
-  orderSource: Maybe<Scalars['String']['output']>;
-  paymentMethod: Maybe<Scalars['String']['output']>;
-  price: Maybe<Scalars['Float']['output']>;
-  products: Maybe<Array<Maybe<ReportDataProduct>>>;
-  reportDataCustomerOrdersId: Maybe<Scalars['ID']['output']>;
-  reportDataOrderMobileAppOrderIdId: Maybe<Scalars['ID']['output']>;
-  updatedAt: Scalars['AWSDateTime']['output'];
-  vatRate: Maybe<Scalars['Float']['output']>;
-};
-
-export type ReportDataProduct = {
-  __typename?: 'ReportDataProduct';
-  name: Maybe<Scalars['String']['output']>;
-  price: Maybe<Scalars['Float']['output']>;
-};
-
-export type ReportDataProductInput = {
-  name: InputMaybe<Scalars['String']['input']>;
-  price: InputMaybe<Scalars['Float']['input']>;
-};
-
 export type Result = {
   __typename?: 'Result';
   createdAt: Scalars['AWSDateTime']['output'];
@@ -2198,15 +1912,6 @@ export enum SampleStatus {
   Sent = 'SENT'
 }
 
-export type StripePaymentMetadata = {
-  __typename?: 'StripePaymentMetadata';
-  paymentIntentId: Maybe<Scalars['String']['output']>;
-};
-
-export type StripePaymentMetadataInput = {
-  paymentIntentId: InputMaybe<Scalars['String']['input']>;
-};
-
 export type Subscription = {
   __typename?: 'Subscription';
   onCreateConfig: Maybe<Config>;
@@ -2218,8 +1923,6 @@ export type Subscription = {
   onCreatePackageProduct: Maybe<PackageProduct>;
   onCreatePayment: Maybe<Payment>;
   onCreateProduct: Maybe<Product>;
-  onCreateReportDataCustomer: Maybe<ReportDataCustomer>;
-  onCreateReportDataOrder: Maybe<ReportDataOrder>;
   onCreateResult: Maybe<Result>;
   onCreateSample: Maybe<Sample>;
   onCreateWebadminSample: Maybe<WebadminSample>;
@@ -2232,8 +1935,6 @@ export type Subscription = {
   onDeletePackageProduct: Maybe<PackageProduct>;
   onDeletePayment: Maybe<Payment>;
   onDeleteProduct: Maybe<Product>;
-  onDeleteReportDataCustomer: Maybe<ReportDataCustomer>;
-  onDeleteReportDataOrder: Maybe<ReportDataOrder>;
   onDeleteResult: Maybe<Result>;
   onDeleteSample: Maybe<Sample>;
   onDeleteWebadminSample: Maybe<WebadminSample>;
@@ -2246,8 +1947,6 @@ export type Subscription = {
   onUpdatePackageProduct: Maybe<PackageProduct>;
   onUpdatePayment: Maybe<Payment>;
   onUpdateProduct: Maybe<Product>;
-  onUpdateReportDataCustomer: Maybe<ReportDataCustomer>;
-  onUpdateReportDataOrder: Maybe<ReportDataOrder>;
   onUpdateResult: Maybe<Result>;
   onUpdateSample: Maybe<Sample>;
   onUpdateWebadminSample: Maybe<WebadminSample>;
@@ -2301,16 +2000,6 @@ export type SubscriptionOnCreatePaymentArgs = {
 
 export type SubscriptionOnCreateProductArgs = {
   filter: InputMaybe<ModelSubscriptionProductFilterInput>;
-};
-
-
-export type SubscriptionOnCreateReportDataCustomerArgs = {
-  filter: InputMaybe<ModelSubscriptionReportDataCustomerFilterInput>;
-};
-
-
-export type SubscriptionOnCreateReportDataOrderArgs = {
-  filter: InputMaybe<ModelSubscriptionReportDataOrderFilterInput>;
 };
 
 
@@ -2382,16 +2071,6 @@ export type SubscriptionOnDeleteProductArgs = {
 };
 
 
-export type SubscriptionOnDeleteReportDataCustomerArgs = {
-  filter: InputMaybe<ModelSubscriptionReportDataCustomerFilterInput>;
-};
-
-
-export type SubscriptionOnDeleteReportDataOrderArgs = {
-  filter: InputMaybe<ModelSubscriptionReportDataOrderFilterInput>;
-};
-
-
 export type SubscriptionOnDeleteResultArgs = {
   filter: InputMaybe<ModelSubscriptionResultFilterInput>;
   owner: InputMaybe<Scalars['String']['input']>;
@@ -2457,16 +2136,6 @@ export type SubscriptionOnUpdatePaymentArgs = {
 
 export type SubscriptionOnUpdateProductArgs = {
   filter: InputMaybe<ModelSubscriptionProductFilterInput>;
-};
-
-
-export type SubscriptionOnUpdateReportDataCustomerArgs = {
-  filter: InputMaybe<ModelSubscriptionReportDataCustomerFilterInput>;
-};
-
-
-export type SubscriptionOnUpdateReportDataOrderArgs = {
-  filter: InputMaybe<ModelSubscriptionReportDataOrderFilterInput>;
 };
 
 
@@ -2547,6 +2216,7 @@ export type UpdatePackageInput = {
   description: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
   images: InputMaybe<Array<InputMaybe<Scalars['AWSURL']['input']>>>;
+  isDiscontinued: InputMaybe<Scalars['Boolean']['input']>;
   meta_data: InputMaybe<Scalars['String']['input']>;
   name: InputMaybe<Scalars['String']['input']>;
   price: InputMaybe<Scalars['String']['input']>;
@@ -2573,7 +2243,6 @@ export type UpdatePaymentInput = {
   packageCodes: InputMaybe<Array<InputMaybe<Scalars['Int']['input']>>>;
   provider: InputMaybe<PaymentProvider>;
   status: InputMaybe<PaymentStatus>;
-  stripeMetadata: InputMaybe<StripePaymentMetadataInput>;
   userId: InputMaybe<Scalars['ID']['input']>;
 };
 
@@ -2589,34 +2258,6 @@ export type UpdateProductInput = {
   short_description: InputMaybe<Scalars['String']['input']>;
   sku: InputMaybe<Scalars['String']['input']>;
   tax_class: InputMaybe<Scalars['String']['input']>;
-};
-
-export type UpdateReportDataCustomerInput = {
-  address: InputMaybe<AddressInput>;
-  email: InputMaybe<Scalars['String']['input']>;
-  firstName: InputMaybe<Scalars['String']['input']>;
-  id: Scalars['ID']['input'];
-  language: InputMaybe<Scalars['String']['input']>;
-  lastName: InputMaybe<Scalars['String']['input']>;
-  mobileAppCustomerId: InputMaybe<Scalars['ID']['input']>;
-  phoneNumber: InputMaybe<Scalars['String']['input']>;
-  resultsReadyDate: InputMaybe<Scalars['String']['input']>;
-};
-
-export type UpdateReportDataOrderInput = {
-  campaign: InputMaybe<Scalars['String']['input']>;
-  coupon: InputMaybe<Scalars['String']['input']>;
-  details: InputMaybe<Scalars['String']['input']>;
-  discount: InputMaybe<Scalars['Float']['input']>;
-  id: Scalars['ID']['input'];
-  orderDate: InputMaybe<Scalars['String']['input']>;
-  orderSource: InputMaybe<Scalars['String']['input']>;
-  paymentMethod: InputMaybe<Scalars['String']['input']>;
-  price: InputMaybe<Scalars['Float']['input']>;
-  products: InputMaybe<Array<InputMaybe<ReportDataProductInput>>>;
-  reportDataCustomerOrdersId: InputMaybe<Scalars['ID']['input']>;
-  reportDataOrderMobileAppOrderIdId: InputMaybe<Scalars['ID']['input']>;
-  vatRate: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type UpdateResultInput = {
@@ -2667,9 +2308,9 @@ export enum WebadminSampleStatus {
   SentToLab = 'SENT_TO_LAB'
 }
 
-export type ProductFragment = { __typename?: 'Product', id: string, name: string, productCode: string };
+export type ProductFragment = { __typename?: 'Product', id: string, name: string, productCode: string, packages: { __typename?: 'ModelPackageProductConnection', items: Array<{ __typename?: 'PackageProduct', packageID: string, package: { __typename?: 'Package', id: string, isDiscontinued: boolean | null } } | null> } | null };
 
-export type UserOrderFragment = { __typename?: 'OrderPackage', id: string, package: { __typename?: 'Package', id: string, name: string | null, productCode: number | null, productType: ProductType | null, createdAt: any } };
+export type UserOrderFragment = { __typename?: 'OrderPackage', id: string, package: { __typename?: 'Package', id: string, name: string | null, productCode: number | null, productType: ProductType | null, createdAt: any, isDiscontinued: boolean | null } };
 
 export type GetUserOrdersAndPackagesQueryVariables = Exact<{
   userId: Scalars['ID']['input'];
@@ -2677,7 +2318,7 @@ export type GetUserOrdersAndPackagesQueryVariables = Exact<{
 }>;
 
 
-export type GetUserOrdersAndPackagesQuery = { __typename?: 'Query', orderByOwner: { __typename?: 'ModelOrderConnection', nextToken: string | null, items: Array<{ __typename?: 'Order', id: string, packages: { __typename?: 'ModelOrderPackageConnection', items: Array<{ __typename?: 'OrderPackage', id: string, package: { __typename?: 'Package', id: string, name: string | null, productCode: number | null, productType: ProductType | null, createdAt: any } } | null> } | null } | null> } | null };
+export type GetUserOrdersAndPackagesQuery = { __typename?: 'Query', orderByOwner: { __typename?: 'ModelOrderConnection', nextToken: string | null, items: Array<{ __typename?: 'Order', id: string, packages: { __typename?: 'ModelOrderPackageConnection', items: Array<{ __typename?: 'OrderPackage', id: string, package: { __typename?: 'Package', id: string, name: string | null, productCode: number | null, productType: ProductType | null, createdAt: any, isDiscontinued: boolean | null } } | null> } | null } | null> } | null };
 
 export type UserResultFragment = { __typename?: 'Result', id: string, name: string, description: string | null, createdAt: any, sampleResultsId: string | null, productResultsId: string | null, value: number };
 
@@ -2694,13 +2335,22 @@ export type ListProductsQueryVariables = Exact<{
 }>;
 
 
-export type ListProductsQuery = { __typename?: 'Query', listProducts: { __typename?: 'ModelProductConnection', nextToken: string | null, items: Array<{ __typename?: 'Product', id: string, name: string, productCode: string } | null> } | null };
+export type ListProductsQuery = { __typename?: 'Query', listProducts: { __typename?: 'ModelProductConnection', nextToken: string | null, items: Array<{ __typename?: 'Product', id: string, name: string, productCode: string, packages: { __typename?: 'ModelPackageProductConnection', items: Array<{ __typename?: 'PackageProduct', packageID: string, package: { __typename?: 'Package', id: string, isDiscontinued: boolean | null } } | null> } | null } | null> } | null };
 
 export const ProductFragmentDoc = gql`
     fragment Product on Product {
   id
   name
   productCode
+  packages {
+    items {
+      packageID
+      package {
+        id
+        isDiscontinued
+      }
+    }
+  }
 }
     `;
 export const UserOrderFragmentDoc = gql`
@@ -2712,6 +2362,7 @@ export const UserOrderFragmentDoc = gql`
     productCode
     productType
     createdAt
+    isDiscontinued
   }
 }
     `;
