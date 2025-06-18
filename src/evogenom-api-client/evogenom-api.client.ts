@@ -115,22 +115,73 @@ export class EvogenomApiClient {
     const sdk = getSdk(client);
     const now = Date.now();
 
-    const { listProducts } = await sdk.ListProducts({
-      nextToken: null,
-    });
-    this.logger.debug(
-      `ListProducts (single fetch) took ${Date.now() - now}ms ${listProducts?.items.length} rows returned`,
-    );
-
-    const currentItems =
-      (listProducts?.items?.filter(Boolean) as ProductFragment[]) ?? [];
-
-    if (listProducts?.nextToken) {
-      this.logger.warn(
-        `ListProducts response contained a nextToken (${listProducts.nextToken.substring(0, 10)}...), but pagination is disabled. Fetched ${currentItems.length} products.`,
+    try {
+      const { listProducts } = await sdk.ListProducts({
+        nextToken: null,
+      });
+      this.logger.debug(
+        `ListProducts (single fetch) took ${Date.now() - now}ms ${listProducts?.items.length} rows returned`,
       );
-    }
 
-    return currentItems;
+      const currentItems =
+        (listProducts?.items?.filter(Boolean) as ProductFragment[]) ?? [];
+
+      if (listProducts?.nextToken) {
+        this.logger.warn(
+          `ListProducts response contained a nextToken (${listProducts.nextToken.substring(0, 10)}...), but pagination is disabled. Fetched ${currentItems.length} products.`,
+        );
+      }
+
+      return currentItems;
+    } catch (error) {
+      // Check if this is a GraphQL error with partial data
+      if (error.response?.data?.listProducts?.items) {
+        this.logger.warn(
+          `GraphQL errors occurred while fetching products, but partial data is available. Errors: ${JSON.stringify(error.response.errors)}`,
+        );
+
+        // Log the specific package null errors for debugging
+        const packageErrors =
+          error.response.errors?.filter((err) =>
+            err.message?.includes(
+              "Cannot return null for non-nullable type: 'Package'",
+            ),
+          ) || [];
+
+        if (packageErrors.length > 0) {
+          this.logger.warn(
+            `Found ${packageErrors.length} products with null package references. This indicates a data integrity issue in the database.`,
+          );
+        }
+
+        // Return the available data, filtering out items with null packages
+        const partialItems = error.response.data.listProducts.items || [];
+        const validItems = partialItems
+          .filter(Boolean)
+          .map((item) => {
+            if (item?.packages?.items) {
+              // Filter out null packages from each product
+              item.packages.items = item.packages.items.filter(
+                (packageItem) => packageItem?.package != null,
+              );
+            }
+            return item;
+          })
+          .filter((item) => item != null) as ProductFragment[];
+
+        this.logger.debug(
+          `ListProducts (with errors) took ${Date.now() - now}ms, returning ${validItems.length} valid products`,
+        );
+
+        return validItems;
+      }
+
+      // If it's not a GraphQL error with partial data, rethrow
+      this.logger.error(
+        `Failed to fetch products: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(`Failed to fetch products: ${error.message}`);
+    }
   }
 }

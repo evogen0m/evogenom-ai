@@ -19,6 +19,7 @@ const mockOrderPackage1: UserOrderFragment = {
     productCode: 101,
     productType: ProductType.Main,
     createdAt: new Date().toISOString(),
+    isDiscontinued: false,
     __typename: 'Package',
   },
 };
@@ -31,6 +32,7 @@ const mockOrderPackage2: UserOrderFragment = {
     productCode: 102,
     productType: ProductType.Extra,
     createdAt: new Date().toISOString(),
+    isDiscontinued: null,
     __typename: 'Package',
   },
 };
@@ -41,6 +43,7 @@ const mockResult1: UserResultFragment = {
   createdAt: new Date().toISOString(),
   sampleResultsId: 's1',
   productResultsId: 'p1',
+  value: 1,
   __typename: 'Result',
 };
 const mockResult2: UserResultFragment = {
@@ -50,6 +53,7 @@ const mockResult2: UserResultFragment = {
   createdAt: new Date().toISOString(),
   sampleResultsId: 's2',
   productResultsId: 'p2',
+  value: 2,
   __typename: 'Result',
 };
 
@@ -342,9 +346,170 @@ describe('EvogenomApiClient', () => {
         .post('', (body) => body.query.includes('ListProducts'))
         .reply(500, { errors: [{ message: 'Product Error' }] });
 
-      await expect(
-        apiClient.getAllProducts(MOCK_ACCESS_TOKEN),
-      ).rejects.toThrow();
+      await expect(apiClient.getAllProducts(MOCK_ACCESS_TOKEN)).rejects.toThrow(
+        'Failed to fetch products:',
+      );
+      expect(scope.isDone()).toBe(true);
+    });
+
+    it('should handle GraphQL errors with partial data and filter out null packages', async () => {
+      const mockProductWithValidPackage = {
+        id: 'prod1',
+        name: 'Product 1',
+        productCode: '101',
+        packages: {
+          items: [
+            {
+              packageID: 'pkg1',
+              package: {
+                id: 'pkg1',
+                isDiscontinued: false,
+              },
+            },
+            {
+              packageID: 'pkg2',
+              package: null, // This will be filtered out
+            },
+          ],
+        },
+      };
+
+      const mockProductWithAllNullPackages = {
+        id: 'prod2',
+        name: 'Product 2',
+        productCode: '102',
+        packages: {
+          items: [
+            {
+              packageID: 'pkg3',
+              package: null,
+            },
+          ],
+        },
+      };
+
+      const graphqlErrors = [
+        {
+          path: ['listProducts', 'items', 0, 'packages', 'items', 1, 'package'],
+          message:
+            "Cannot return null for non-nullable type: 'Package' within parent 'PackageProduct' (/listProducts/items[0]/packages/items[1]/package)",
+        },
+        {
+          path: ['listProducts', 'items', 1, 'packages', 'items', 0, 'package'],
+          message:
+            "Cannot return null for non-nullable type: 'Package' within parent 'PackageProduct' (/listProducts/items[1]/packages/items[0]/package)",
+        },
+      ];
+
+      const scope = nock(MOCK_API_URL)
+        .matchHeader('Authorization', `Bearer ${MOCK_ACCESS_TOKEN}`)
+        .post('', (body) => body.query.includes('ListProducts'))
+        .reply(200, {
+          data: {
+            listProducts: {
+              items: [
+                mockProductWithValidPackage,
+                mockProductWithAllNullPackages,
+              ],
+              nextToken: null,
+            },
+          },
+          errors: graphqlErrors,
+        });
+
+      const products = await apiClient.getAllProducts(MOCK_ACCESS_TOKEN);
+
+      // Should return both products, but with null packages filtered out
+      expect(products).toHaveLength(2);
+      expect(products[0].packages?.items).toHaveLength(1); // Only 1 valid package
+      expect(products[0].packages?.items?.[0]?.package).toBeDefined();
+      expect(products[1].packages?.items).toHaveLength(0); // All packages were null
+      expect(scope.isDone()).toBe(true);
+    });
+
+    it('should throw an error if no partial data is available with GraphQL errors', async () => {
+      const scope = nock(MOCK_API_URL)
+        .matchHeader('Authorization', `Bearer ${MOCK_ACCESS_TOKEN}`)
+        .post('', (body) => body.query.includes('ListProducts'))
+        .reply(200, {
+          errors: [{ message: 'Invalid query' }],
+          // No data field at all
+        });
+
+      await expect(apiClient.getAllProducts(MOCK_ACCESS_TOKEN)).rejects.toThrow(
+        'Failed to fetch products:',
+      );
+      expect(scope.isDone()).toBe(true);
+    });
+
+    it('should handle the case where error response structure is malformed', async () => {
+      const mockError = new Error('Network error');
+      // Simulate an error without the expected response structure
+      (mockError as any).response = { someOtherField: 'value' };
+
+      const scope = nock(MOCK_API_URL)
+        .matchHeader('Authorization', `Bearer ${MOCK_ACCESS_TOKEN}`)
+        .post('', (body) => body.query.includes('ListProducts'))
+        .replyWithError(mockError);
+
+      await expect(apiClient.getAllProducts(MOCK_ACCESS_TOKEN)).rejects.toThrow(
+        'Failed to fetch products:',
+      );
+      expect(scope.isDone()).toBe(true);
+    });
+
+    it('should log warnings about pagination when nextToken is present in error response', async () => {
+      const mockProduct = {
+        id: 'prod1',
+        name: 'Product 1',
+        productCode: '101',
+        packages: {
+          items: [
+            {
+              packageID: 'pkg1',
+              package: {
+                id: 'pkg1',
+                isDiscontinued: false,
+              },
+            },
+          ],
+        },
+      };
+
+      const scope = nock(MOCK_API_URL)
+        .matchHeader('Authorization', `Bearer ${MOCK_ACCESS_TOKEN}`)
+        .post('', (body) => body.query.includes('ListProducts'))
+        .reply(200, {
+          data: {
+            listProducts: {
+              items: [mockProduct],
+              nextToken: 'some-next-token',
+            },
+          },
+          errors: [
+            {
+              message:
+                "Cannot return null for non-nullable type: 'Package' within parent 'PackageProduct'",
+            },
+          ],
+        });
+
+      const loggerWarnSpy = vi.spyOn(apiClient.logger, 'warn');
+
+      await apiClient.getAllProducts(MOCK_ACCESS_TOKEN);
+
+      // Should log both the GraphQL errors and the pagination warning
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'GraphQL errors occurred while fetching products',
+        ),
+      );
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Found 1 products with null package references',
+        ),
+      );
+
       expect(scope.isDone()).toBe(true);
     });
   });
